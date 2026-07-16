@@ -1,10 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
+import { Role } from '../types';
+
+const ROLE_LABELS: Record<Role, string> = {
+  admin: 'Admin (Real)',
+  sound_designer: 'Sound Designer',
+  audio_engineer: 'Audio Engineer',
+};
 
 export const Sidebar: React.FC<{
   selectedModuleId: string;
   setSelectedModuleId: (id: string) => void;
-}> = ({ selectedModuleId, setSelectedModuleId }) => {
+  isRealAdmin: boolean;
+  previewRole: Role | null;
+  onChangePreviewRole: (role: Role | null) => void;
+}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, previewRole, onChangePreviewRole }) => {
   const { modules, currentUser, submissions, logout } = useAppContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -119,7 +129,10 @@ export const Sidebar: React.FC<{
               </div>
             )}
             <div className="truncate">
-              <p className="text-xs text-white/70 font-medium capitalize">{currentUser?.role.replace('_', ' ')}</p>
+              <p className="text-xs text-white/70 font-medium capitalize">
+                {(previewRole ?? currentUser?.role)?.replace('_', ' ')}
+                {previewRole && <span className="ml-1 opacity-70">(preview)</span>}
+              </p>
               <p className="text-sm text-white font-bold truncate">{currentUser?.name}</p>
             </div>
           </div>
@@ -127,7 +140,28 @@ export const Sidebar: React.FC<{
           {menuOpen && (
             <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-full mb-2 flex-col gap-1 bg-white p-2 rounded-2xl shadow-xl z-50">
                <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-bold text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
-               <button onClick={() => { setMenuOpen(false); logout(); }} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg">Logout</button>
+
+               {/* Admin-only: preview other dashboards without changing your
+                   real role or signing in as anyone else. Purely a client-side
+                   view toggle - see App.tsx effectiveRole. */}
+               {isRealAdmin && (
+                 <>
+                   <p className="text-[10px] text-gray-400 font-bold uppercase px-2 pt-2 mb-1 border-t">Preview As</p>
+                   {(['admin', 'sound_designer', 'audio_engineer'] as Role[]).map((role) => (
+                     <button
+                       key={role}
+                       onClick={() => { setMenuOpen(false); onChangePreviewRole(role === 'admin' ? null : role); }}
+                       className={`text-left px-2 py-1 text-xs font-bold rounded-lg ${
+                         (previewRole ?? 'admin') === role ? 'bg-[#E0F2FE] text-[#1E40AF]' : 'text-gray-700 hover:bg-gray-100'
+                       }`}
+                     >
+                       {ROLE_LABELS[role]}
+                     </button>
+                   ))}
+                 </>
+               )}
+
+               <button onClick={() => { setMenuOpen(false); logout(); }} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-t pt-2 mt-1">Logout</button>
             </div>
           )}
         </div>
