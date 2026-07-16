@@ -1,0 +1,78 @@
+{
+  "schema": {
+    "users": {
+      "path": "users/{userId}",
+      "description": "User profiles",
+      "fields": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "pod": { "type": "string", "optional": true },
+        "avatarBase64": { "type": "string", "optional": true },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+    "modules": {
+      "path": "modules/{moduleId}",
+      "description": "Curriculum modules",
+      "fields": {
+        "id": { "type": "string" },
+        "order": { "type": "number" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "textContent": { "type": "string" }
+      }
+    },
+    "moduleVideos": {
+      "path": "moduleVideos/{videoId}",
+      "description": "Videos for modules",
+      "fields": {
+        "id": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "type": { "type": "string" },
+        "url": { "type": "string" },
+        "title": { "type": "string" }
+      }
+    },
+    "submissions": {
+      "path": "submissions/{submissionId}",
+      "description": "Homework submissions",
+      "fields": {
+        "id": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "userId": { "type": "string" },
+        "driveLink": { "type": "string" },
+        "status": { "type": "string" },
+        "submittedAt": { "type": "timestamp", "optional": true }
+      }
+    },
+    "grades": {
+      "path": "grades/{gradeId}",
+      "description": "Grades for submissions",
+      "fields": {
+        "id": { "type": "string" },
+        "submissionId": { "type": "string" },
+        "engineerId": { "type": "string" },
+        "score": { "type": "number" },
+        "feedback": { "type": "string" },
+        "gradedAt": { "type": "timestamp" }
+      }
+    },
+    "videoTasks": {
+      "path": "videoTasks/{taskId}",
+      "description": "Video upload tasks for engineers",
+      "fields": {
+        "id": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "engineerId": { "type": "string" },
+        "status": { "type": "string" },
+        "videoUrl": { "type": "string", "optional": true }
+      }
+    }
+  },
+  "securityRules": {
+    "read": "request.auth != null",
+    "write": "request.auth != null"
+  }
+}
