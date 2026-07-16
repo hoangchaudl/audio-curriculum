@@ -30,6 +30,11 @@ const AppContent = () => {
     setPreviewRole(null);
   }, [currentUser?.id]);
 
+  // Admin-only sidebar collapse toggle - purely a layout preference, not
+  // persisted or role-gated beyond hiding the toggle control itself in
+  // Sidebar (see isRealAdmin usage there).
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const isRealAdmin = currentUser?.role === 'admin';
   const effectiveRole: Role | undefined = isRealAdmin ? (previewRole ?? 'admin') : currentUser?.role;
 
@@ -111,6 +116,8 @@ const AppContent = () => {
         isRealAdmin={isRealAdmin}
         previewRole={previewRole}
         onChangePreviewRole={setPreviewRole}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
       <div className="flex-1 flex flex-col min-w-0">
         {isRealAdmin && previewRole && (

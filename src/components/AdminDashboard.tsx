@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
+import { Resource } from '../types';
+
+const splitPeriodList = (text: string) => text.split('.').map(s => s.trim()).filter(Boolean);
+
+// Admins just paste a link or type a book/article title, one per line - we
+// infer the resource type instead of asking them to hand-write JSON.
+const parseMaterialsText = (text: string): Resource[] =>
+  text.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
+    const isUrl = /^(https?:\/\/|www\.)/i.test(line);
+    if (!isUrl) return { type: 'book', title: line };
+    const isVideo = /youtube\.com|youtu\.be|vimeo\.com/i.test(line);
+    return { type: isVideo ? 'video' : 'article', title: line, url: line };
+  });
+
+const materialsToText = (materials: Resource[] = []) => materials.map(r => r.url || r.title).join('\n');
 
 const CARD_THEMES = [
   { bg: '#BFE3FF', accent: '#2E9DF7' },
@@ -21,15 +36,26 @@ export const AdminDashboard: React.FC = () => {
 
   const [editingModule, setEditingModule] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [objectivesText, setObjectivesText] = useState('');
+  const [outcomesText, setOutcomesText] = useState('');
+  const [materialsText, setMaterialsText] = useState('');
 
   const handleEditClick = (mod: any) => {
     setEditingModule(mod.id);
     setEditForm({ ...mod });
+    setObjectivesText((mod.objectives || []).join('. '));
+    setOutcomesText((mod.outcomes || []).join('. '));
+    setMaterialsText(materialsToText(mod.additionalMaterials));
   };
 
   const handleSaveModule = () => {
     if (editingModule) {
-      updateModule(editingModule, editForm);
+      updateModule(editingModule, {
+        ...editForm,
+        objectives: splitPeriodList(objectivesText),
+        outcomes: splitPeriodList(outcomesText),
+        additionalMaterials: parseMaterialsText(materialsText),
+      });
       setEditingModule(null);
     }
   };
@@ -300,7 +326,7 @@ export const AdminDashboard: React.FC = () => {
                         <textarea
                           value={editForm.description || ''}
                           onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-20"
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-14"
                         />
                       </div>
                       <div>
@@ -308,44 +334,35 @@ export const AdminDashboard: React.FC = () => {
                         <textarea
                           value={editForm.textContent || ''}
                           onChange={(e) => setEditForm({ ...editForm, textContent: e.target.value })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-16"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Learning Objectives (comma separated)</label>
-                        <input
-                          type="text"
-                          value={editForm.objectives?.join(', ') || ''}
-                          onChange={(e) => setEditForm({ ...editForm, objectives: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Learning Objectives (period separated)</label>
+                        <textarea
+                          value={objectivesText}
+                          onChange={(e) => setObjectivesText(e.target.value)}
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Outcomes (comma separated)</label>
-                        <input
-                          type="text"
-                          value={editForm.outcomes?.join(', ') || ''}
-                          onChange={(e) => setEditForm({ ...editForm, outcomes: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Outcomes (period separated)</label>
+                        <textarea
+                          value={outcomesText}
+                          onChange={(e) => setOutcomesText(e.target.value)}
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
 
-                      {/* Very basic additional materials editor (JSON string for simplicity in prototype) */}
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Additional Materials (JSON format)</label>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Additional Materials (one link or book title per line)</label>
                         <textarea
-                          value={JSON.stringify(editForm.additionalMaterials || [], null, 2)}
-                          onChange={(e) => {
-                            try {
-                              const parsed = JSON.parse(e.target.value);
-                              setEditForm({ ...editForm, additionalMaterials: parsed });
-                            } catch (err) {
-                              // Ignore invalid JSON while typing
-                            }
-                          }}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-mono h-32"
+                          value={materialsText}
+                          onChange={(e) => setMaterialsText(e.target.value)}
+                          placeholder={'https://example.com/great-article\nThe Sound Effects Bible'}
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-32"
                         />
-                        <p className="text-[10px] text-gray-400 mt-1">Note: Must be valid JSON. e.g. [{`{"type": "video", "title": "Example", "url": "https://..."}`}]</p>
+                        <p className="text-[10px] text-gray-400 mt-1">Paste a link or type a book/article title on each line - we'll sort out the type automatically.</p>
                       </div>
 
                       <div className="flex gap-2 pt-2">

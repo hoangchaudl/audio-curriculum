@@ -14,7 +14,9 @@ export const Sidebar: React.FC<{
   isRealAdmin: boolean;
   previewRole: Role | null;
   onChangePreviewRole: (role: Role | null) => void;
-}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, previewRole, onChangePreviewRole }) => {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, previewRole, onChangePreviewRole, collapsed, onToggleCollapse }) => {
   const { modules, currentUser, submissions, logout } = useAppContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -30,22 +32,32 @@ export const Sidebar: React.FC<{
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  return (
-    <aside className="w-72 bg-[#2E9DF7] flex flex-col p-6 shadow-xl relative overflow-hidden flex-shrink-0">
-      {/* Decorative "Doraemon" Ring/Collar Detail at bottom */}
-      <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#F4511E] rounded-full opacity-20"></div>
+  const isCollapsed = isRealAdmin && collapsed;
 
-      <div className="flex items-center gap-3 mb-8 z-10">
-        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-          <div className="w-6 h-6 bg-[#2E9DF7] rounded-full"></div>
+  return (
+    <aside className={`${isCollapsed ? 'w-24' : 'w-72'} bg-[#2E9DF7] border-r-[3px] border-black flex flex-col p-4 relative overflow-hidden flex-shrink-0 transition-all duration-200`}>
+      <div className={`flex items-center gap-3 mb-8 z-10 ${isCollapsed ? 'flex-col' : ''}`}>
+        <div className="w-10 h-10 bg-white border-[3px] border-black rounded-full flex items-center justify-center flex-shrink-0">
+          <div className="w-5 h-5 bg-[#2E9DF7] rounded-full"></div>
         </div>
-        <h1 className="text-white font-bold text-xl tracking-tight">StoryCo Audio</h1>
+        {!isCollapsed && <h1 className="text-white font-black text-lg tracking-tight uppercase">StoryCo Audio</h1>}
+        {isRealAdmin && (
+          <button
+            onClick={onToggleCollapse}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={`${isCollapsed ? '' : 'ml-auto'} w-7 h-7 flex-shrink-0 bg-white border-2 border-black rounded-full flex items-center justify-center text-black font-black text-xs hover:bg-gray-100 transition-colors`}
+          >
+            {collapsed ? '»' : '«'}
+          </button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2 z-10 scrollbar-hide pb-4">
+      <div className="flex-1 overflow-y-auto pr-1 z-10 scrollbar-hide pb-4">
         {['Onboarding', 'Intermediate', 'Advanced'].map(category => (
           <div key={category} className="mb-6">
-            <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">{category}</p>
+            {!isCollapsed && (
+              <p className="text-white/80 text-[10px] uppercase font-black tracking-widest mb-3 pl-2">{category}</p>
+            )}
             <div className="space-y-2">
               {modules
                 .filter(m => m.category === category)
@@ -53,16 +65,35 @@ export const Sidebar: React.FC<{
                 .map((mod) => {
                   const isSelected = selectedModuleId === mod.id;
                   const sub = submissions.find(s => s.moduleId === mod.id && s.userId === currentUser?.id);
-                  
+
                   let statusBadge = null;
                   if (sub?.status === 'graded') {
-                    statusBadge = <span className="bg-[#3DDC97]/20 text-[#2A8F62] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Graded</span>;
+                    statusBadge = <span className="bg-[#3DDC97]/30 text-[#0f3d28] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Graded</span>;
                   } else if (sub?.status === 'submitted') {
-                    statusBadge = <span className="bg-[#2E9DF7]/20 text-[#1E40AF] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Submitted</span>;
+                    statusBadge = <span className="bg-white text-[#1E40AF] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Submitted</span>;
                   } else if (sub?.status === 'in_progress' || (isSelected && !sub)) {
-                    statusBadge = <span className="bg-[#F4511E]/20 text-[#C53914] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">In Progress</span>;
+                    statusBadge = <span className="bg-[#F4511E] text-white border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">In Progress</span>;
                   } else {
-                    statusBadge = <span className="bg-black/10 text-white/90 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Not Started</span>;
+                    statusBadge = <span className="bg-black/20 text-white/90 border-2 border-black/40 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Not Started</span>;
+                  }
+
+                  const label = mod.label || mod.order.toString().padStart(2, '0');
+
+                  if (isCollapsed) {
+                    return (
+                      <button
+                        key={mod.id}
+                        onClick={() => setSelectedModuleId(mod.id)}
+                        title={mod.title}
+                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl border-[3px] font-black text-sm transition-colors ${
+                          isSelected
+                            ? 'bg-white border-black text-black'
+                            : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
                   }
 
                   if (isSelected) {
@@ -70,11 +101,11 @@ export const Sidebar: React.FC<{
                       <button
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
-                        className="w-full flex items-center justify-between p-3 bg-[#E0F2FE] border-2 border-white rounded-2xl text-[#1E40AF] font-bold shadow-inner"
+                        className="w-full flex items-center justify-between p-3 bg-white border-[3px] border-black rounded-2xl text-black font-black"
                       >
                         <span className="flex items-center gap-3 text-left">
-                          <span className="bg-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0">
-                            {mod.label || mod.order.toString().padStart(2, '0')}
+                          <span className="bg-[#2E9DF7] text-white border-2 border-black w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0">
+                            {label}
                           </span>
                           <span className="leading-tight">{mod.title}</span>
                         </span>
@@ -82,16 +113,16 @@ export const Sidebar: React.FC<{
                       </button>
                     );
                   }
-                  
+
                   if (sub?.status === 'graded') {
                     return (
                       <button
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
-                        className="w-full flex items-center justify-between p-3 bg-white rounded-2xl text-[#2E9DF7] font-bold shadow-sm"
+                        className="w-full flex items-center justify-between p-3 bg-white/95 border-2 border-black/50 rounded-2xl text-[#1E40AF] font-bold hover:border-black transition-colors"
                       >
                         <span className="flex items-center gap-3 text-left">
-                          <span className="w-6 text-center flex-shrink-0">{mod.label || mod.order.toString().padStart(2, '0')}</span>
+                          <span className="w-6 text-center flex-shrink-0">{label}</span>
                           <span className="leading-tight">{mod.title}</span>
                         </span>
                         {statusBadge}
@@ -103,10 +134,10 @@ export const Sidebar: React.FC<{
                     <button
                       key={mod.id}
                       onClick={() => setSelectedModuleId(mod.id)}
-                      className="w-full flex items-center justify-between p-3 text-white/70 font-semibold hover:bg-white/10 rounded-2xl transition-colors"
+                      className="w-full flex items-center justify-between p-3 text-white/80 font-bold hover:bg-white/10 rounded-2xl transition-colors"
                     >
                       <span className="flex items-center gap-3 text-left">
-                        <span className="w-6 text-center flex-shrink-0">{mod.label || mod.order.toString().padStart(2, '0')}</span>
+                        <span className="w-6 text-center flex-shrink-0">{label}</span>
                         <span className="leading-tight">{mod.title}</span>
                       </span>
                       {statusBadge}
@@ -118,35 +149,41 @@ export const Sidebar: React.FC<{
         ))}
       </div>
 
-      <div className="mt-auto pt-6 z-10">
-        <div ref={menuRef} className="bg-[#1E40AF]/20 p-4 rounded-3xl flex items-center justify-between border border-white/10 relative cursor-pointer" onClick={() => setMenuOpen(o => !o)}>
-          <div className="flex items-center gap-3 truncate">
+      <div className="mt-auto pt-4 z-10">
+        <div
+          ref={menuRef}
+          className={`bg-white border-2 border-black rounded-2xl flex items-center relative cursor-pointer ${isCollapsed ? 'p-2 justify-center' : 'p-3 justify-between'}`}
+          onClick={() => setMenuOpen(o => !o)}
+        >
+          <div className={`flex items-center gap-3 truncate ${isCollapsed ? 'gap-0' : ''}`}>
             {currentUser?.avatarBase64 ? (
-              <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-white object-cover flex-shrink-0" />
+              <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-black object-cover flex-shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-[#F4511E] border-2 border-white flex items-center justify-center text-white font-bold flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#F4511E] border-2 border-black flex items-center justify-center text-white font-black flex-shrink-0">
                 {currentUser?.name.substring(0, 2).toUpperCase()}
               </div>
             )}
-            <div className="truncate">
-              <p className="text-xs text-white/70 font-medium capitalize">
-                {(previewRole ?? currentUser?.role)?.replace('_', ' ')}
-                {previewRole && <span className="ml-1 opacity-70">(preview)</span>}
-              </p>
-              <p className="text-sm text-white font-bold truncate">{currentUser?.name}</p>
-            </div>
+            {!isCollapsed && (
+              <div className="truncate">
+                <p className="text-xs text-gray-500 font-bold capitalize">
+                  {(previewRole ?? currentUser?.role)?.replace('_', ' ')}
+                  {previewRole && <span className="ml-1 opacity-70">(preview)</span>}
+                </p>
+                <p className="text-sm text-black font-black truncate">{currentUser?.name}</p>
+              </div>
+            )}
           </div>
 
           {menuOpen && (
-            <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-full mb-2 flex-col gap-1 bg-white p-2 rounded-2xl shadow-xl z-50">
-               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-bold text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
+            <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-white p-2 rounded-2xl border-[3px] border-black shadow-xl z-50">
+               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-black text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
 
                {/* Admin-only: preview other dashboards without changing your
                    real role or signing in as anyone else. Purely a client-side
                    view toggle - see App.tsx effectiveRole. */}
                {isRealAdmin && (
                  <>
-                   <p className="text-[10px] text-gray-400 font-bold uppercase px-2 pt-2 mb-1 border-t">Preview As</p>
+                   <p className="text-[10px] text-gray-400 font-black uppercase px-2 pt-2 mb-1 border-t">Preview As</p>
                    {(['admin', 'sound_designer', 'audio_engineer'] as Role[]).map((role) => (
                      <button
                        key={role}
