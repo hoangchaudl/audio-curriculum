@@ -13,7 +13,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AppProvider, useAppContext } from './store';
 
 const AppContent = () => {
-  const { currentUser, authLoading, modules } = useAppContext();
+  const { currentUser, authLoading, hasSession, authError, logout } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('m4');
   const [view, setView] = useState<'module' | 'profile'>('module');
 
@@ -36,6 +36,27 @@ const AppContent = () => {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#FDFDFB] text-gray-400 font-bold text-sm">
         Loading...
+      </div>
+    );
+  }
+
+  // Signed in (Firebase Auth confirms a real session) but no matching
+  // /users/{uid} profile doc could be loaded - either it's still arriving
+  // (rare race) or something failed while writing it during signup. Showing
+  // the sign-in form here would be confusing since the person IS signed in;
+  // show a clear message with a way out instead.
+  if (hasSession && !currentUser) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#FDFDFB] px-6 text-center">
+        <p className="text-sm font-bold text-gray-600 max-w-sm">
+          {authError || "You're signed in, but we couldn't load your profile yet."}
+        </p>
+        <button
+          onClick={logout}
+          className="text-xs font-bold text-white bg-[#2E9DF7] px-5 py-2.5 rounded-full hover:bg-[#1b85df] transition-colors"
+        >
+          Sign out and try again
+        </button>
       </div>
     );
   }

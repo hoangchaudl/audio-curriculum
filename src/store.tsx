@@ -11,6 +11,12 @@ import {
 } from 'firebase/auth';
 
 interface AppContextType extends AppState {
+  // True whenever Firebase Auth reports a real signed-in session - even if
+  // that user's /users/{uid} profile document hasn't loaded (or doesn't
+  // exist) yet. Used to tell "not signed in" apart from "signed in, but
+  // still waiting on / missing profile data" so the UI doesn't just dump
+  // someone back on the login form with no explanation.
+  hasSession: boolean;
   authLoading: boolean;
   authError: string | null;
   clearAuthError: () => void;
@@ -62,44 +68,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const clearAuthError = () => setAuthError(null);
 
-  // Track the real Firebase Auth session. This is the only source of truth
-  // for "who is logged in" - nothing in the UI can spoof this.
+  // Track the real Firebase Auth session AND sync the `users` collection
+  // together, because firestore.rules now requires being signed in to read
+  // /users. The two used to be separate effects, with the users listener
+  // subscribing once at page load (before anyone was signed in) - that first
+  // subscription attempt was silently denied (no error handler was attached)
+  // and never retried, so after a real sign-in the local `users` list stayed
+  // empty forever and `currentUser` could never resolve. Now we tear down and
+  // re-create the users listener every time the auth state actually changes.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+    let unsubscribeUsers: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
       setAuthUid(fbUser ? fbUser.uid : null);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
 
-  // Sync users with Firestore (profile data only - never passwords, which
-  // Firebase Auth stores separately and never exposes to client code).
-  useEffect(() => {
-    const usersCol = collection(db, 'users');
-
-    // Seed the curriculum-only demo users the very first time the DB is
-    // empty. Note: these seeded profiles have no matching Firebase Auth
-    // account, so nobody can sign in as them - they exist only so the admin
-    // dashboard / rosters aren't empty before real accounts are created.
-    // Real usage requires each person to sign up with their own email + password.
-    getDocs(usersCol).then(snapshot => {
-      if (snapshot.empty) {
-        // Intentionally not seeded anymore - seeding fake "logins" here would
-        // recreate the exact vulnerability we're fixing (accounts with no
-        // real password). Leave this as a no-op; the first real signup below
-        // is promoted to admin instead so someone can administer the team.
+      if (unsubscribeUsers) {
+        unsubscribeUsers();
+        unsubscribeUsers = null;
       }
+
+      if (!fbUser) {
+        // Signed out: nothing to read, and no session to read it with.
+        setState(s => ({ ...s, users: [] }));
+        setAuthLoading(false);
+        return;
+      }
+
+      const usersCol = collection(db, 'users');
+      unsubscribeUsers = onSnapshot(
+        usersCol,
+        (snapshot) => {
+          const users: User[] = [];
+          snapshot.forEach(d => users.push(d.data() as User));
+          setState(s => ({ ...s, users }));
+          setAuthLoading(false);
+        },
+        (error) => {
+          // Surface Firestore permission/rules errors instead of failing
+          // silently - this is exactly the kind of bug that caused the
+          // "stuck on loading, never reaches dashboard" symptom above.
+          console.error('Error syncing users from Firestore:', error);
+          setAuthError('Signed in, but could not load your profile. Please refresh or contact an admin.');
+          setAuthLoading(false);
+        }
+      );
     });
 
-    const unsubscribe = onSnapshot(usersCol, (snapshot) => {
-      const users: User[] = [];
-      snapshot.forEach(d => {
-        users.push(d.data() as User);
-      });
-      setState(s => ({ ...s, users }));
-    });
-
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUsers) unsubscribeUsers();
+    };
   }, []);
 
   const currentUser = useMemo<User | null>(() => {
@@ -127,14 +145,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ): Promise<boolean> => {
     setAuthError(null);
     try {
-      // Bootstrap rule: if there are no users in the system yet, the very
+      // Create the Firebase Auth account first. The bootstrap check below
+      // reads the `users` collection, and firestore.rules requires being
+      // signed in to read it - so this has to happen only *after*
+      // createUserWithEmailAndPassword has signed the new user in, not before.
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+
+      // Bootstrap rule: if there were no users in the system yet, the very
       // first signup becomes admin regardless of what they picked, so the
       // team always has someone who can administer the platform. After that,
       // role changes must go through an admin (enforced in firestore.rules).
       const existing = await getDocs(collection(db, 'users'));
       const effectiveRole: User['role'] = existing.empty ? 'admin' : role;
 
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser: User = {
         id: credential.user.uid,
         name,
@@ -219,6 +242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         ...state,
         currentUser,
+        hasSession: authUid !== null,
         authLoading,
         authError,
         clearAuthError,
