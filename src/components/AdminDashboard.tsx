@@ -381,15 +381,15 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex justify-between items-start gap-4 flex-wrap">
-                      <div className="flex gap-4">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex gap-4 min-w-0">
                         <div
                           className="w-12 h-12 rounded-xl border-[3px] border-black flex items-center justify-center text-black font-black text-sm flex-shrink-0"
                           style={{ background: theme.bg }}
                         >
                           {mod.label || mod.order.toString().padStart(2, '0')}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <h4 className="font-black text-lg leading-tight">{mod.title}</h4>
                           <p className="text-sm text-gray-600 mt-1 mb-2">{mod.description}</p>
                           <div className="flex gap-2 flex-wrap">
@@ -404,7 +404,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <button
                         onClick={() => handleEditClick(mod)}
-                        className="bg-white border-[3px] border-black text-black hover:bg-black hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
+                        className="bg-white border-[3px] border-black text-black hover:bg-black hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide flex-shrink-0"
                       >
                         Edit
                       </button>

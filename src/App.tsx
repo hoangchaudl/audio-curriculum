@@ -55,7 +55,7 @@ const AppContent = () => {
   // login page for already-signed-in users on every refresh.
   if (authLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#FDFDFB] text-gray-400 font-bold text-sm">
+      <div className="flex h-screen w-full items-center justify-center bg-[#F5FAFF] text-gray-400 font-bold text-sm">
         Loading...
       </div>
     );
@@ -68,13 +68,13 @@ const AppContent = () => {
   // show a clear message with a way out instead.
   if (hasSession && !currentUser) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#FDFDFB] px-6 text-center">
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#F5FAFF] px-6 text-center">
         <p className="text-sm font-bold text-gray-600 max-w-sm">
           {authError || "You're signed in, but we couldn't load your profile yet."}
         </p>
         <button
           onClick={logout}
-          className="text-xs font-bold text-white bg-[#2E9DF7] px-5 py-2.5 rounded-full hover:bg-[#1b85df] transition-colors"
+          className="text-xs font-black uppercase tracking-wide text-white bg-[#2E9DF7] border-2 border-black px-5 py-2.5 rounded-full hover:bg-black transition-colors"
         >
           Sign out and try again
         </button>
@@ -106,7 +106,7 @@ const AppContent = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#FDFDFB] text-[#2D2D2D] font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-[#F5FAFF] text-[#2D2D2D] font-sans overflow-hidden">
       <Sidebar
         selectedModuleId={selectedModuleId}
         setSelectedModuleId={(id) => {
@@ -121,13 +121,13 @@ const AppContent = () => {
       />
       <div className="flex-1 flex flex-col min-w-0">
         {isRealAdmin && previewRole && (
-          <div className="bg-[#F4511E] text-white text-xs font-bold px-6 py-2 flex items-center justify-between flex-shrink-0">
+          <div className="bg-[#F4511E] border-b-[3px] border-black text-white text-xs font-bold px-6 py-2 flex items-center justify-between flex-shrink-0">
             <span>
               👁 Previewing as {previewRole.replace('_', ' ')} - you're still signed in as admin, this is view-only for checking the experience.
             </span>
             <button
               onClick={() => setPreviewRole(null)}
-              className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
+              className="bg-white/20 hover:bg-white/30 border-2 border-black px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide"
             >
               Return to Admin View
             </button>

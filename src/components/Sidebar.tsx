@@ -40,7 +40,18 @@ export const Sidebar: React.FC<{
         <div className="w-10 h-10 bg-white border-[3px] border-black rounded-full flex items-center justify-center flex-shrink-0">
           <div className="w-5 h-5 bg-[#2E9DF7] rounded-full"></div>
         </div>
-        {!isCollapsed && <h1 className="text-white font-black text-lg tracking-tight uppercase">StoryCo Audio</h1>}
+        {!isCollapsed && (
+          <h1 className="flex flex-col leading-none">
+            <span className="flex items-center text-white font-black text-base tracking-tight uppercase">
+              STORY
+              <svg viewBox="0 0 24 24" className="w-4 h-4 -mx-0.5 flex-shrink-0 text-[#3DDC97]" fill="currentColor" aria-hidden="true">
+                <path d="M7 2v11h3v9l7-12h-4l4-8z" />
+              </svg>
+              CO
+            </span>
+            <span className="text-white/70 text-[9px] font-black uppercase tracking-[0.2em] mt-0.5">Audio Academy</span>
+          </h1>
+        )}
         {isRealAdmin && (
           <button
             onClick={onToggleCollapse}

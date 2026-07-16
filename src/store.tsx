@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
 } from 'firebase/auth';
 
@@ -22,6 +23,7 @@ interface AppContextType extends AppState {
   clearAuthError: () => void;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string, role: User['role'], pod?: string) => Promise<boolean>;
+  resetPassword: (email: string) => Promise<boolean>;
   logout: () => void;
   submitHomework: (moduleId: string, driveLink: string) => void;
   gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => void;
@@ -174,6 +176,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const resetPassword = async (email: string): Promise<boolean> => {
+    setAuthError(null);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (err: any) {
+      // Don't reveal whether an account exists for this email - treat
+      // "not found" the same as success so the form can't be used to probe
+      // who has signed up.
+      if (err?.code === 'auth/user-not-found') return true;
+      setAuthError(friendlyAuthError(err));
+      return false;
+    }
+  };
+
   const logout = () => {
     signOut(auth).catch(console.error);
   };
@@ -248,6 +265,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clearAuthError,
         login,
         signup,
+        resetPassword,
         logout,
         submitHomework,
         gradeHomework,
