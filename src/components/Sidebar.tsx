@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
 
 export const Sidebar: React.FC<{
@@ -6,6 +6,19 @@ export const Sidebar: React.FC<{
   setSelectedModuleId: (id: string) => void;
 }> = ({ selectedModuleId, setSelectedModuleId }) => {
   const { modules, currentUser, submissions, logout } = useAppContext();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   return (
     <aside className="w-72 bg-[#2E9DF7] flex flex-col p-6 shadow-xl relative overflow-hidden flex-shrink-0">
@@ -96,7 +109,7 @@ export const Sidebar: React.FC<{
       </div>
 
       <div className="mt-auto pt-6 z-10">
-        <div className="bg-[#1E40AF]/20 p-4 rounded-3xl flex items-center justify-between border border-white/10 group relative cursor-pointer">
+        <div ref={menuRef} className="bg-[#1E40AF]/20 p-4 rounded-3xl flex items-center justify-between border border-white/10 relative cursor-pointer" onClick={() => setMenuOpen(o => !o)}>
           <div className="flex items-center gap-3 truncate">
             {currentUser?.avatarBase64 ? (
               <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-white object-cover flex-shrink-0" />
@@ -111,15 +124,17 @@ export const Sidebar: React.FC<{
             </div>
           </div>
 
-          <div className="hidden group-hover:flex absolute bottom-full left-0 w-full mb-2 flex-col gap-1 bg-white p-2 rounded-2xl shadow-xl z-50">
-             <button onClick={() => window.dispatchEvent(new CustomEvent('open-profile'))} className="text-left px-2 py-1 text-xs font-bold text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
-             <button onClick={() => logout()} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-b pb-2 mb-1">Logout</button>
-             <p className="text-[10px] text-gray-500 font-bold uppercase px-2 mb-1">Switch User</p>
-             <button onClick={() => window.location.reload()} className="text-left px-2 py-1 text-xs font-bold text-[#2E9DF7] hover:bg-gray-100 rounded-lg">Reset (Refresh)</button>
-             <button onClick={() => window.dispatchEvent(new CustomEvent('switch-user', { detail: 'julian@storyco.example' }))} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Designer (Julian)</button>
-             <button onClick={() => window.dispatchEvent(new CustomEvent('switch-user', { detail: 'sarah@storyco.example' }))} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Engineer (Sarah)</button>
-             <button onClick={() => window.dispatchEvent(new CustomEvent('switch-user', { detail: 'admin@storyco.example' }))} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Admin (Director)</button>
-          </div>
+          {menuOpen && (
+            <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-full mb-2 flex-col gap-1 bg-white p-2 rounded-2xl shadow-xl z-50">
+               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-bold text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
+               <button onClick={() => { setMenuOpen(false); logout(); }} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-b pb-2 mb-1">Logout</button>
+               <p className="text-[10px] text-gray-500 font-bold uppercase px-2 mb-1">Switch User</p>
+               <button onClick={() => { setMenuOpen(false); window.location.reload(); }} className="text-left px-2 py-1 text-xs font-bold text-[#2E9DF7] hover:bg-gray-100 rounded-lg">Reset (Refresh)</button>
+               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('switch-user', { detail: 'julian@storyco.example' })); }} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Designer (Julian)</button>
+               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('switch-user', { detail: 'sarah@storyco.example' })); }} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Engineer (Sarah)</button>
+               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('switch-user', { detail: 'admin@storyco.example' })); }} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Admin (Director)</button>
+            </div>
+          )}
         </div>
       </div>
     </aside>
