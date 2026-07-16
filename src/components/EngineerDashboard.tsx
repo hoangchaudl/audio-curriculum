@@ -20,7 +20,11 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
     }
   };
 
-  const handleUpdateVideo = (status: 'not_started' | 'in_progress' | 'uploaded') => {
+  // Fixed: these status values now match VideoTask['status'] ('pending' |
+  // 'in_progress' | 'completed'). The dropdown previously sent 'not_started'
+  // and 'uploaded', which aren't valid statuses, so selecting "Completed" in
+  // the UI never actually persisted a 'completed' status.
+  const handleUpdateVideo = (status: 'pending' | 'in_progress' | 'completed') => {
     const taskId = videoTask ? videoTask.id : `vt_${Date.now()}`;
     updateVideoTask(taskId, status, videoUrl);
   };
@@ -138,6 +142,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
               <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
+              {/* Values above now match VideoTask['status'] exactly */}
             </select>
           </div>
         </div>

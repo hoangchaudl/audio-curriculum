@@ -1,12 +1,21 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { AppState, User, Module, Submission, Grade, VideoTask } from './types';
 import { initialData } from './data';
-import { db } from './firebase';
-import { collection, onSnapshot, doc, setDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { collection, onSnapshot, doc, setDoc, getDocs } from 'firebase/firestore';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
 
 interface AppContextType extends AppState {
-  login: (email: string) => boolean;
-  signup: (name: string, email: string, role: User['role'], pod?: string) => Promise<boolean>;
+  authLoading: boolean;
+  authError: string | null;
+  clearAuthError: () => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, role: User['role'], pod?: string) => Promise<boolean>;
   logout: () => void;
   submitHomework: (moduleId: string, driveLink: string) => void;
   gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => void;
@@ -17,121 +26,169 @@ interface AppContextType extends AppState {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AppState>(initialData);
+// Maps Firebase Auth error codes to messages people can actually act on.
+const friendlyAuthError = (err: any): string => {
+  const code = err?.code || '';
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'That email address looks invalid.';
+    case 'auth/user-not-found':
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+      return 'Incorrect email or password.';
+    case 'auth/email-already-in-use':
+      return 'An account with that email already exists. Try signing in instead.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    default:
+      return err?.message || 'Something went wrong. Please try again.';
+  }
+};
 
-  // Sync users with Firestore
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // `state` no longer holds currentUser - the signed-in user is derived from
+  // Firebase Auth (authUid) joined against the live `users` list below. This
+  // avoids ever trusting a client-set "currentUser" that isn't backed by a
+  // real authenticated session.
+  const [state, setState] = useState<Omit<AppState, 'currentUser'>>(() => {
+    const { currentUser, ...rest } = initialData;
+    return rest;
+  });
+  const [authUid, setAuthUid] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const clearAuthError = () => setAuthError(null);
+
+  // Track the real Firebase Auth session. This is the only source of truth
+  // for "who is logged in" - nothing in the UI can spoof this.
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      setAuthUid(fbUser ? fbUser.uid : null);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync users with Firestore (profile data only - never passwords, which
+  // Firebase Auth stores separately and never exposes to client code).
   useEffect(() => {
     const usersCol = collection(db, 'users');
-    
-    // Seed data if empty
+
+    // Seed the curriculum-only demo users the very first time the DB is
+    // empty. Note: these seeded profiles have no matching Firebase Auth
+    // account, so nobody can sign in as them - they exist only so the admin
+    // dashboard / rosters aren't empty before real accounts are created.
+    // Real usage requires each person to sign up with their own email + password.
     getDocs(usersCol).then(snapshot => {
       if (snapshot.empty) {
-        const batch = writeBatch(db);
-        initialData.users.forEach(user => {
-          const userRef = doc(db, 'users', user.id);
-          batch.set(userRef, user);
-        });
-        batch.commit().catch(console.error);
+        // Intentionally not seeded anymore - seeding fake "logins" here would
+        // recreate the exact vulnerability we're fixing (accounts with no
+        // real password). Leave this as a no-op; the first real signup below
+        // is promoted to admin instead so someone can administer the team.
       }
     });
 
     const unsubscribe = onSnapshot(usersCol, (snapshot) => {
       const users: User[] = [];
-      snapshot.forEach(doc => {
-        users.push(doc.data() as User);
+      snapshot.forEach(d => {
+        users.push(d.data() as User);
       });
-      if (users.length > 0) {
-        setState(s => ({
-          ...s,
-          users,
-          // Update currentUser if it matches an updated user
-          currentUser: s.currentUser ? users.find(u => u.id === s.currentUser!.id) || s.currentUser : s.currentUser
-        }));
-      }
+      setState(s => ({ ...s, users }));
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Allow overriding via switch-user event for dev
-  useEffect(() => {
-    const handleSwitchUser = (e: any) => {
-      login(e.detail);
-    };
-    window.addEventListener('switch-user', handleSwitchUser);
-    return () => window.removeEventListener('switch-user', handleSwitchUser);
-  }, []);
+  const currentUser = useMemo<User | null>(() => {
+    if (!authUid) return null;
+    return state.users.find(u => u.id === authUid) ?? null;
+  }, [authUid, state.users]);
 
-  const login = (email: string): boolean => {
-    let success = false;
-    setState((s) => {
-       const user = s.users.find((u) => u.email === email);
-       if (user) {
-         success = true;
-         return { ...s, currentUser: user };
-       }
-       return s;
-    });
-    return success;
+  const login = async (email: string, password: string): Promise<boolean> => {
+    setAuthError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
+    } catch (err) {
+      setAuthError(friendlyAuthError(err));
+      return false;
+    }
   };
 
-  const signup = async (name: string, email: string, role: User['role'], pod?: string) => {
-    const newUser: User = {
-      id: `u_${Date.now()}`,
-      name,
-      email,
-      role,
-      pod,
-      createdAt: new Date().toISOString(),
-    };
+  const signup = async (
+    name: string,
+    email: string,
+    password: string,
+    role: User['role'],
+    pod?: string
+  ): Promise<boolean> => {
+    setAuthError(null);
     try {
-      const userRef = doc(db, 'users', newUser.id);
-      await setDoc(userRef, newUser);
-      setState(s => ({ ...s, currentUser: newUser }));
+      // Bootstrap rule: if there are no users in the system yet, the very
+      // first signup becomes admin regardless of what they picked, so the
+      // team always has someone who can administer the platform. After that,
+      // role changes must go through an admin (enforced in firestore.rules).
+      const existing = await getDocs(collection(db, 'users'));
+      const effectiveRole: User['role'] = existing.empty ? 'admin' : role;
+
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser: User = {
+        id: credential.user.uid,
+        name,
+        email,
+        role: effectiveRole,
+        pod,
+        createdAt: new Date().toISOString(),
+      };
+      await setDoc(doc(db, 'users', newUser.id), newUser);
       return true;
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      setAuthError(friendlyAuthError(err));
       return false;
     }
   };
 
   const logout = () => {
-    setState((s) => ({ ...s, currentUser: null }));
+    signOut(auth).catch(console.error);
   };
 
   const updateUserAvatar = async (userId: string, avatarBase64: string) => {
-    // We update Firestore, onSnapshot will reflect the change in local state
     try {
       const userRef = doc(db, 'users', userId);
       await setDoc(userRef, { avatarBase64 }, { merge: true });
     } catch (error) {
-      console.error("Error updating avatar in Firestore", error);
+      console.error('Error updating avatar in Firestore', error);
     }
   };
 
   const submitHomework = (moduleId: string, driveLink: string) => {
-    if (!state.currentUser) return;
+    if (!currentUser) return;
     const newSubmission: Submission = {
       id: `s_${Date.now()}`,
       moduleId,
-      userId: state.currentUser.id,
+      userId: currentUser.id,
       driveLink,
       status: 'submitted',
       submittedAt: new Date().toISOString(),
     };
     setState((s) => ({
       ...s,
-      submissions: [...s.submissions.filter(sub => !(sub.moduleId === moduleId && sub.userId === state.currentUser!.id)), newSubmission],
+      submissions: [...s.submissions.filter(sub => !(sub.moduleId === moduleId && sub.userId === currentUser.id)), newSubmission],
     }));
   };
 
+  // Fixed: admins should also be able to grade homework, not only
+  // audio_engineers. Previously this silently no-op'd for admins, which made
+  // it look like grading was broken when a director tried it.
   const gradeHomework = (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => {
-    if (!state.currentUser || state.currentUser.role !== 'audio_engineer') return;
+    if (!currentUser || (currentUser.role !== 'audio_engineer' && currentUser.role !== 'admin')) return;
     const newGrade: Grade = {
       id: `g_${Date.now()}`,
       submissionId,
-      engineerId: state.currentUser.id,
+      engineerId: currentUser.id,
       score,
       feedback,
       gradedAt: new Date().toISOString(),
@@ -158,7 +215,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ ...state, login, signup, logout, submitHomework, gradeHomework, updateVideoTask, updateUserAvatar, updateModule }}>
+    <AppContext.Provider
+      value={{
+        ...state,
+        currentUser,
+        authLoading,
+        authError,
+        clearAuthError,
+        login,
+        signup,
+        logout,
+        submitHomework,
+        gradeHomework,
+        updateVideoTask,
+        updateUserAvatar,
+        updateModule,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

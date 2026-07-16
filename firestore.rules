@@ -1,8 +1,112 @@
 rules_version = '2';
+
+// These rules replace the old "allow read, write: if true" (open to anyone
+// on the internet who has the app URL). They now require a real signed-in
+// Firebase Auth user, and further restrict writes by the caller's role
+// (stored on their own /users/{uid} document) and identity (request.auth.uid).
+//
+// After editing this file, deploy it with the Firebase CLI:
+//   firebase deploy --only firestore:rules
+// (Requires an account with Editor/Owner access on the Firebase project.)
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    function isSignedIn() {
+      return request.auth != null;
     }
+
+    // Looks up the caller's own profile doc to read their role. Every
+    // authenticated user has exactly one /users/{uid} doc, keyed by their
+    // Firebase Auth uid (see store.tsx signup()).
+    function callerRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && callerRole() == 'admin';
+    }
+
+    function isEngineerOrAdmin() {
+      return isSignedIn() && (callerRole() == 'audio_engineer' || callerRole() == 'admin');
+    }
+
+    // --- users ---
+    // Anyone signed in can read the roster (needed for dashboards, avatars,
+    // "who submitted this" displays). A user may only create/update their
+    // own document, and may not grant themselves a different role than they
+    // signed up with - only an admin can change someone's role.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+                    && request.auth.uid == userId
+                    && request.resource.data.id == userId;
+
+      allow update: if isSignedIn() && (
+                      isAdmin() ||
+                      (request.auth.uid == userId &&
+                       request.resource.data.role == resource.data.role)
+                    );
+
+      allow delete: if isAdmin();
+    }
+
+    // --- modules (curriculum content) ---
+    // Everyone signed in can read the curriculum. Only admins can create,
+    // edit, or delete modules (matches the Admin Dashboard's "Curriculum
+    // Management" tab being admin-only in the UI).
+    match /modules/{moduleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /moduleVideos/{videoId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- submissions (homework) ---
+    // A sound designer can create/update only their own submissions.
+    // Engineers/admins can read all submissions (needed to review/grade) and
+    // may update the status field when grading, but can't rewrite someone
+    // else's driveLink.
+    match /submissions/{submissionId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+
+      allow update: if isSignedIn() && (
+                      // owner can resubmit/update their own not-yet-graded work
+                      (resource.data.userId == request.auth.uid && resource.data.status != 'graded') ||
+                      // engineer/admin marking it graded
+                      isEngineerOrAdmin()
+                    );
+
+      allow delete: if isAdmin();
+    }
+
+    // --- grades ---
+    // Only engineers/admins can create grades, and only under their own
+    // engineerId. Everyone signed in can read grades (designers need to see
+    // their own feedback; dashboards need to compute averages).
+    match /grades/{gradeId} {
+      allow read: if isSignedIn();
+      allow create: if isEngineerOrAdmin() && request.resource.data.engineerId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // --- videoTasks (engineer training video assignments) ---
+    // Admins assign/manage tasks; the assigned engineer can update their own
+    // task's status/videoUrl.
+    match /videoTasks/{taskId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+      allow update: if isSignedIn() && (
+                      isAdmin() ||
+                      resource.data.engineerId == request.auth.uid
+                    );
+    }
+
+    // Deny everything else by default (no catch-all open rule).
   }
 }

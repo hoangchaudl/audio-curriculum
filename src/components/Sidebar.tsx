@@ -127,12 +127,7 @@ export const Sidebar: React.FC<{
           {menuOpen && (
             <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-full mb-2 flex-col gap-1 bg-white p-2 rounded-2xl shadow-xl z-50">
                <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-bold text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
-               <button onClick={() => { setMenuOpen(false); logout(); }} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-b pb-2 mb-1">Logout</button>
-               <p className="text-[10px] text-gray-500 font-bold uppercase px-2 mb-1">Switch User</p>
-               <button onClick={() => { setMenuOpen(false); window.location.reload(); }} className="text-left px-2 py-1 text-xs font-bold text-[#2E9DF7] hover:bg-gray-100 rounded-lg">Reset (Refresh)</button>
-               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('switch-user', { detail: 'julian@storyco.example' })); }} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Designer (Julian)</button>
-               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('switch-user', { detail: 'sarah@storyco.example' })); }} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Engineer (Sarah)</button>
-               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('switch-user', { detail: 'admin@storyco.example' })); }} className="text-left px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-lg">Admin (Director)</button>
+               <button onClick={() => { setMenuOpen(false); logout(); }} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg">Logout</button>
             </div>
           )}
         </div>

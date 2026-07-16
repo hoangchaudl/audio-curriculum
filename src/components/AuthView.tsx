@@ -2,39 +2,54 @@ import React, { useState } from 'react';
 import { useAppContext } from '../store';
 
 export const AuthView: React.FC = () => {
-  const { login, signup } = useAppContext();
+  const { login, signup, authError, clearAuthError } = useAppContext();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Not authenticated securely for prototype, but keep field for UI
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'sound_designer' | 'audio_engineer' | 'admin'>('sound_designer');
   const [pod, setPod] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    clearAuthError();
 
     if (isSignUp) {
-      if (!name || !email) {
-        setError('Name and email are required');
+      if (!name || !email || !password) {
+        setError('Name, email, and password are required');
         return;
       }
-      const success = await signup(name, email, role, pod);
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters');
+        return;
+      }
+      setSubmitting(true);
+      const success = await signup(name, email, password, role, pod);
+      setSubmitting(false);
       if (!success) {
         setError('Error creating account');
       }
     } else {
-      if (!email) {
-        setError('Email is required');
+      if (!email || !password) {
+        setError('Email and password are required');
         return;
       }
-      const success = login(email);
+      setSubmitting(true);
+      const success = await login(email, password);
+      setSubmitting(false);
       if (!success) {
-        setError('Account not found. Please try another email or sign up.');
+        setError('Incorrect email or password.');
       }
     }
   };
+
+  // authError comes from Firebase Auth itself (wrong password, no such
+  // account, weak password, etc.) and is more specific than the generic
+  // messages above - prefer it when present.
+  const displayError = authError || error;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center bg-[#FDFDFB] p-6 h-screen w-full relative overflow-hidden">
@@ -57,23 +72,23 @@ export const AuthView: React.FC = () => {
 
         <div className="bg-white rounded-[40px] p-8 shadow-2xl border-4 border-white">
           <div className="flex gap-4 mb-8">
-            <button 
+            <button
               className={`flex-1 font-bold py-3 rounded-2xl transition-all ${!isSignUp ? 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:translate-y-[2px] active:shadow-none' : 'bg-[#E0F2FE] text-[#1E40AF] hover:bg-[#2E9DF7]/20'}`}
-              onClick={() => { setIsSignUp(false); setError(''); }}
+              onClick={() => { setIsSignUp(false); setError(''); clearAuthError(); }}
             >
               Sign In
             </button>
-            <button 
+            <button
               className={`flex-1 font-bold py-3 rounded-2xl transition-all ${isSignUp ? 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:translate-y-[2px] active:shadow-none' : 'bg-[#E0F2FE] text-[#1E40AF] hover:bg-[#2E9DF7]/20'}`}
-              onClick={() => { setIsSignUp(true); setError(''); }}
+              onClick={() => { setIsSignUp(true); setError(''); clearAuthError(); }}
             >
               Sign Up
             </button>
           </div>
 
-          {error && (
+          {displayError && (
             <div className="bg-[#FEE2E2] text-[#C53914] px-4 py-3 rounded-2xl text-xs font-bold mb-6 flex items-center gap-2">
-              <span className="text-lg">⚠️</span> {error}
+              <span className="text-lg">⚠️</span> {displayError}
             </div>
           )}
 
@@ -81,8 +96,8 @@ export const AuthView: React.FC = () => {
             {isSignUp && (
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Full Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#2E9DF7] transition-all font-medium"
@@ -90,11 +105,11 @@ export const AuthView: React.FC = () => {
                 />
               </div>
             )}
-            
+
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email Address</label>
-              <input 
-                type="email" 
+              <input
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#2E9DF7] transition-all font-medium"
@@ -104,20 +119,23 @@ export const AuthView: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Password</label>
-              <input 
-                type="password" 
+              <input
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#2E9DF7] transition-all font-medium"
                 placeholder="••••••••"
               />
+              {isSignUp && (
+                <p className="text-[10px] text-gray-400 mt-1 ml-1">Minimum 6 characters.</p>
+              )}
             </div>
 
             {isSignUp && (
               <>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Role</label>
-                  <select 
+                  <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as any)}
                     className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#2E9DF7] transition-all font-medium"
@@ -125,12 +143,15 @@ export const AuthView: React.FC = () => {
                     <option value="sound_designer">Sound Designer</option>
                     <option value="audio_engineer">Audio Engineer</option>
                   </select>
+                  <p className="text-[10px] text-gray-400 mt-1 ml-1">
+                    If you're the very first person to sign up, you'll automatically be made an admin regardless of the role picked here.
+                  </p>
                 </div>
                 {role === 'sound_designer' && (
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Pod (Optional)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={pod}
                       onChange={(e) => setPod(e.target.value)}
                       className="w-full bg-gray-50 border-none rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#2E9DF7] transition-all font-medium"
@@ -142,25 +163,15 @@ export const AuthView: React.FC = () => {
             )}
 
             <div className="pt-4">
-              <button 
-                type="submit" 
-                className="w-full bg-[#F4511E] text-white font-bold py-4 rounded-2xl shadow-[0_6px_0_#C53914] active:shadow-none active:translate-y-[2px] transition-all text-sm uppercase tracking-wider"
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#F4511E] text-white font-bold py-4 rounded-2xl shadow-[0_6px_0_#C53914] active:shadow-none active:translate-y-[2px] transition-all text-sm uppercase tracking-wider disabled:opacity-60"
               >
-                {isSignUp ? 'Create Account' : 'Sign In'}
+                {submitting ? 'Please wait…' : isSignUp ? 'Create Account' : 'Sign In'}
               </button>
             </div>
           </form>
-
-          {!isSignUp && (
-            <div className="mt-8 text-center bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200">
-              <p className="text-[10px] uppercase font-bold text-gray-400 mb-2">Dev Shortcuts</p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                <button onClick={() => { setEmail('julian@storyco.example'); setPassword('password'); }} className="text-xs bg-white border px-3 py-1 rounded-full font-bold text-[#2E9DF7] hover:bg-gray-100">Designer</button>
-                <button onClick={() => { setEmail('sarah@storyco.example'); setPassword('password'); }} className="text-xs bg-white border px-3 py-1 rounded-full font-bold text-[#F4511E] hover:bg-gray-100">Engineer</button>
-                <button onClick={() => { setEmail('admin@storyco.example'); setPassword('password'); }} className="text-xs bg-white border px-3 py-1 rounded-full font-bold text-[#3DDC97] hover:bg-gray-100">Admin</button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

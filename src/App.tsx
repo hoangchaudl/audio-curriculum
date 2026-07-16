@@ -13,7 +13,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AppProvider, useAppContext } from './store';
 
 const AppContent = () => {
-  const { currentUser, modules } = useAppContext();
+  const { currentUser, authLoading, modules } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('m4');
   const [view, setView] = useState<'module' | 'profile'>('module');
 
@@ -28,6 +28,17 @@ const AppContent = () => {
       window.removeEventListener('open-module', handleOpenModule);
     };
   }, []);
+
+  // Wait for Firebase Auth to report the real session before deciding
+  // whether to show the sign-in screen - otherwise there's a flash of the
+  // login page for already-signed-in users on every refresh.
+  if (authLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#FDFDFB] text-gray-400 font-bold text-sm">
+        Loading...
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return <AuthView />;
