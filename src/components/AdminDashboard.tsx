@@ -228,7 +228,16 @@ export const AdminDashboard: React.FC = () => {
                         <input
                           type="text"
                           value={editForm.objectives?.join(', ') || ''}
-                          onChange={(e) => setEditForm({ ...editForm, objectives: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                          onChange={(e) => setEditForm({ ...editForm, objectives: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })}
+                          className="w-full bg-gray-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Outcomes (comma separated)</label>
+                        <input
+                          type="text"
+                          value={editForm.outcomes?.join(', ') || ''}
+                          onChange={(e) => setEditForm({ ...editForm, outcomes: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })}
                           className="w-full bg-gray-50 border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
                         />
                       </div>

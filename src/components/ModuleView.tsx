@@ -75,10 +75,35 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
 
           {/* Module Description */}
           <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
-            <h4 className="text-sm font-black uppercase text-[#2E9DF7] mb-3 tracking-widest">Learning Objectives</h4>
-            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+            <h4 className="text-sm font-black uppercase text-[#2E9DF7] mb-3 tracking-widest">About this Module</h4>
+            <p className="text-gray-600 leading-relaxed whitespace-pre-wrap mb-6">
               {mod.textContent}
             </p>
+            
+            {(mod.objectives || mod.outcomes) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
+                {mod.objectives && mod.objectives.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-widest">Objectives</h4>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                      {mod.objectives.map((obj, i) => (
+                        <li key={i}>{obj}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {mod.outcomes && mod.outcomes.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-widest">Outcomes</h4>
+                    <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                      {mod.outcomes.map((out, i) => (
+                        <li key={i}>{out}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Additional Materials */}

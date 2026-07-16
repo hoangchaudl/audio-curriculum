@@ -75,8 +75,42 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{mod.rubric}</p>
                </div>
              )}
-             {!mod.objectives && !mod.outcomes && !mod.outline && !mod.rubric && (
+             {!mod.objectives && !mod.outcomes && !mod.outline && !mod.rubric && !mod.additionalMaterials && (
                 <p className="text-sm text-gray-500 italic col-span-2">No detailed module information provided.</p>
+             )}
+             {mod.additionalMaterials && mod.additionalMaterials.length > 0 && (
+               <div className="bg-gray-50 p-4 rounded-2xl col-span-2 mt-4">
+                 <h4 className="text-xs font-bold text-[#3DDC97] uppercase mb-3 flex items-center gap-2">
+                   <span className="text-base">📚</span> Additional Materials
+                 </h4>
+                 <ul className="space-y-2">
+                   {mod.additionalMaterials.map((material, idx) => (
+                     <li key={idx} className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm border border-gray-100">
+                       <div className="flex flex-col">
+                         <div className="flex items-center gap-2">
+                           <span className="text-sm">
+                             {material.type === 'video' ? '🎥' : material.type === 'book' ? '📖' : '📄'}
+                           </span>
+                           <span className="text-xs font-bold text-gray-800">{material.title}</span>
+                         </div>
+                         {material.author && (
+                           <span className="text-[10px] text-gray-500 font-medium ml-6">By {material.author}</span>
+                         )}
+                       </div>
+                       {material.url && (
+                         <a 
+                           href={material.url} 
+                           target="_blank" 
+                           rel="noreferrer"
+                           className="text-[10px] font-bold text-[#2E9DF7] bg-[#E0F2FE] px-2 py-1 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors"
+                         >
+                           View
+                         </a>
+                       )}
+                     </li>
+                   ))}
+                 </ul>
+               </div>
              )}
            </div>
         </div>
