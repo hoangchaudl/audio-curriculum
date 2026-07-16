@@ -64,7 +64,9 @@ export interface VideoTask {
   id: string;
   moduleId: string;
   engineerId: string;
-  status: 'not_started' | 'in_progress' | 'uploaded';
+  title: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  assignedAt: string;
   videoUrl?: string;
 }
 

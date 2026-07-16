@@ -162,7 +162,8 @@ export const initialData: AppState = {
     { id: 'g3', submissionId: 's3', engineerId: 'u2', score: 4, feedback: 'Excellent placement.', gradedAt: '2026-07-15T10:00:00Z' },
   ],
   videoTasks: [
-    { id: 'vt1', moduleId: 'm5', engineerId: 'u2', title: 'Character Voice Design Walkthrough', status: 'in_progress', assignedAt: '2026-07-10T10:00:00Z' },
-    { id: 'vt2', moduleId: 'm6', engineerId: 'u2', title: 'Granular Synthesis Techniques', status: 'pending', assignedAt: '2026-07-11T10:00:00Z' },
+    { id: 'vt1', moduleId: 'm5', engineerId: 'u2', title: 'Character Voice Design Walkthrough', status: 'completed', assignedAt: '2026-07-10T10:00:00Z', videoUrl: 'https://vimeo.com/123456' },
+    { id: 'vt2', moduleId: 'm6', engineerId: 'u2', title: 'Granular Synthesis Techniques', status: 'in_progress', assignedAt: '2026-07-11T10:00:00Z' },
+    { id: 'vt3', moduleId: 'm7', engineerId: 'u2', title: 'Storytelling via Audio', status: 'pending', assignedAt: '2026-07-12T10:00:00Z' }
   ],
 };

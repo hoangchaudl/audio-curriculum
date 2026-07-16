@@ -12,6 +12,7 @@ interface AppContextType extends AppState {
   gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => void;
   updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
+  updateModule: (moduleId: string, updates: Partial<Module>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -149,8 +150,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
+  const updateModule = (moduleId: string, updates: Partial<Module>) => {
+    setState((s) => ({
+      ...s,
+      modules: s.modules.map((m) => (m.id === moduleId ? { ...m, ...updates } : m)),
+    }));
+  };
+
   return (
-    <AppContext.Provider value={{ ...state, login, logout, submitHomework, gradeHomework, updateVideoTask }}>
+    <AppContext.Provider value={{ ...state, login, signup, logout, submitHomework, gradeHomework, updateVideoTask, updateUserAvatar, updateModule }}>
       {children}
     </AppContext.Provider>
   );

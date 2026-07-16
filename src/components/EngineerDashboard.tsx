@@ -97,13 +97,13 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
               />
             </div>
             <select 
-              value={videoTask?.status || 'not_started'}
+              value={videoTask?.status || 'pending'}
               onChange={(e) => handleUpdateVideo(e.target.value as any)}
               className="bg-gray-50 border-none rounded-2xl p-4 text-xs font-bold text-gray-700"
             >
-              <option value="not_started">Not Started</option>
+              <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
-              <option value="uploaded">Uploaded</option>
+              <option value="completed">Completed</option>
             </select>
           </div>
         </div>
