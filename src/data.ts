@@ -25,6 +25,14 @@ export const initialData: AppState = {
       role: 'admin',
       createdAt: '2026-01-01T09:00:00Z',
     },
+    {
+      id: 'u4',
+      name: 'Maya Lin',
+      email: 'maya@storyco.example',
+      role: 'sound_designer',
+      pod: 'Neon Synthesis',
+      createdAt: '2026-07-02T10:00:00Z',
+    },
   ],
   modules: [
     { 
@@ -145,11 +153,16 @@ export const initialData: AppState = {
     { id: 's1', moduleId: 'm1', userId: 'u1', driveLink: 'https://drive.google.com/...', status: 'graded', submittedAt: '2026-07-10T10:00:00Z' },
     { id: 's2', moduleId: 'm2', userId: 'u1', driveLink: 'https://drive.google.com/...', status: 'graded', submittedAt: '2026-07-12T10:00:00Z' },
     { id: 's3', moduleId: 'm3', userId: 'u1', driveLink: 'https://drive.google.com/...', status: 'graded', submittedAt: '2026-07-14T10:00:00Z' },
+    { id: 's4', moduleId: 'm4', userId: 'u1', driveLink: 'https://drive.google.com/open?id=123', status: 'submitted', submittedAt: '2026-07-15T14:30:00Z' },
+    { id: 's5', moduleId: 'm4', userId: 'u4', driveLink: 'https://drive.google.com/open?id=124', status: 'submitted', submittedAt: '2026-07-15T16:00:00Z' },
   ],
   grades: [
     { id: 'g1', submissionId: 's1', engineerId: 'u2', score: 4, feedback: 'Great job!', gradedAt: '2026-07-11T10:00:00Z' },
     { id: 'g2', submissionId: 's2', engineerId: 'u2', score: 4, feedback: 'Solid work.', gradedAt: '2026-07-13T10:00:00Z' },
     { id: 'g3', submissionId: 's3', engineerId: 'u2', score: 4, feedback: 'Excellent placement.', gradedAt: '2026-07-15T10:00:00Z' },
   ],
-  videoTasks: [],
+  videoTasks: [
+    { id: 'vt1', moduleId: 'm5', engineerId: 'u2', title: 'Character Voice Design Walkthrough', status: 'in_progress', assignedAt: '2026-07-10T10:00:00Z' },
+    { id: 'vt2', moduleId: 'm6', engineerId: 'u2', title: 'Granular Synthesis Techniques', status: 'pending', assignedAt: '2026-07-11T10:00:00Z' },
+  ],
 };

@@ -9,6 +9,7 @@ import { ModuleView } from './components/ModuleView';
 import { EngineerDashboard } from './components/EngineerDashboard';
 import { ProfileView } from './components/ProfileView';
 import { AuthView } from './components/AuthView';
+import { AdminDashboard } from './components/AdminDashboard';
 import { AppProvider, useAppContext } from './store';
 
 const AppContent = () => {
@@ -46,13 +47,7 @@ const AppContent = () => {
     }
     
     if (currentUser.role === 'admin') {
-      return (
-        <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 p-10">
-           <h2 className="text-2xl font-black text-[#2E9DF7] mb-4">Admin Dashboard</h2>
-           <p className="text-gray-500 font-bold mb-8">Role: {currentUser.role}</p>
-           <EngineerDashboard moduleId={selectedModuleId} />
-        </div>
-      );
+      return <AdminDashboard />;
     }
     return null;
   };
