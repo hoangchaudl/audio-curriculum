@@ -8,6 +8,7 @@ import { Sidebar } from './components/Sidebar';
 import { ModuleView } from './components/ModuleView';
 import { EngineerDashboard } from './components/EngineerDashboard';
 import { ProfileView } from './components/ProfileView';
+import { AuthView } from './components/AuthView';
 import { AppProvider, useAppContext } from './store';
 
 const AppContent = () => {
@@ -28,7 +29,7 @@ const AppContent = () => {
   }, []);
 
   if (!currentUser) {
-    return <div className="flex h-screen items-center justify-center bg-[#FDFDFB]">Loading...</div>;
+    return <AuthView />;
   }
 
   const renderContent = () => {

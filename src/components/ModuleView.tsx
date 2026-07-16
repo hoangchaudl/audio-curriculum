@@ -27,7 +27,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
       {/* Top Navbar */}
       <header className="h-20 bg-white border-b flex items-center justify-between px-10 flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-black text-[#2E9DF7]">Module {mod.order.toString().padStart(2, '0')}: {mod.title}</h2>
+          <h2 className="text-2xl font-black text-[#2E9DF7]">Module {mod.label || mod.order.toString().padStart(2, '0')}: {mod.title}</h2>
           <p className="text-xs text-gray-400 font-medium flex items-center gap-2 mt-1">
             Estimated Time: 3 Weeks • Status:{' '}
             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
@@ -80,6 +80,42 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               {mod.textContent}
             </p>
           </div>
+
+          {/* Additional Materials */}
+          {mod.additionalMaterials && mod.additionalMaterials.length > 0 && (
+            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-black uppercase text-[#3DDC97] mb-4 tracking-widest flex items-center gap-2">
+                <span className="text-xl">📚</span> Additional Materials
+              </h4>
+              <ul className="space-y-3">
+                {mod.additionalMaterials.map((material, idx) => (
+                  <li key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">
+                          {material.type === 'video' ? '🎥' : material.type === 'book' ? '📖' : '📄'}
+                        </span>
+                        <span className="text-sm font-bold text-gray-800">{material.title}</span>
+                      </div>
+                      {material.author && (
+                        <span className="text-xs text-gray-500 font-medium ml-7">By {material.author}</span>
+                      )}
+                    </div>
+                    {material.url && (
+                      <a 
+                        href={material.url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="text-xs font-bold text-[#2E9DF7] bg-[#E0F2FE] px-3 py-1.5 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors"
+                      >
+                        View Link
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Right Interaction Panel (Gadget Pocket Style) */}

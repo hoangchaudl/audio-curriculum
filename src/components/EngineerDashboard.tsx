@@ -29,7 +29,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
       <header className="h-20 bg-white border-b flex items-center justify-between px-10 flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-black text-[#2E9DF7]">Module {mod.order.toString().padStart(2, '0')} Tasks</h2>
+          <h2 className="text-2xl font-black text-[#2E9DF7]">Module {mod.label || mod.order.toString().padStart(2, '0')} Tasks</h2>
           <p className="text-xs text-gray-400 font-medium">
             Submissions: {modSubmissions.length} • Pending Review: {modSubmissions.filter(s => s.status === 'submitted').length}
           </p>

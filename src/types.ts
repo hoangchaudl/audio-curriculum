@@ -10,9 +10,18 @@ export interface User {
   createdAt: string;
 }
 
+export interface Resource {
+  type: 'video' | 'article' | 'book';
+  title: string;
+  url?: string;
+  author?: string;
+}
+
 export interface Module {
   id: string;
   order: number;
+  label?: string;
+  category?: string;
   title: string;
   description: string;
   textContent: string;
@@ -22,6 +31,7 @@ export interface Module {
   objectives?: string[];
   homeworkLink?: string;
   homeworkDescription?: string;
+  additionalMaterials?: Resource[];
 }
 
 export interface ModuleVideo {

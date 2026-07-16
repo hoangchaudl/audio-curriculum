@@ -5,7 +5,8 @@ import { db } from './firebase';
 import { collection, onSnapshot, doc, setDoc, writeBatch, getDocs } from 'firebase/firestore';
 
 interface AppContextType extends AppState {
-  login: (email: string) => void;
+  login: (email: string) => boolean;
+  signup: (name: string, email: string, role: User['role'], pod?: string) => Promise<boolean>;
   logout: () => void;
   submitHomework: (moduleId: string, driveLink: string) => void;
   gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => void;
@@ -52,10 +53,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Auto-login as Julian for dev purposes based on theme HTML
+  // Allow overriding via switch-user event for dev
   useEffect(() => {
-    login('julian@storyco.example');
-
     const handleSwitchUser = (e: any) => {
       login(e.detail);
     };
@@ -63,15 +62,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('switch-user', handleSwitchUser);
   }, []);
 
-  const login = (email: string) => {
-    // Look up from local state first
+  const login = (email: string): boolean => {
+    let success = false;
     setState((s) => {
        const user = s.users.find((u) => u.email === email);
        if (user) {
+         success = true;
          return { ...s, currentUser: user };
        }
        return s;
     });
+    return success;
+  };
+
+  const signup = async (name: string, email: string, role: User['role'], pod?: string) => {
+    const newUser: User = {
+      id: `u_${Date.now()}`,
+      name,
+      email,
+      role,
+      pod,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      const userRef = doc(db, 'users', newUser.id);
+      await setDoc(userRef, newUser);
+      setState(s => ({ ...s, currentUser: newUser }));
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
   };
 
   const logout = () => {
