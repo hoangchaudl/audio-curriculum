@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ModuleView } from './components/ModuleView';
 import { EngineerDashboard } from './components/EngineerDashboard';
@@ -12,11 +12,38 @@ import { AuthView } from './components/AuthView';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
+import { getNextActionableModule } from './progress';
 
 const AppContent = () => {
-  const { currentUser, authLoading, hasSession, authError, logout } = useAppContext();
-  const [selectedModuleId, setSelectedModuleId] = useState<string>('m4');
+  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded } = useAppContext();
+  const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const [view, setView] = useState<'module' | 'profile'>('module');
+
+  // Lands a student on the module they should actually work on next
+  // (first without a graded submission) instead of a hardcoded module id -
+  // previously every new student's first screen was module 6 of 11. Runs
+  // once per login: the ref guard stops it from yanking the student back to
+  // "next actionable" after they've deliberately navigated elsewhere. Waits
+  // on submissionsLoaded for designers specifically, so it doesn't compute
+  // "next" off a still-empty submissions array on the very first render.
+  const defaultAppliedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentUser || modules.length === 0) return;
+    if (currentUser.role === 'sound_designer' && !submissionsLoaded) return;
+    if (defaultAppliedForUser.current === currentUser.id) return;
+    defaultAppliedForUser.current = currentUser.id;
+    const sorted = [...modules].sort((a, b) => a.order - b.order);
+    const nextId = currentUser.role === 'sound_designer'
+      ? getNextActionableModule(modules, submissions, currentUser.id)?.id
+      : sorted[0]?.id;
+    if (nextId) setSelectedModuleId(nextId);
+  }, [currentUser, modules, submissions, submissionsLoaded]);
+
+  // Bumped every time the sidebar is used to jump to a module - lets
+  // AdminDashboard tell "the admin just clicked a module in the sidebar"
+  // apart from "selectedModuleId already happened to have this value when
+  // I mounted" (see focusNonce prop below).
+  const [moduleNavNonce, setModuleNavNonce] = useState(0);
 
   // Admin-only "preview as" mode: lets an admin look at the Sound Designer /
   // Audio Engineer views without actually changing anyone's real role or
@@ -96,6 +123,18 @@ const AppContent = () => {
       return <ProfileView />;
     }
 
+    // selectedModuleId is briefly '' on first render while the "next
+    // actionable module" effect above resolves - show a loading state
+    // instead of letting ModuleView/EngineerDashboard flash "Module not
+    // found" for an id that hasn't been picked yet.
+    if (!selectedModuleId && (effectiveRole === 'sound_designer' || effectiveRole === 'audio_engineer')) {
+      return (
+        <div className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">
+          Loading your course...
+        </div>
+      );
+    }
+
     if (effectiveRole === 'sound_designer') {
       return <ModuleView moduleId={selectedModuleId} />;
     }
@@ -105,7 +144,7 @@ const AppContent = () => {
     }
 
     if (effectiveRole === 'admin') {
-      return <AdminDashboard />;
+      return <AdminDashboard focusModuleId={selectedModuleId} focusNonce={moduleNavNonce} />;
     }
     return null;
   };
@@ -118,8 +157,10 @@ const AppContent = () => {
           setSelectedModuleId(id);
           setView('module');
           setMobileSidebarOpen(false);
+          setModuleNavNonce(n => n + 1);
         }}
         isRealAdmin={isRealAdmin}
+        effectiveRole={effectiveRole}
         previewRole={previewRole}
         onChangePreviewRole={setPreviewRole}
         collapsed={sidebarCollapsed}

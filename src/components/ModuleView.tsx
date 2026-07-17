@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../store';
 import { groupOutline } from '../outline';
 import { RubricTable } from './RubricTable';
+import { computeProgress } from '../progress';
+import { markGradeSeen } from '../notifications';
 
 const SCORE_LABELS: Record<number, string> = { 1: 'Needs Work', 2: 'Fair', 3: 'Good', 4: 'Excellent' };
 
@@ -87,8 +89,11 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
     setShowDeleteConfirm(false);
   };
 
-  const completedCount = submissions.filter(s => s.userId === currentUser?.id && s.status === 'graded').length;
-  const progressPercent = Math.round((completedCount / modules.length) * 100);
+  // Same definition the admin roster shows for this same person (see
+  // AdminDashboard) - the two used to disagree (graded/total here vs
+  // submissions/total there).
+  const { submitted, graded: gradedCount, total: totalModules } = computeProgress(currentUser?.id || '', submissions, modules.length);
+  const gradedPercent = totalModules > 0 ? Math.round((gradedCount / totalModules) * 100) : 0;
   const hasPlayableVideo = !!video && video.url !== '#';
   const youtubeId = video ? getYouTubeId(video.url) : null;
   const isDirectVideo = video ? isDirectVideoFile(video.url) : false;
@@ -110,6 +115,13 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
   // Once a submission is graded the deadline no longer matters - don't show
   // stale/overdue urgency for work that's already been turned in and scored.
   const isOverdue = !!deadline && sub?.status !== 'graded' && deadline.getTime() < Date.now();
+
+  // Opening a graded module is how a designer "discovers" their feedback
+  // today - mark it seen here so the sidebar's unseen-grade badge (see
+  // notifications.ts) clears once they've actually looked at it.
+  useEffect(() => {
+    if (grade && currentUser) markGradeSeen(currentUser.id, moduleId);
+  }, [grade?.id, currentUser?.id, moduleId]);
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
@@ -296,6 +308,29 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
 
         {/* Right Interaction Panel */}
         <div className="w-full lg:w-80 space-y-6 flex-shrink-0">
+          {/* Grade & Feedback - the most valuable thing on a graded module,
+              so it leads the rail instead of sitting in the last card where
+              it used to go unnoticed. Color reflects the score instead of
+              always reading as a congratulations. */}
+          {grade && (
+            <div
+              className="border-[3px] border-black rounded-2xl p-6 shadow-[4px_4px_0_#000]"
+              style={{ background: grade.score >= 3 ? '#3DDC97' : grade.score === 2 ? '#FFD84D' : '#F4511E' }}
+            >
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${grade.score === 1 ? 'text-white/80' : 'text-black/70'}`}>Your Grade</span>
+                <span className={`text-3xl font-black ${grade.score === 1 ? 'text-white' : 'text-black'}`}>{grade.score}<span className="text-base">/4</span></span>
+              </div>
+              <p className={`text-xs font-black uppercase tracking-wide mb-3 ${grade.score === 1 ? 'text-white' : 'text-black/80'}`}>{SCORE_LABELS[grade.score]}</p>
+              {grade.feedback && (
+                <div className="bg-white border-2 border-black rounded-xl p-4">
+                  <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Engineer Feedback</p>
+                  <p className="text-sm text-black font-medium leading-relaxed">"{grade.feedback}"</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Progress */}
           <div className="bg-white border-[3px] border-black rounded-2xl p-6 relative">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-black rounded-full px-4 py-1.5">
@@ -304,31 +339,31 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
 
             <div className="pt-4 space-y-4">
               <div>
-                <div className="flex justify-between text-xs font-black mb-2">
-                  <span className="text-gray-500">Course Completion</span>
-                  <span className="text-[#2A8F62]">{progressPercent}%</span>
+                <div className="flex justify-between text-xs font-black mb-2 gap-2">
+                  <span className="text-gray-500 flex-shrink-0">Course Completion</span>
+                  {/* Explicit both-numbers phrasing - this used to disagree
+                      with what the admin roster showed for the same person
+                      (graded/total here, submissions/total there). */}
+                  <span className="text-[#2A8F62] text-right">{submitted} submitted · {gradedCount} graded of {totalModules}</span>
                 </div>
                 <div className="w-full h-3 bg-gray-100 border-2 border-black rounded-full overflow-hidden">
-                  <div className="h-full bg-[#3DDC97] rounded-full transition-all duration-1000" style={{ width: `${progressPercent}%` }}></div>
+                  <div className="h-full bg-[#3DDC97] rounded-full transition-all duration-1000" style={{ width: `${gradedPercent}%` }}></div>
                 </div>
               </div>
 
-              <div>
-                <div className="flex justify-between text-xs font-black mb-2">
-                  <span className="text-gray-500">Grade</span>
-                  <span className="text-[#2A8F62]">
-                    {grade ? `${grade.score} of 4 — ${SCORE_LABELS[grade.score]}` : 'Not yet graded'}
-                  </span>
+              {!grade && (
+                <div>
+                  <div className="flex justify-between text-xs font-black mb-2">
+                    <span className="text-gray-500">This Module</span>
+                    <span className="text-gray-400">Not yet graded</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4].map(seg => (
+                      <div key={seg} className="flex-1 h-3 rounded-full border-2 border-black bg-gray-100"></div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-1.5">
-                  {[1, 2, 3, 4].map(seg => (
-                    <div
-                      key={seg}
-                      className={`flex-1 h-3 rounded-full border-2 border-black ${grade && grade.score >= seg ? 'bg-[#3DDC97]' : 'bg-gray-100'}`}
-                    ></div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -413,19 +448,6 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               </div>
             )}
           </div>
-
-          {/* Status Message */}
-          {grade && (
-             <div className="bg-[#3DDC97]/10 border-2 border-black p-4 rounded-2xl flex flex-col gap-2">
-               <div className="flex items-center gap-3">
-                 <span className="text-xl">✨</span>
-                 <p className="text-[11px] font-bold text-[#2A8F62]">Nice work — This module was graded {grade.score}/4!</p>
-               </div>
-               {grade.feedback && (
-                 <p className="text-xs text-[#2A8F62] italic border-t border-black/10 pt-2 mt-1">"{grade.feedback}"</p>
-               )}
-             </div>
-          )}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../store';
 import { Resource, RubricCriterion } from '../types';
+import { computeProgress } from '../progress';
 
 const splitPeriodList = (text: string) => text.split('.').map(s => s.trim()).filter(Boolean);
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
@@ -69,7 +70,7 @@ const CARD_THEMES = [
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-export const AdminDashboard: React.FC = () => {
+export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number }> = ({ focusModuleId, focusNonce }) => {
   const {
     users, modules, moduleVideos, submissions, grades, videoTasks,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo, createVideoTask,
@@ -119,6 +120,22 @@ export const AdminDashboard: React.FC = () => {
     setVideoTitle(video?.title || '');
     setVideoUrl(video?.url || '');
   };
+
+  // Clicking a module in the sidebar used to do nothing here - the list
+  // highlighted and showed statuses like it was live navigation, but
+  // AdminDashboard ignored the selected id entirely. focusNonce (bumped by
+  // App.tsx on every sidebar module click) lets us tell "the admin just
+  // clicked a module" apart from "focusModuleId happens to hold some value
+  // because that's what a fresh mount was handed" - only the former should
+  // jump into editing it.
+  useEffect(() => {
+    if (!focusNonce || !focusModuleId) return;
+    const mod = modules.find(m => m.id === focusModuleId);
+    if (!mod) return;
+    setActiveTab('modules');
+    handleEditClick(mod);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNonce]);
 
   const handleAddModule = async () => {
     const newModule = await createModule();
@@ -258,11 +275,37 @@ export const AdminDashboard: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
               </span>
             </div>
+
+            {/* The per-module chips below (a score, "Rev", or "-") only had
+                their meaning in a hover tooltip - this is the legend for
+                anyone not hovering every single one. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 bg-white border-2 border-black rounded-xl px-4 py-2.5 text-[10px] font-bold text-gray-600">
+              <span className="font-black uppercase tracking-wide text-gray-400">Module chip key:</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded border-2 border-black bg-[#3DDC97]/30 text-[#2A8F62] flex items-center justify-center font-black text-[9px]">4</span>
+                Graded (number = score)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded border-2 border-black bg-[#2E9DF7]/20 text-[#1E40AF] flex items-center justify-center font-black text-[9px]">Rev</span>
+                Submitted, awaiting review
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded border-2 border-black/20 bg-gray-100 text-gray-400 flex items-center justify-center font-black text-[9px]">–</span>
+                Not submitted yet
+              </span>
+            </div>
+
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {designers.map((designer, i) => {
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
                 const userSubmissions = submissions.filter(s => s.userId === designer.id);
-                const progress = Math.round((userSubmissions.length / modules.length) * 100);
+                // Same definition the designer sees on their own progress
+                // card (ModuleView) - this used to show submissions/total
+                // here while the student's own view showed graded/total,
+                // so the same person's progress disagreed depending who
+                // was looking.
+                const { submitted, graded, total } = computeProgress(designer.id, submissions, modules.length);
+                const gradedPercent = total > 0 ? Math.round((graded / total) * 100) : 0;
                 const userGrades = grades.filter(g => userSubmissions.some(s => s.id === g.submissionId));
                 const averageScore = userGrades.length > 0
                   ? (userGrades.reduce((acc, g) => acc + g.score, 0) / userGrades.length).toFixed(1)
@@ -312,10 +355,10 @@ export const AdminDashboard: React.FC = () => {
                       <div>
                         <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
                           <span>Course Progress</span>
-                          <span>{progress}%</span>
+                          <span>{submitted} submitted · {graded} graded of {total}</span>
                         </div>
                         <div className="h-3 bg-gray-100 rounded-full overflow-hidden border-2 border-black">
-                          <div className="h-full rounded-full" style={{ width: `${progress}%`, background: theme.accent }}></div>
+                          <div className="h-full rounded-full" style={{ width: `${gradedPercent}%`, background: theme.accent }}></div>
                         </div>
                       </div>
 

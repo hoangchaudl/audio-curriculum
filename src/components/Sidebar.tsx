@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
 import { Role } from '../types';
+import { countUnseenGrades, isGradeSeen } from '../notifications';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -12,16 +13,29 @@ export const Sidebar: React.FC<{
   selectedModuleId: string;
   setSelectedModuleId: (id: string) => void;
   isRealAdmin: boolean;
+  effectiveRole: Role | undefined;
   previewRole: Role | null;
   onChangePreviewRole: (role: Role | null) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
-}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
+}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
   const { modules, currentUser, submissions, logout } = useAppContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Only designers have grades of their own to be notified about - an
+  // unseen grade is one whose module hasn't been opened since it was
+  // graded (see notifications.ts / ModuleView's markGradeSeen).
+  const unseenGradeCount = effectiveRole === 'sound_designer' && currentUser
+    ? countUnseenGrades(
+        currentUser.id,
+        modules
+          .filter(m => submissions.find(s => s.moduleId === m.id && s.userId === currentUser.id)?.status === 'graded')
+          .map(m => m.id)
+      )
+    : 0;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -47,9 +61,25 @@ export const Sidebar: React.FC<{
       )}
       <aside className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-[#2E9DF7] border-r-[3px] border-black flex flex-col p-4 overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className={`flex items-center gap-3 mb-8 z-10 ${isCollapsed ? 'flex-col' : ''}`}>
-        <div className="w-10 h-10 bg-white border-[3px] border-black rounded-full flex items-center justify-center flex-shrink-0">
+        <button
+          onClick={() => {
+            if (unseenGradeCount === 0 || !currentUser) return;
+            const firstUnseen = [...modules].sort((a, b) => a.order - b.order).find(m =>
+              submissions.find(s => s.moduleId === m.id && s.userId === currentUser.id)?.status === 'graded' &&
+              !isGradeSeen(currentUser.id, m.id)
+            );
+            if (firstUnseen) setSelectedModuleId(firstUnseen.id);
+          }}
+          title={unseenGradeCount > 0 ? `${unseenGradeCount} new grade${unseenGradeCount === 1 ? '' : 's'} - click to open` : undefined}
+          className="relative w-10 h-10 bg-white border-[3px] border-black rounded-full flex items-center justify-center flex-shrink-0"
+        >
           <div className="w-5 h-5 bg-[#2E9DF7] rounded-full"></div>
-        </div>
+          {unseenGradeCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-black">
+              {unseenGradeCount}
+            </span>
+          )}
+        </button>
         {!isCollapsed && (
           <h1 className="flex flex-col leading-none">
             <span className="flex items-center text-white font-black text-base tracking-tight uppercase">
@@ -92,15 +122,42 @@ export const Sidebar: React.FC<{
                 .sort((a, b) => a.order - b.order)
                 .map((mod) => {
                   const isSelected = selectedModuleId === mod.id;
-                  const sub = submissions.find(s => s.moduleId === mod.id && s.userId === currentUser?.id);
+                  // Own submission only matters for a designer's own view -
+                  // for engineers/admins this stays undefined so the "graded
+                  // card" highlight below never fires for someone else's data.
+                  const sub = effectiveRole === 'sound_designer'
+                    ? submissions.find(s => s.moduleId === mod.id && s.userId === currentUser?.id)
+                    : undefined;
 
-                  let statusBadge = null;
-                  if (sub?.status === 'graded') {
-                    statusBadge = <span className="bg-[#3DDC97]/30 text-[#0f3d28] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Graded</span>;
+                  // What the badge shows depends on who's looking: a designer
+                  // sees their own status, an engineer sees how many
+                  // submissions are waiting on them for this module (not
+                  // their own nonexistent submission), and an admin sees a
+                  // real count instead of a single-student status that used
+                  // to be meaningless in this view.
+                  let statusBadge: React.ReactNode;
+                  if (effectiveRole === 'audio_engineer') {
+                    const pendingCount = submissions.filter(s => s.moduleId === mod.id && s.status === 'submitted').length;
+                    statusBadge = pendingCount > 0 ? (
+                      <span className="bg-[#F4511E] text-white border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{pendingCount} Pending</span>
+                    ) : (
+                      <span className="bg-black/20 text-white/90 border-2 border-black/40 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Clear</span>
+                    );
+                  } else if (effectiveRole === 'admin') {
+                    const totalCount = submissions.filter(s => s.moduleId === mod.id).length;
+                    statusBadge = (
+                      <span className="bg-white/20 text-white border-2 border-white/40 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{totalCount} Submitted</span>
+                    );
+                  } else if (sub?.status === 'graded') {
+                    const unseen = currentUser ? !isGradeSeen(currentUser.id, mod.id) : false;
+                    statusBadge = (
+                      <span className="inline-flex items-center gap-1 bg-[#3DDC97]/30 text-[#0f3d28] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">
+                        {unseen && <span className="w-1.5 h-1.5 rounded-full bg-[#F4511E]" title="New feedback" />}
+                        Graded
+                      </span>
+                    );
                   } else if (sub?.status === 'submitted') {
                     statusBadge = <span className="bg-white text-[#1E40AF] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Submitted</span>;
-                  } else if (sub?.status === 'in_progress' || (isSelected && !sub)) {
-                    statusBadge = <span className="bg-[#F4511E] text-white border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">In Progress</span>;
                   } else {
                     statusBadge = <span className="bg-black/20 text-white/90 border-2 border-black/40 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Not Started</span>;
                   }
