@@ -31,20 +31,34 @@ const isDirectVideoFile = (url: string): boolean => /\.(mp4|webm|ogg)(\?|$)/i.te
 // youtube.com) so we can listen for real playback completion via the
 // IFrame Player API, and call onEnded - the signal the homework deadline
 // is anchored to. Loads the API script once and reuses it across mounts.
+//
+// YT.Player REPLACES the element it's handed with an <iframe>, pulling that
+// node out of the document. It must never be given a React-rendered element:
+// React would later try to remove a node that's no longer in the DOM and
+// throw NotFoundError mid-commit, blanking the whole app (the "blank page
+// when switching modules" bug). So React owns only the outer host div, and
+// the player gets a throwaway inner div created imperatively here.
 const YouTubePlayer: React.FC<{ videoId: string; onEnded: () => void }> = ({ videoId, onEnded }) => {
-  const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2)}`).current;
+  const hostRef = useRef<HTMLDivElement>(null);
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
 
   useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
     let player: any;
     let cancelled = false;
     const w = window as any;
 
+    const target = document.createElement('div');
+    host.appendChild(target);
+
     const createPlayer = () => {
       if (cancelled) return;
-      player = new w.YT.Player(containerId, {
+      player = new w.YT.Player(target, {
         videoId,
+        width: '100%',
+        height: '100%',
         events: {
           onStateChange: (event: any) => {
             if (event.data === w.YT.PlayerState.ENDED) onEndedRef.current();
@@ -71,11 +85,19 @@ const YouTubePlayer: React.FC<{ videoId: string; onEnded: () => void }> = ({ vid
 
     return () => {
       cancelled = true;
-      player?.destroy?.();
+      try {
+        player?.destroy?.();
+      } catch {
+        // A player mid-initialization can throw on destroy; the host wipe
+        // below cleans up whatever it left behind either way.
+      }
+      // Remove whatever YT left in the host (iframe or restored div) so
+      // React never sees children it didn't render.
+      host.textContent = '';
     };
-  }, [videoId, containerId]);
+  }, [videoId]);
 
-  return <div id={containerId} className="w-full h-full" />;
+  return <div ref={hostRef} className="w-full h-full" />;
 };
 
 export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
@@ -89,6 +111,18 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
   const sub = submissions.find(s => s.moduleId === moduleId && s.userId === currentUser?.id);
   const video = moduleVideos.find(v => v.moduleId === moduleId);
   const grade = sub ? grades.find(g => g.submissionId === sub.id) : null;
+
+  // Opening a graded module is how a designer "discovers" their feedback
+  // today - mark it seen here so the sidebar's unseen-grade badge (see
+  // notifications.ts) clears once they've actually looked at it.
+  //
+  // Must stay above the early return below: hooks can't be conditional, and
+  // `mod` can flip between found/not-found across renders of this same
+  // mounted component (module deleted remotely, stale hash link), which
+  // would otherwise crash React with "Rendered fewer hooks than expected".
+  useEffect(() => {
+    if (grade && currentUser) markGradeSeen(currentUser.id, moduleId);
+  }, [grade?.id, currentUser?.id, moduleId]);
 
   if (!mod) return <div className="p-10">Module not found</div>;
 
@@ -144,13 +178,6 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
   // Once a submission is graded the deadline no longer matters - don't show
   // stale/overdue urgency for work that's already been turned in and scored.
   const isOverdue = !!deadline && sub?.status !== 'graded' && deadline.getTime() < Date.now();
-
-  // Opening a graded module is how a designer "discovers" their feedback
-  // today - mark it seen here so the sidebar's unseen-grade badge (see
-  // notifications.ts) clears once they've actually looked at it.
-  useEffect(() => {
-    if (grade && currentUser) markGradeSeen(currentUser.id, moduleId);
-  }, [grade?.id, currentUser?.id, moduleId]);
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
