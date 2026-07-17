@@ -1,11 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../store';
-import { Resource, RubricCriterion } from '../types';
+import { Module, Resource, RubricCriterion } from '../types';
 import { computeProgress } from '../progress';
 
 const splitPeriodList = (text: string) => text.split('.').map(s => s.trim()).filter(Boolean);
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 const CATEGORIES = ['Onboarding', 'Intermediate', 'Advanced'] as const;
+
+// What a module needs before a designer/engineer actually gets value out of
+// it - the lesson text, what it's teaching, what it's teaching toward, and
+// what it's graded against. Video and homework link are deliberately left
+// out: both already have their own "not set yet" states elsewhere (the
+// "Video coming soon" placeholder, the Assignment Materials card only
+// showing when a link exists) instead of being treated as broken.
+const getMissingContentFields = (mod: Module): string[] => {
+  const missing: string[] = [];
+  if (!mod.textContent?.trim()) missing.push('Content');
+  if (!mod.objectives?.length) missing.push('Objectives');
+  if (!mod.outcomes?.length) missing.push('Outcomes');
+  if (!mod.rubric?.trim() && !mod.rubricCriteria?.length) missing.push('Rubric');
+  return missing;
+};
 
 // Parses a rubric pasted as plain text (e.g. copied out of Notion) into
 // structured criteria. Expected shape per sub-skill:
@@ -516,6 +531,9 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 📚 Curriculum Management
               </h3>
               <div className="flex items-center gap-3">
+                <span className="bg-black text-white text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
+                  {modules.filter(m => getMissingContentFields(m).length === 0).length} / {modules.length} Complete
+                </span>
                 <span className="flex items-center gap-1.5 bg-white border-2 border-black rounded-full px-3 py-1 text-xs font-black text-[#2A8F62]">
                   <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
                 </span>
@@ -530,6 +548,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             <div className="grid gap-6">
               {modules.sort((a, b) => a.order - b.order).map((mod, i) => {
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
+                const missingFields = getMissingContentFields(mod);
                 return (
                 <div key={mod.id} className="bg-white rounded-2xl p-6 border-[3px] border-black">
                   {editingModule === mod.id ? (
@@ -790,7 +809,21 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           {mod.label || mod.order.toString().padStart(2, '0')}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-black text-lg leading-tight">{mod.title}</h4>
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <h4 className="font-black text-lg leading-tight">{mod.title}</h4>
+                            {missingFields.length === 0 ? (
+                              <span className="bg-[#3DDC97]/30 text-[#2A8F62] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0">
+                                ✓ Complete
+                              </span>
+                            ) : (
+                              <span
+                                className="bg-[#F4511E]/20 text-[#C53914] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0"
+                                title={`Missing: ${missingFields.join(', ')}`}
+                              >
+                                Missing {missingFields.join(', ')}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-600 mt-1 mb-2">{mod.description}</p>
                           <div className="flex gap-2 flex-wrap">
                             <span className="bg-gray-100 border-2 border-black px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide">
