@@ -108,8 +108,8 @@ const SubmissionCard: React.FC<{
         </div>
       </div>
     ) : (
-      <div className="flex gap-4 items-start border-t-2 border-black/10 pt-4 mt-2">
-        <div className="w-32">
+      <div className="flex flex-col sm:flex-row gap-4 sm:items-start border-t-2 border-black/10 pt-4 mt-2">
+        <div className="w-full sm:w-32">
           <select
             value={score || ''}
             onChange={(e) => onScoreChange(parseInt(e.target.value) as 1 | 2 | 3 | 4)}
@@ -200,7 +200,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
-      <header className="h-20 bg-white border-b-[3px] border-black flex items-center justify-between px-10 flex-shrink-0 gap-4">
+      <header className="min-h-20 bg-white border-b-[3px] border-black flex items-center justify-between flex-wrap px-4 md:px-10 py-3 flex-shrink-0 gap-4">
         <div className="min-w-0">
           <h2 className="text-2xl font-black text-black truncate">
             {tab === 'queue' ? 'Review Queue' : `Module ${mod ? (mod.label || mod.order.toString().padStart(2, '0')) : ''} Tasks`}
@@ -236,7 +236,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
         </div>
       </header>
 
-      <div className="flex-1 p-10 flex flex-col gap-6 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 lg:p-10 flex flex-col gap-6 overflow-y-auto">
         {tab === 'queue' ? (
           pendingSubmissions.length === 0 ? (
             <div className="bg-white rounded-2xl p-10 border-[3px] border-black text-center">
@@ -274,7 +274,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                 <span className="w-8 h-8 rounded-full border-2 border-black bg-[#E0F2FE] flex items-center justify-center text-sm">📘</span>
                 Module Details
               </h3>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {mod.objectives && (
                   <div className="bg-gray-100 p-4 rounded-xl">
                     <h4 className="text-xs font-black text-gray-500 uppercase mb-2">Objectives</h4>
@@ -374,7 +374,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                 <p className="text-xs text-gray-500 font-bold mb-4">Assigned task: {videoTask.title}</p>
               )}
               {videoTask ? (
-                <div className="flex gap-4 items-center">
+                <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
                   <div className="flex-1">
                     <input
                       type="text"

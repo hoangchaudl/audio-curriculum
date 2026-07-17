@@ -29,6 +29,7 @@ interface AppContextType extends AppState {
   deleteSubmission: (moduleId: string) => void;
   markVideoWatched: (moduleId: string) => void;
   gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string, criterionScores?: Grade['criterionScores']) => void;
+  createVideoTask: (engineerId: string, moduleId: string, title: string) => void;
   updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
   updateUserRole: (userId: string, role: User['role']) => void;
@@ -379,6 +380,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // The admin side of the video task workflow - firestore.rules reserves
+  // *creating* a videoTasks doc for admins, matching the engineer-side
+  // updateVideoTask below which can only ever update one already assigned.
+  const createVideoTask = async (engineerId: string, moduleId: string, title: string) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const id = `vt_${Date.now()}`;
+    const newTask: VideoTask = {
+      id,
+      moduleId,
+      engineerId,
+      title: title.trim(),
+      status: 'pending',
+      assignedAt: new Date().toISOString(),
+    };
+    try {
+      await setDoc(doc(db, 'videoTasks', id), newTask);
+    } catch (error) {
+      console.error('Error creating video task', error);
+    }
+  };
+
   // Only ever updates a task an admin has already assigned - firestore.rules
   // reserves *creating* a videoTasks doc for admins, and an engineer typing a
   // link for a module with no assigned task has nothing to update (see the
@@ -487,6 +509,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteSubmission,
         markVideoWatched,
         gradeHomework,
+        createVideoTask,
         updateVideoTask,
         updateUserAvatar,
         updateUserRole,
