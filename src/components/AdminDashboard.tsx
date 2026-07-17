@@ -76,9 +76,11 @@ export const AdminDashboard: React.FC = () => {
 
   const handleSaveModule = () => {
     if (editingModule) {
+      const parsedOrder = Number(editForm.order);
+      const fallbackOrder = modules.find(m => m.id === editingModule)?.order ?? 1;
       updateModule(editingModule, {
         ...editForm,
-        order: Number(editForm.order) || editForm.order,
+        order: parsedOrder > 0 ? parsedOrder : fallbackOrder,
         outline: splitLines(outlineText),
         objectives: splitPeriodList(objectivesText),
         outcomes: splitPeriodList(outcomesText),
@@ -375,6 +377,37 @@ export const AdminDashboard: React.FC = () => {
                 <div key={mod.id} className="bg-white rounded-2xl p-6 border-[3px] border-black">
                   {editingModule === mod.id ? (
                     <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Category</label>
+                          <select
+                            value={editForm.category || 'Onboarding'}
+                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          >
+                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Order</label>
+                          <input
+                            type="number"
+                            value={editForm.order ?? ''}
+                            onChange={(e) => setEditForm({ ...editForm, order: e.target.value })}
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Label (optional)</label>
+                          <input
+                            type="text"
+                            value={editForm.label || ''}
+                            onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
+                            placeholder="e.g. A, 4"
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          />
+                        </div>
+                      </div>
                       <div>
                         <label className="block text-xs font-black text-gray-500 uppercase mb-1">Title</label>
                         <input
@@ -401,6 +434,15 @@ export const AdminDashboard: React.FC = () => {
                         />
                       </div>
                       <div>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Outline (one step per line)</label>
+                        <textarea
+                          value={outlineText}
+                          onChange={(e) => setOutlineText(e.target.value)}
+                          placeholder={'1. Intro to EQ\n2. Subtractive vs Additive EQ'}
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-20"
+                        />
+                      </div>
+                      <div>
                         <label className="block text-xs font-black text-gray-500 uppercase mb-1">Learning Objectives (period separated)</label>
                         <textarea
                           value={objectivesText}
@@ -416,6 +458,37 @@ export const AdminDashboard: React.FC = () => {
                           className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
+                      <div>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Grading Rubric</label>
+                        <textarea
+                          value={editForm.rubric || ''}
+                          onChange={(e) => setEditForm({ ...editForm, rubric: e.target.value })}
+                          placeholder={'4: Excellent... 3: Good... 2: Needs work... 1: Poor...'}
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-20"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Homework Link (Drive folder)</label>
+                          <input
+                            type="text"
+                            value={editForm.homeworkLink || ''}
+                            onChange={(e) => setEditForm({ ...editForm, homeworkLink: e.target.value })}
+                            placeholder="https://drive.google.com/..."
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Homework Description</label>
+                          <input
+                            type="text"
+                            value={editForm.homeworkDescription || ''}
+                            onChange={(e) => setEditForm({ ...editForm, homeworkDescription: e.target.value })}
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          />
+                        </div>
+                      </div>
 
                       <div>
                         <label className="block text-xs font-black text-gray-500 uppercase mb-1">Additional Materials (one link or book title per line)</label>
@@ -426,6 +499,35 @@ export const AdminDashboard: React.FC = () => {
                           className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-32"
                         />
                         <p className="text-[10px] text-gray-400 mt-1">Paste a link or type a book/article title on each line - we'll sort out the type automatically.</p>
+                      </div>
+
+                      <div className="border-2 border-dashed border-black/30 rounded-xl p-4 space-y-3">
+                        <p className="text-xs font-black text-gray-500 uppercase">Module Video</p>
+                        <div className="grid grid-cols-[auto_1fr] gap-3">
+                          <select
+                            value={videoType}
+                            onChange={(e) => setVideoType(e.target.value as 'internal' | 'external')}
+                            className="bg-gray-50 border-2 border-black rounded-xl p-3 text-sm font-medium"
+                          >
+                            <option value="external">External (YouTube/link)</option>
+                            <option value="internal">Internal (hosted file)</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={videoUrl}
+                            onChange={(e) => setVideoUrl(e.target.value)}
+                            placeholder="https://youtube.com/watch?v=..."
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={videoTitle}
+                          onChange={(e) => setVideoTitle(e.target.value)}
+                          placeholder="Video title"
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                        />
+                        <p className="text-[10px] text-gray-400">Leave the URL blank and save to remove the video from this module.</p>
                       </div>
 
                       <div className="flex gap-2 pt-2">
@@ -465,12 +567,20 @@ export const AdminDashboard: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleEditClick(mod)}
-                        className="bg-white border-[3px] border-black text-black hover:bg-black hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide flex-shrink-0"
-                      >
-                        Edit
-                      </button>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleEditClick(mod)}
+                          className="bg-white border-[3px] border-black text-black hover:bg-black hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteModule(mod)}
+                          className="bg-white border-[3px] border-black text-[#B23A2E] hover:bg-[#B23A2E] hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
