@@ -306,27 +306,26 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               </h4>
               <ul className="space-y-3">
                 {mod.additionalMaterials.map((material, idx) => (
-                  <li key={idx} className="flex items-center justify-between p-4 bg-gray-50 border-2 border-black rounded-xl">
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">
-                          {material.type === 'video' ? '🎥' : material.type === 'book' ? '📖' : '📄'}
-                        </span>
+                  <li key={idx} className="flex flex-col p-4 bg-gray-50 border-2 border-black rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">
+                        {material.type === 'video' ? '🎥' : material.type === 'book' ? '📖' : '📄'}
+                      </span>
+                      {material.url ? (
+                        <a
+                          href={material.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-bold text-gray-800 underline decoration-2 underline-offset-2 hover:text-[#2E9DF7] transition-colors"
+                        >
+                          {material.title}
+                        </a>
+                      ) : (
                         <span className="text-sm font-bold text-gray-800">{material.title}</span>
-                      </div>
-                      {material.author && (
-                        <span className="text-xs text-gray-500 font-medium ml-7">By {material.author}</span>
                       )}
                     </div>
-                    {material.url && (
-                      <a
-                        href={material.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-black text-black bg-white border-2 border-black px-3 py-1.5 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors"
-                      >
-                        View Link
-                      </a>
+                    {material.author && (
+                      <span className="text-xs text-gray-500 font-medium ml-7">By {material.author}</span>
                     )}
                   </li>
                 ))}
