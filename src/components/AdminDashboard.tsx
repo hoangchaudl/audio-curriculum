@@ -1,10 +1,50 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
-import { Resource } from '../types';
+import { Resource, RubricCriterion } from '../types';
 
 const splitPeriodList = (text: string) => text.split('.').map(s => s.trim()).filter(Boolean);
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 const CATEGORIES = ['Onboarding', 'Intermediate', 'Advanced'] as const;
+
+// Parses a rubric pasted as plain text (e.g. copied out of Notion) into
+// structured criteria. Expected shape per sub-skill:
+//   Rubric (1 = Just Starting · 4 = Strong · 3+ = pass)   <- optional note
+//   Sub-skill 1: DX chain order
+//   Score  What it looks like in the session              <- optional column label
+//   1  Plugins in no deliberate order...
+//   ...
+//   4  Chain is correct and minimal...
+// Lines that don't start a new score are treated as the previous
+// descriptor wrapping onto the next line.
+const parseRubricText = (text: string): { note?: string; criteria: RubricCriterion[] } => {
+  const criteria: RubricCriterion[] = [];
+  let note: string | undefined;
+  let current: RubricCriterion | null = null;
+  let lastLevel = -1;
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\*\*/g, '').trim();
+    if (!line) continue;
+    const subMatch = line.match(/^sub-?skill\s*\d*\s*[:.\-]\s*(.+)$/i);
+    const headerMatch = line.match(/^score[\t ]+(.+)/i);
+    const levelMatch = line.match(/^([1-4])[\t.):]\s*(.+)/) || line.match(/^([1-4])\s+(.+)/);
+    if (!current && /^rubric\b/i.test(line)) {
+      const inParens = line.match(/\((.+)\)/);
+      note = (inParens ? inParens[1] : line.replace(/^rubric\s*/i, '')).trim() || undefined;
+    } else if (subMatch) {
+      current = { id: `rc_${criteria.length + 1}_${Date.now()}`, title: subMatch[1].trim(), levels: ['', '', '', ''] };
+      criteria.push(current);
+      lastLevel = -1;
+    } else if (current && headerMatch) {
+      current.scoreLabel = headerMatch[1].trim();
+    } else if (current && levelMatch) {
+      lastLevel = parseInt(levelMatch[1]) - 1;
+      current.levels[lastLevel] = levelMatch[2].trim();
+    } else if (current && lastLevel >= 0) {
+      current.levels[lastLevel] = `${current.levels[lastLevel]} ${line}`.trim();
+    }
+  }
+  return { note, criteria };
+};
 
 // Admins just paste a link or type a book/article title, one per line - we
 // infer the resource type instead of asking them to hand-write JSON.
@@ -45,6 +85,8 @@ export const AdminDashboard: React.FC = () => {
   const [outcomesText, setOutcomesText] = useState('');
   const [materialsText, setMaterialsText] = useState('');
   const [outlineText, setOutlineText] = useState('');
+  const [rubricCriteria, setRubricCriteria] = useState<RubricCriterion[]>([]);
+  const [rubricPaste, setRubricPaste] = useState('');
   const [videoType, setVideoType] = useState<'internal' | 'external'>('external');
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -56,6 +98,8 @@ export const AdminDashboard: React.FC = () => {
     setOutcomesText((mod.outcomes || []).join('. '));
     setMaterialsText(materialsToText(mod.additionalMaterials));
     setOutlineText((mod.outline || []).join('\n'));
+    setRubricCriteria(mod.rubricCriteria || []);
+    setRubricPaste('');
     const video = moduleVideos.find(v => v.moduleId === mod.id);
     setVideoType(video?.type || 'external');
     setVideoTitle(video?.title || '');
@@ -85,6 +129,9 @@ export const AdminDashboard: React.FC = () => {
         objectives: splitPeriodList(objectivesText),
         outcomes: splitPeriodList(outcomesText),
         additionalMaterials: parseMaterialsText(materialsText),
+        // Drop sub-skills the admin left completely blank rather than saving
+        // empty tables.
+        rubricCriteria: rubricCriteria.filter(c => c.title.trim() || c.levels.some(l => l.trim())),
       });
       if (videoUrl.trim()) {
         upsertModuleVideo(editingModule, { type: videoType, url: videoUrl.trim(), title: videoTitle.trim() || 'Module Video' });
@@ -93,6 +140,30 @@ export const AdminDashboard: React.FC = () => {
       }
       setEditingModule(null);
     }
+  };
+
+  const addCriterion = () =>
+    setRubricCriteria([...rubricCriteria, { id: `rc_${rubricCriteria.length + 1}_${Date.now()}`, title: '', levels: ['', '', '', ''] }]);
+  const removeCriterion = (idx: number) => setRubricCriteria(rubricCriteria.filter((_, i) => i !== idx));
+  const patchCriterion = (idx: number, patch: Partial<RubricCriterion>) =>
+    setRubricCriteria(rubricCriteria.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  const setCriterionLevel = (idx: number, levelIdx: number, value: string) =>
+    setRubricCriteria(rubricCriteria.map((c, i) => {
+      if (i !== idx) return c;
+      const levels = [...c.levels] as RubricCriterion['levels'];
+      levels[levelIdx] = value;
+      return { ...c, levels };
+    }));
+
+  const handleImportRubric = () => {
+    const { note, criteria } = parseRubricText(rubricPaste);
+    if (criteria.length === 0) {
+      alert('Could not find any "Sub-skill N: ..." sections in the pasted text.');
+      return;
+    }
+    setRubricCriteria(criteria);
+    if (note) setEditForm({ ...editForm, rubricNote: note });
+    setRubricPaste('');
   };
 
   const newVideosCount = videoTasks.filter(vt => vt.status === 'completed').length;
@@ -458,14 +529,92 @@ export const AdminDashboard: React.FC = () => {
                           className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Grading Rubric</label>
-                        <textarea
-                          value={editForm.rubric || ''}
-                          onChange={(e) => setEditForm({ ...editForm, rubric: e.target.value })}
-                          placeholder={'4: Excellent... 3: Good... 2: Needs work... 1: Poor...'}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-20"
-                        />
+                      <div className="border-2 border-dashed border-black/30 rounded-xl p-4 space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <p className="text-xs font-black text-gray-500 uppercase">Grading Rubric (sub-skills)</p>
+                          <button
+                            onClick={addCriterion}
+                            className="bg-white border-2 border-black text-black font-black uppercase text-[10px] tracking-wide px-3 py-1.5 rounded-full hover:bg-black hover:text-white transition-colors"
+                          >
+                            + Add Sub-skill
+                          </button>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Scale Note</label>
+                          <input
+                            type="text"
+                            value={editForm.rubricNote || ''}
+                            onChange={(e) => setEditForm({ ...editForm, rubricNote: e.target.value })}
+                            placeholder="1 = Just Starting · 4 = Strong · 3+ = pass"
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          />
+                        </div>
+                        {rubricCriteria.map((criterion, ci) => (
+                          <div key={criterion.id} className="border-2 border-black rounded-xl p-3 space-y-2 bg-gray-50">
+                            <div className="flex gap-2 items-center">
+                              <span className="flex-shrink-0 text-[10px] font-black uppercase text-gray-400">Sub-skill {ci + 1}</span>
+                              <input
+                                type="text"
+                                value={criterion.title}
+                                onChange={(e) => patchCriterion(ci, { title: e.target.value })}
+                                placeholder="Title, e.g. DX chain order"
+                                className="flex-1 bg-white border-2 border-black rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-[#3DDC97] transition-all"
+                              />
+                              <input
+                                type="text"
+                                value={criterion.scoreLabel || ''}
+                                onChange={(e) => patchCriterion(ci, { scoreLabel: e.target.value })}
+                                placeholder="Column label, e.g. What it looks like on playback"
+                                className="flex-1 bg-white border-2 border-black rounded-xl p-2.5 text-xs font-medium focus:ring-2 focus:ring-[#3DDC97] transition-all"
+                              />
+                              <button
+                                onClick={() => removeCriterion(ci)}
+                                className="flex-shrink-0 text-[10px] font-black uppercase text-[#B23A2E] bg-white border-2 border-black px-2.5 py-2 rounded-full hover:bg-[#B23A2E] hover:text-white transition-colors"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            {criterion.levels.map((level, li) => (
+                              <div key={li} className="flex gap-2 items-start">
+                                <span className="flex-shrink-0 w-6 h-6 bg-white border-2 border-black rounded-full flex items-center justify-center text-[10px] font-black text-gray-600 mt-1.5">
+                                  {li + 1}
+                                </span>
+                                <textarea
+                                  value={level}
+                                  onChange={(e) => setCriterionLevel(ci, li, e.target.value)}
+                                  placeholder={`What a score of ${li + 1} looks like...`}
+                                  className="flex-1 bg-white border-2 border-black rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all h-14"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Import from pasted text</label>
+                          <textarea
+                            value={rubricPaste}
+                            onChange={(e) => setRubricPaste(e.target.value)}
+                            placeholder={'Paste from Notion, e.g.:\nRubric (1 = Just Starting · 4 = Strong · 3+ = pass)\nSub-skill 1: DX chain order\nScore\tWhat it looks like in the session\n1\tPlugins in no deliberate order...\n2\t...'}
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
+                          />
+                          <button
+                            onClick={handleImportRubric}
+                            disabled={!rubricPaste.trim()}
+                            className="mt-2 bg-[#E0F2FE] border-2 border-black text-[#1E40AF] font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-40"
+                          >
+                            Parse & Fill Sub-skills
+                          </button>
+                          <p className="text-[10px] text-gray-400 mt-1">Replaces the sub-skills above with what's parsed from the pasted text. Nothing is saved until you hit Save Changes.</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-gray-500 uppercase mb-1">Plain-text Rubric (legacy fallback)</label>
+                          <textarea
+                            value={editForm.rubric || ''}
+                            onChange={(e) => setEditForm({ ...editForm, rubric: e.target.value })}
+                            placeholder={'Only shown when no sub-skills are defined above.'}
+                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-16"
+                          />
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
