@@ -14,6 +14,13 @@ import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
 import { getNextActionableModule } from './progress';
 
+// Modules are addressable via the URL hash (#/module/<id>) so each one has
+// a shareable, bookmarkable link and the browser back/forward buttons work.
+const getModuleIdFromHash = (): string => {
+  const match = window.location.hash.match(/^#\/module\/(.+)$/);
+  return match ? decodeURIComponent(match[1]) : '';
+};
+
 const AppContent = () => {
   const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
@@ -49,12 +56,28 @@ const AppContent = () => {
     if (currentUser.role === 'sound_designer' && !submissionsLoaded) return;
     if (defaultAppliedForUser.current === currentUser.id) return;
     defaultAppliedForUser.current = currentUser.id;
+    // A module named in the URL (#/module/<id>) wins over the computed
+    // default, so shared/bookmarked module links land where they point.
+    const fromHash = getModuleIdFromHash();
+    if (fromHash && modules.some(m => m.id === fromHash)) {
+      setSelectedModuleId(fromHash);
+      return;
+    }
     const sorted = [...modules].sort((a, b) => a.order - b.order);
     const nextId = currentUser.role === 'sound_designer'
       ? getNextActionableModule(modules, submissions, currentUser.id)?.id
       : sorted[0]?.id;
     if (nextId) setSelectedModuleId(nextId);
   }, [currentUser, modules, submissions, submissionsLoaded]);
+
+  // Keep the URL hash in sync with the selected module so every module has
+  // its own link. Assigning location.hash pushes a history entry, which is
+  // what makes browser back/forward step through visited modules.
+  useEffect(() => {
+    if (!selectedModuleId || view !== 'module') return;
+    const target = `#/module/${selectedModuleId}`;
+    if (window.location.hash !== target) window.location.hash = target;
+  }, [selectedModuleId, view]);
 
   // Bumped every time the sidebar is used to jump to a module - lets
   // AdminDashboard tell "the admin just clicked a module in the sidebar"
@@ -86,6 +109,21 @@ const AppContent = () => {
 
   const isRealAdmin = currentUser?.role === 'admin';
   const effectiveRole: Role | undefined = isRealAdmin ? (previewRole ?? 'admin') : currentUser?.role;
+
+  // Handle the browser back/forward buttons (and pasted #/module/<id>
+  // links after the app is already open): parse the hash and select that
+  // module. Setting the same id again is a no-op, so the hash-sync effect
+  // above and this listener don't loop.
+  useEffect(() => {
+    const handleHashChange = () => {
+      const id = getModuleIdFromHash();
+      if (!id) return;
+      setSelectedModuleId(id);
+      setView('module');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Listen to custom event from sidebar to open profile
   useEffect(() => {
