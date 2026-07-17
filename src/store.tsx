@@ -20,6 +20,11 @@ interface AppContextType extends AppState {
   hasSession: boolean;
   authLoading: boolean;
   authError: string | null;
+  // True once the submissions listener has delivered its first snapshot
+  // (even an empty one) for the current session - lets callers that pick a
+  // default based on submissions (see App.tsx) wait for real data instead
+  // of racing an empty initial array and locking in the wrong default.
+  submissionsLoaded: boolean;
   clearAuthError: () => void;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string, role: User['role'], pod?: string) => Promise<boolean>;
@@ -32,6 +37,7 @@ interface AppContextType extends AppState {
   createVideoTask: (engineerId: string, moduleId: string, title: string) => void;
   updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
+  updateUserName: (userId: string, name: string) => void;
   updateUserRole: (userId: string, role: User['role']) => void;
   updateModule: (moduleId: string, updates: Partial<Module>) => void;
   createModule: () => Promise<Module>;
@@ -86,6 +92,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [submissionsLoaded, setSubmissionsLoaded] = useState(false);
 
   const clearAuthError = () => setAuthError(null);
 
@@ -111,6 +118,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // showing the local curriculum fallback rather than blanking it.
         setState(s => ({ ...s, users: [], submissions: [], grades: [], videoTasks: [], videoProgress: [] }));
         setAuthLoading(false);
+        setSubmissionsLoaded(false);
         return;
       }
 
@@ -151,6 +159,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const submissions: Submission[] = [];
         snapshot.forEach(d => submissions.push(d.data() as Submission));
         setState(s => ({ ...s, submissions }));
+        setSubmissionsLoaded(true);
       }, onError('submissions')));
 
       unsubscribers.push(onSnapshot(collection(db, 'grades'), (snapshot) => {
@@ -281,6 +290,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(userRef, { avatarBase64 }, { merge: true });
     } catch (error) {
       console.error('Error updating avatar in Firestore', error);
+    }
+  };
+
+  const updateUserName = async (userId: string, name: string) => {
+    try {
+      await setDoc(doc(db, 'users', userId), { name }, { merge: true });
+    } catch (error) {
+      console.error('Error updating name in Firestore', error);
     }
   };
 
@@ -447,7 +464,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: 'Onboarding',
       title: 'New Module',
       description: '',
-      textContent: '',
     };
     await setDoc(doc(db, 'modules', id), newModule);
     return newModule;
@@ -500,6 +516,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         hasSession: authUid !== null,
         authLoading,
         authError,
+        submissionsLoaded,
         clearAuthError,
         login,
         signup,
@@ -512,6 +529,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createVideoTask,
         updateVideoTask,
         updateUserAvatar,
+        updateUserName,
         updateUserRole,
         updateModule,
         createModule,

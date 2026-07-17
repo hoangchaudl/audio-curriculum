@@ -1,10 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
-import { Resource, RubricCriterion } from '../types';
+import { Module, Resource, RubricCriterion, User } from '../types';
+import { computeProgress } from '../progress';
+import { ConfirmModal } from './ConfirmModal';
 
-const splitPeriodList = (text: string) => text.split('.').map(s => s.trim()).filter(Boolean);
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 const CATEGORIES = ['Onboarding', 'Intermediate', 'Advanced'] as const;
+
+// What a module needs before a designer/engineer actually gets value out of
+// it - the lesson text, what it's teaching, what it's teaching toward, and
+// what it's graded against. Video and homework link are deliberately left
+// out: both already have their own "not set yet" states elsewhere (the
+// "Video coming soon" placeholder, the Assignment Materials card only
+// showing when a link exists) instead of being treated as broken.
+const getMissingContentFields = (mod: Module): string[] => {
+  const missing: string[] = [];
+  if (!mod.description?.trim()) missing.push('Content');
+  if (!mod.objectives?.length) missing.push('Objectives');
+  if (!mod.outcomes?.length) missing.push('Outcomes');
+  if (!mod.rubric?.trim() && !mod.rubricCriteria?.length) missing.push('Rubric');
+  return missing;
+};
 
 // Parses a rubric pasted as plain text (e.g. copied out of Notion) into
 // structured criteria. Expected shape per sub-skill:
@@ -69,7 +85,7 @@ const CARD_THEMES = [
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-export const AdminDashboard: React.FC = () => {
+export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number }> = ({ focusModuleId, focusNonce }) => {
   const {
     users, modules, moduleVideos, submissions, grades, videoTasks,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo, createVideoTask,
@@ -105,32 +121,80 @@ export const AdminDashboard: React.FC = () => {
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
 
+  // Replaces the native confirm()/alert() popups previously used for
+  // destructive/role actions (delete module, promote/demote) with the
+  // app's own branded modal, rendered once at the bottom of this component.
+  const [pendingConfirm, setPendingConfirm] = useState<
+    | { kind: 'delete-module'; mod: Module }
+    | { kind: 'promote'; user: User }
+    | { kind: 'demote'; user: User }
+    | null
+  >(null);
+
   const handleEditClick = (mod: any) => {
     setEditingModule(mod.id);
     setEditForm({ ...mod });
-    setObjectivesText((mod.objectives || []).join('. '));
-    setOutcomesText((mod.outcomes || []).join('. '));
+    setObjectivesText((mod.objectives || []).join('\n'));
+    setOutcomesText((mod.outcomes || []).join('\n'));
     setMaterialsText(materialsToText(mod.additionalMaterials));
     setOutlineText((mod.outline || []).join('\n'));
     setRubricCriteria(mod.rubricCriteria || []);
     setRubricPaste('');
+    setRubricParseError(null);
     const video = moduleVideos.find(v => v.moduleId === mod.id);
     setVideoType(video?.type || 'external');
     setVideoTitle(video?.title || '');
     setVideoUrl(video?.url || '');
   };
 
-  const handleAddModule = async () => {
+  // Dirty-tracks the open editor so switching what's being edited (Edit on
+  // another card, a sidebar quick-jump, Add Module) can warn before wiping
+  // out in-progress work instead of silently overwriting editForm. The ref
+  // tells "editingModule itself just changed - this is a fresh load, not an
+  // edit" apart from "some field changed while the same module stayed open."
+  const loadedModuleRef = useRef<string | null>(null);
+  const [isEditDirty, setIsEditDirty] = useState(false);
+  useEffect(() => {
+    if (loadedModuleRef.current !== editingModule) {
+      loadedModuleRef.current = editingModule;
+      setIsEditDirty(false);
+      return;
+    }
+    if (editingModule) setIsEditDirty(true);
+  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materialsText, rubricCriteria, videoType, videoTitle, videoUrl]);
+
+  const [discardConfirmAction, setDiscardConfirmAction] = useState<(() => void) | null>(null);
+  const requestEditChange = (action: () => void) => {
+    if (isEditDirty) {
+      setDiscardConfirmAction(() => action);
+    } else {
+      action();
+    }
+  };
+
+  // Clicking a module in the sidebar used to do nothing here - the list
+  // highlighted and showed statuses like it was live navigation, but
+  // AdminDashboard ignored the selected id entirely. focusNonce (bumped by
+  // App.tsx on every sidebar module click) lets us tell "the admin just
+  // clicked a module" apart from "focusModuleId happens to hold some value
+  // because that's what a fresh mount was handed" - only the former should
+  // jump into editing it.
+  useEffect(() => {
+    if (!focusNonce || !focusModuleId) return;
+    const mod = modules.find(m => m.id === focusModuleId);
+    if (!mod) return;
+    setActiveTab('modules');
+    requestEditChange(() => handleEditClick(mod));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNonce]);
+
+  const handleAddModule = () => requestEditChange(async () => {
     const newModule = await createModule();
     setActiveTab('modules');
     handleEditClick(newModule);
-  };
+  });
 
-  const handleDeleteModule = (mod: { id: string; title: string }) => {
-    if (confirm(`Delete "${mod.title}"? This removes the module and its video for everyone - existing submissions/grades for it are kept but will no longer show curriculum details.`)) {
-      deleteModule(mod.id);
-    }
-  };
+  const handleDeleteModule = (mod: Module) => setPendingConfirm({ kind: 'delete-module', mod });
 
   const handleSaveModule = () => {
     if (editingModule) {
@@ -140,8 +204,8 @@ export const AdminDashboard: React.FC = () => {
         ...editForm,
         order: parsedOrder > 0 ? parsedOrder : fallbackOrder,
         outline: splitLines(outlineText),
-        objectives: splitPeriodList(objectivesText),
-        outcomes: splitPeriodList(outcomesText),
+        objectives: splitLines(objectivesText),
+        outcomes: splitLines(outcomesText),
         additionalMaterials: parseMaterialsText(materialsText),
         // Drop sub-skills the admin left completely blank rather than saving
         // empty tables.
@@ -169,12 +233,14 @@ export const AdminDashboard: React.FC = () => {
       return { ...c, levels };
     }));
 
+  const [rubricParseError, setRubricParseError] = useState<string | null>(null);
   const handleImportRubric = () => {
     const { note, criteria } = parseRubricText(rubricPaste);
     if (criteria.length === 0) {
-      alert('Could not find any "Sub-skill N: ..." sections in the pasted text.');
+      setRubricParseError('Could not find any "Sub-skill N: ..." sections in the pasted text.');
       return;
     }
+    setRubricParseError(null);
     setRubricCriteria(criteria);
     if (note) setEditForm({ ...editForm, rubricNote: note });
     setRubricPaste('');
@@ -258,11 +324,37 @@ export const AdminDashboard: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
               </span>
             </div>
+
+            {/* The per-module chips below (a score, "Rev", or "-") only had
+                their meaning in a hover tooltip - this is the legend for
+                anyone not hovering every single one. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 bg-white border-2 border-black rounded-xl px-4 py-2.5 text-[10px] font-bold text-gray-600">
+              <span className="font-black uppercase tracking-wide text-gray-400">Module chip key:</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded border-2 border-black bg-[#3DDC97]/30 text-[#2A8F62] flex items-center justify-center font-black text-[9px]">4</span>
+                Graded (number = score)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded border-2 border-black bg-[#2E9DF7]/20 text-[#1E40AF] flex items-center justify-center font-black text-[9px]">Rev</span>
+                Submitted, awaiting review
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded border-2 border-black/20 bg-gray-100 text-gray-400 flex items-center justify-center font-black text-[9px]">–</span>
+                Not submitted yet
+              </span>
+            </div>
+
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {designers.map((designer, i) => {
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
                 const userSubmissions = submissions.filter(s => s.userId === designer.id);
-                const progress = Math.round((userSubmissions.length / modules.length) * 100);
+                // Same definition the designer sees on their own progress
+                // card (ModuleView) - this used to show submissions/total
+                // here while the student's own view showed graded/total,
+                // so the same person's progress disagreed depending who
+                // was looking.
+                const { submitted, graded, total } = computeProgress(designer.id, submissions, modules.length);
+                const gradedPercent = total > 0 ? Math.round((graded / total) * 100) : 0;
                 const userGrades = grades.filter(g => userSubmissions.some(s => s.id === g.submissionId));
                 const averageScore = userGrades.length > 0
                   ? (userGrades.reduce((acc, g) => acc + g.score, 0) / userGrades.length).toFixed(1)
@@ -299,11 +391,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
 
                       <button
-                        onClick={() => {
-                          if (confirm(`Promote ${designer.name} to Audio Engineer? They'll be able to view and grade every designer's submissions.`)) {
-                            updateUserRole(designer.id, 'audio_engineer');
-                          }
-                        }}
+                        onClick={() => setPendingConfirm({ kind: 'promote', user: designer })}
                         className="self-start text-[10px] font-black uppercase tracking-wide text-gray-600 bg-white border-2 border-black px-2.5 py-1 rounded-full hover:bg-black hover:text-white transition-colors"
                       >
                         Promote to Engineer
@@ -312,10 +400,10 @@ export const AdminDashboard: React.FC = () => {
                       <div>
                         <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
                           <span>Course Progress</span>
-                          <span>{progress}%</span>
+                          <span>{submitted} submitted · {graded} graded of {total}</span>
                         </div>
                         <div className="h-3 bg-gray-100 rounded-full overflow-hidden border-2 border-black">
-                          <div className="h-full rounded-full" style={{ width: `${progress}%`, background: theme.accent }}></div>
+                          <div className="h-full rounded-full" style={{ width: `${gradedPercent}%`, background: theme.accent }}></div>
                         </div>
                       </div>
 
@@ -397,11 +485,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
 
                       <button
-                        onClick={() => {
-                          if (confirm(`Move ${engineer.name} back to Sound Designer? They'll lose access to the roster and grading tools.`)) {
-                            updateUserRole(engineer.id, 'sound_designer');
-                          }
-                        }}
+                        onClick={() => setPendingConfirm({ kind: 'demote', user: engineer })}
                         className="self-start text-[10px] font-black uppercase tracking-wide text-gray-600 bg-white border-2 border-black px-2.5 py-1 rounded-full hover:bg-black hover:text-white transition-colors"
                       >
                         Move to Designer
@@ -473,6 +557,9 @@ export const AdminDashboard: React.FC = () => {
                 📚 Curriculum Management
               </h3>
               <div className="flex items-center gap-3">
+                <span className="bg-black text-white text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
+                  {modules.filter(m => getMissingContentFields(m).length === 0).length} / {modules.length} Complete
+                </span>
                 <span className="flex items-center gap-1.5 bg-white border-2 border-black rounded-full px-3 py-1 text-xs font-black text-[#2A8F62]">
                   <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
                 </span>
@@ -487,6 +574,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="grid gap-6">
               {modules.sort((a, b) => a.order - b.order).map((mod, i) => {
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
+                const missingFields = getMissingContentFields(mod);
                 return (
                 <div key={mod.id} className="bg-white rounded-2xl p-6 border-[3px] border-black">
                   {editingModule === mod.id ? (
@@ -533,18 +621,11 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-black text-gray-500 uppercase mb-1">Description</label>
+                        <p className="text-[10px] text-gray-400 mb-1">Shown on curriculum cards and as "About this Module" on the designer's page.</p>
                         <textarea
                           value={editForm.description || ''}
                           onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-14"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Text Content</label>
-                        <textarea
-                          value={editForm.textContent || ''}
-                          onChange={(e) => setEditForm({ ...editForm, textContent: e.target.value })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-16"
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
                       <div>
@@ -557,18 +638,20 @@ export const AdminDashboard: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Learning Objectives (period separated)</label>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Learning Objectives (one per line)</label>
                         <textarea
                           value={objectivesText}
                           onChange={(e) => setObjectivesText(e.target.value)}
+                          placeholder={'e.g. Understand subtractive EQ\nApply gain staging correctly'}
                           className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Outcomes (period separated)</label>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Outcomes (one per line)</label>
                         <textarea
                           value={outcomesText}
                           onChange={(e) => setOutcomesText(e.target.value)}
+                          placeholder={'e.g. A mix with balanced frequency content'}
                           className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
@@ -636,18 +719,22 @@ export const AdminDashboard: React.FC = () => {
                           <label className="block text-xs font-black text-gray-500 uppercase mb-1">Import from pasted text</label>
                           <textarea
                             value={rubricPaste}
-                            onChange={(e) => setRubricPaste(e.target.value)}
+                            onChange={(e) => { setRubricPaste(e.target.value); setRubricParseError(null); }}
                             placeholder={'Paste from Notion, e.g.:\nRubric (1 = Just Starting · 4 = Strong · 3+ = pass)\nSub-skill 1: DX chain order\nScore\tWhat it looks like in the session\n1\tPlugins in no deliberate order...\n2\t...'}
-                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
+                            className={`w-full bg-gray-50 border-2 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24 ${rubricParseError ? 'border-[#B23A2E]' : 'border-black'}`}
                           />
                           <button
                             onClick={handleImportRubric}
                             disabled={!rubricPaste.trim()}
-                            className="mt-2 bg-[#E0F2FE] border-2 border-black text-[#1E40AF] font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-40"
+                            className="mt-2 bg-[#E0F2FE] border-2 border-black text-[#1E40AF] font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-black hover:text-white transition-colors disabled:bg-gray-100 disabled:text-gray-400"
                           >
                             Parse & Fill Sub-skills
                           </button>
-                          <p className="text-[10px] text-gray-400 mt-1">Replaces the sub-skills above with what's parsed from the pasted text. Nothing is saved until you hit Save Changes.</p>
+                          {rubricParseError ? (
+                            <p className="text-[10px] text-[#B23A2E] font-bold mt-1">{rubricParseError}</p>
+                          ) : (
+                            <p className="text-[10px] text-gray-400 mt-1">Replaces the sub-skills above with what's parsed from the pasted text. Nothing is saved until you hit Save Changes.</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-xs font-black text-gray-500 uppercase mb-1">Plain-text Rubric (legacy fallback)</label>
@@ -747,7 +834,21 @@ export const AdminDashboard: React.FC = () => {
                           {mod.label || mod.order.toString().padStart(2, '0')}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-black text-lg leading-tight">{mod.title}</h4>
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <h4 className="font-black text-lg leading-tight">{mod.title}</h4>
+                            {missingFields.length === 0 ? (
+                              <span className="bg-[#3DDC97]/30 text-[#2A8F62] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0">
+                                ✓ Complete
+                              </span>
+                            ) : (
+                              <span
+                                className="bg-[#F4511E]/20 text-[#C53914] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0"
+                                title={`Missing: ${missingFields.join(', ')}`}
+                              >
+                                Missing {missingFields.join(', ')}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-600 mt-1 mb-2">{mod.description}</p>
                           <div className="flex gap-2 flex-wrap">
                             <span className="bg-gray-100 border-2 border-black px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide">
@@ -759,18 +860,25 @@ export const AdminDashboard: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <button
-                          onClick={() => handleEditClick(mod)}
+                          onClick={() => requestEditChange(() => handleEditClick(mod))}
                           className="bg-white border-[3px] border-black text-black hover:bg-black hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
                         >
                           Edit
                         </button>
+                        {/* Deliberately quieter than Edit - a delete is
+                            permanent and used to sit at equal visual weight
+                            right next to it, one mis-click from curriculum
+                            loss. Muted by default, still gated by the
+                            confirm modal below. */}
                         <button
                           onClick={() => handleDeleteModule(mod)}
-                          className="bg-white border-[3px] border-black text-[#B23A2E] hover:bg-[#B23A2E] hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
+                          title="Delete module"
+                          aria-label="Delete module"
+                          className="w-9 h-9 flex-shrink-0 flex items-center justify-center text-gray-400 border-2 border-transparent rounded-lg hover:text-white hover:bg-[#B23A2E] hover:border-black transition-colors ml-1"
                         >
-                          Delete
+                          🗑
                         </button>
                       </div>
                     </div>
@@ -789,6 +897,45 @@ export const AdminDashboard: React.FC = () => {
           <span>{grades.length} graded</span>
         </div>
       </div>
+
+      <ConfirmModal
+        open={pendingConfirm !== null}
+        title={
+          pendingConfirm?.kind === 'delete-module' ? `Delete "${pendingConfirm.mod.title}"?` :
+          pendingConfirm?.kind === 'promote' ? `Promote ${pendingConfirm.user.name}?` :
+          pendingConfirm?.kind === 'demote' ? `Move ${pendingConfirm.user.name} back to Sound Designer?` : ''
+        }
+        message={
+          pendingConfirm?.kind === 'delete-module'
+            ? "This removes the module and its video for everyone - existing submissions/grades for it are kept but will no longer show curriculum details."
+            : pendingConfirm?.kind === 'promote'
+            ? `${pendingConfirm.user.name} will be able to view and grade every designer's submissions.`
+            : pendingConfirm?.kind === 'demote'
+            ? `${pendingConfirm.user.name} will lose access to the roster and grading tools.`
+            : ''
+        }
+        confirmLabel={pendingConfirm?.kind === 'delete-module' ? 'Delete' : pendingConfirm?.kind === 'promote' ? 'Promote' : 'Move'}
+        danger={pendingConfirm?.kind === 'delete-module'}
+        onConfirm={() => {
+          if (pendingConfirm?.kind === 'delete-module') deleteModule(pendingConfirm.mod.id);
+          else if (pendingConfirm?.kind === 'promote') updateUserRole(pendingConfirm.user.id, 'audio_engineer');
+          else if (pendingConfirm?.kind === 'demote') updateUserRole(pendingConfirm.user.id, 'sound_designer');
+          setPendingConfirm(null);
+        }}
+        onCancel={() => setPendingConfirm(null)}
+      />
+
+      <ConfirmModal
+        open={discardConfirmAction !== null}
+        title="Discard Unsaved Changes?"
+        message="You have unsaved edits to this module. Switching now will discard them."
+        confirmLabel="Discard & Continue"
+        onConfirm={() => {
+          discardConfirmAction?.();
+          setDiscardConfirmAction(null);
+        }}
+        onCancel={() => setDiscardConfirmAction(null)}
+      />
     </main>
   );
 };

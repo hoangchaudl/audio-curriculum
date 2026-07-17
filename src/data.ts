@@ -36,7 +36,7 @@ export const initialData: AppState = {
   ],
   modules: [
     { 
-      id: 'mA', order: 1, label: 'A', category: 'Onboarding', title: 'Pro Tools Set Up', description: 'Initial Pro Tools setup.', textContent: 'Initial Pro Tools setup.',
+      id: 'mA', order: 1, label: 'A', category: 'Onboarding', title: 'Pro Tools Set Up', description: 'Initial Pro Tools setup.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Complete your Pro Tools installation and submit a screenshot of your configured I/O settings.',
       additionalMaterials: [
@@ -45,7 +45,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'mB', order: 2, label: 'B', category: 'Onboarding', title: 'Google Drive Workflow', description: 'Organizing files and collaborating via Google Drive.', textContent: 'Organizing files and collaborating via Google Drive.',
+      id: 'mB', order: 2, label: 'B', category: 'Onboarding', title: 'Google Drive Workflow', description: 'Organizing files and collaborating via Google Drive.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Create a standard folder structure for your first project and share the link with your pod.',
       additionalMaterials: [
@@ -54,7 +54,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm1', order: 3, label: '1', category: 'Intermediate', title: 'Dialogue Editing & Clean Up', description: 'Cleaning up speech tracks.', textContent: 'Cleaning up speech tracks.',
+      id: 'm1', order: 3, label: '1', category: 'Intermediate', title: 'Dialogue Editing & Clean Up', description: 'Cleaning up speech tracks.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Download the raw interview stems. Remove all clicks, pops, and excessive breaths without sounding unnatural. Submit the bounced .WAV file.',
       additionalMaterials: [
@@ -63,7 +63,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm2', order: 4, label: '2', category: 'Intermediate', title: 'SFX Layering', description: 'Building complex sound effects via layering.', textContent: 'Building complex sound effects via layering.',
+      id: 'm2', order: 4, label: '2', category: 'Intermediate', title: 'SFX Layering', description: 'Building complex sound effects via layering.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Use the provided library to design 3 unique weapon sounds by layering at least 4 elements each.',
       additionalMaterials: [
@@ -72,7 +72,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm3', order: 5, label: '3', category: 'Intermediate', title: 'Balancing DX, MX, FX', description: 'Balancing dialogue, music, and effects.', textContent: 'Balancing dialogue, music, and effects.',
+      id: 'm3', order: 5, label: '3', category: 'Intermediate', title: 'Balancing DX, MX, FX', description: 'Balancing dialogue, music, and effects.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Mix the provided short film scene. Ensure dialogue is intelligible over the heavy action sequence.',
       additionalMaterials: [
@@ -86,8 +86,7 @@ export const initialData: AppState = {
       label: '4',
       category: 'Intermediate',
       title: 'Full Mixing Steps', 
-      description: "In this module, we explore the surgical and creative uses of equalization. You'll learn to identify frequency clashes in a complex mix and use dynamic compression to control transients. Focus on the low-end definition without sacrificing punch.", 
-      textContent: "In this module, we explore the surgical and creative uses of equalization. You'll learn to identify frequency clashes in a complex mix and use dynamic compression to control transients. Focus on the low-end definition without sacrificing punch.",
+      description: "In this module, we explore the surgical and creative uses of equalization. You'll learn to identify frequency clashes in a complex mix and use dynamic compression to control transients. Focus on the low-end definition without sacrificing punch.",
       outline: ['1. Intro to EQ', '2. Subtractive vs Additive EQ', '3. Dynamic Range Compression', '4. Parallel Processing'],
       rubric: '4: Excellent balance and clarity. 3: Good balance, minor masking. 2: Needs work on frequency clashes. 1: Poor balance or inappropriate use of compression.',
       outcomes: ['Understand the frequency spectrum', 'Apply compression effectively', 'Enhance low-end definition'],
@@ -101,7 +100,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm5', order: 7, label: '5', category: 'Advanced', title: 'Character Voice Design', description: 'Creating specific character voices.', textContent: 'Creating specific character voices.',
+      id: 'm5', order: 7, label: '5', category: 'Advanced', title: 'Character Voice Design', description: 'Creating specific character voices.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Process the clean voiceover recording to sound like a robotic AI character and a giant monster.',
       additionalMaterials: [
@@ -110,7 +109,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm6', order: 8, label: '6', category: 'Advanced', title: 'Plugin Techniques for Sound Design', description: 'Using advanced plugins for creative sound design.', textContent: 'Using advanced plugins for creative sound design.',
+      id: 'm6', order: 8, label: '6', category: 'Advanced', title: 'Plugin Techniques for Sound Design', description: 'Using advanced plugins for creative sound design.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Use granular synthesis and spectral delay to transform a simple bell sound into an evolving ambient texture.',
       additionalMaterials: [
@@ -119,7 +118,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm7', order: 9, label: '7', category: 'Advanced', title: 'Storytelling in Audio', description: 'How to tell a compelling story through sound alone.', textContent: 'How to tell a compelling story through sound alone.',
+      id: 'm7', order: 9, label: '7', category: 'Advanced', title: 'Storytelling in Audio', description: 'How to tell a compelling story through sound alone.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Create a 60-second audio-only narrative utilizing panning, reverb, and foley to establish a clear sense of space and progression.',
       additionalMaterials: [
@@ -128,7 +127,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm8', order: 10, label: '8', category: 'Advanced', title: 'Dolby Atmos Concept', description: 'Introduction to spatial audio mixing.', textContent: 'Introduction to spatial audio mixing.',
+      id: 'm8', order: 10, label: '8', category: 'Advanced', title: 'Dolby Atmos Concept', description: 'Introduction to spatial audio mixing.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Configure an Atmos session and map out the object panning automation for the provided spaceship flyby sequence.',
       additionalMaterials: [
@@ -137,7 +136,7 @@ export const initialData: AppState = {
       ]
     },
     { 
-      id: 'm9', order: 11, label: '9', category: 'Advanced', title: 'Pipeline & Automation', description: 'Streamlining your audio workflow with automation.', textContent: 'Streamlining your audio workflow with automation.',
+      id: 'm9', order: 11, label: '9', category: 'Advanced', title: 'Pipeline & Automation', description: 'Streamlining your audio workflow with automation.',
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
       homeworkDescription: 'Automate a complex volume, pan, and filter sweep transition between two scenes. Submit your session file.',
       additionalMaterials: [

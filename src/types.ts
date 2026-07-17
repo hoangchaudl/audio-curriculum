@@ -36,7 +36,6 @@ export interface Module {
   category?: string;
   title: string;
   description: string;
-  textContent: string;
   outline?: string[];
   rubric?: string;
   rubricNote?: string;

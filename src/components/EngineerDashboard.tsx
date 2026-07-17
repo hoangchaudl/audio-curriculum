@@ -4,6 +4,21 @@ import { Grade, Module, Submission, User } from '../types';
 import { groupOutline } from '../outline';
 import { RubricTable } from './RubricTable';
 
+// "Who's been waiting longest" used to only be answerable by the queue's
+// sort order (oldest first) - nothing on the card itself said how long ago
+// a submission came in.
+const timeAgo = (iso?: string): string | null => {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
+
 // Shared by both the cross-module Review Queue and the per-module Student
 // Submissions list below it - grading a submission looks the same either way,
 // only whether the module name needs to be shown (queue: yes, since it's not
@@ -40,6 +55,11 @@ const SubmissionCard: React.FC<{
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {sub.status !== 'graded' && timeAgo(sub.submittedAt) && (
+          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide" title={sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : undefined}>
+            Submitted {timeAgo(sub.submittedAt)}
+          </span>
+        )}
         {moduleLabel && (
           <span className="bg-[#E0F2FE] text-[#1E40AF] border-2 border-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
             {moduleLabel}
@@ -108,7 +128,17 @@ const SubmissionCard: React.FC<{
         </div>
       </div>
     ) : (
-      <div className="flex flex-col sm:flex-row gap-4 sm:items-start border-t-2 border-black/10 pt-4 mt-2">
+      <div className="border-t-2 border-black/10 pt-4 mt-2 space-y-4">
+        {/* Legacy plain-text rubric (modules without structured sub-skills)
+            used to only be visible under the Module Tasks tab, so grading
+            here meant either memorizing the bar or tab-switching mid-review. */}
+        {module?.rubric && (
+          <div className="bg-gray-100 rounded-xl p-4">
+            <p className="text-xs font-black text-gray-500 uppercase tracking-wide mb-1.5">Grading Rubric</p>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{module.rubric}</p>
+          </div>
+        )}
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-start">
         <div className="w-full sm:w-32">
           <select
             value={score || ''}
@@ -137,6 +167,7 @@ const SubmissionCard: React.FC<{
         >
           Submit Grade
         </button>
+        </div>
       </div>
     )}
   </div>
