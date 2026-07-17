@@ -37,6 +37,7 @@ interface AppContextType extends AppState {
   createVideoTask: (engineerId: string, moduleId: string, title: string) => void;
   updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
+  updateUserName: (userId: string, name: string) => void;
   updateUserRole: (userId: string, role: User['role']) => void;
   updateModule: (moduleId: string, updates: Partial<Module>) => void;
   createModule: () => Promise<Module>;
@@ -292,6 +293,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateUserName = async (userId: string, name: string) => {
+    try {
+      await setDoc(doc(db, 'users', userId), { name }, { merge: true });
+    } catch (error) {
+      console.error('Error updating name in Firestore', error);
+    }
+  };
+
   // Admin-only: promote/demote a user between Sound Designer and Audio
   // Engineer (see AdminDashboard). Self-service signup no longer offers a
   // role picker - see AuthView/signup below - so this is the only way an
@@ -521,6 +530,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createVideoTask,
         updateVideoTask,
         updateUserAvatar,
+        updateUserName,
         updateUserRole,
         updateModule,
         createModule,

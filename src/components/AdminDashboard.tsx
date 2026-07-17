@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
-import { Module, Resource, RubricCriterion } from '../types';
+import { Module, Resource, RubricCriterion, User } from '../types';
 import { computeProgress } from '../progress';
+import { ConfirmModal } from './ConfirmModal';
 
-const splitPeriodList = (text: string) => text.split('.').map(s => s.trim()).filter(Boolean);
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 const CATEGORIES = ['Onboarding', 'Intermediate', 'Advanced'] as const;
 
@@ -121,19 +121,55 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
 
+  // Replaces the native confirm()/alert() popups previously used for
+  // destructive/role actions (delete module, promote/demote) with the
+  // app's own branded modal, rendered once at the bottom of this component.
+  const [pendingConfirm, setPendingConfirm] = useState<
+    | { kind: 'delete-module'; mod: Module }
+    | { kind: 'promote'; user: User }
+    | { kind: 'demote'; user: User }
+    | null
+  >(null);
+
   const handleEditClick = (mod: any) => {
     setEditingModule(mod.id);
     setEditForm({ ...mod });
-    setObjectivesText((mod.objectives || []).join('. '));
-    setOutcomesText((mod.outcomes || []).join('. '));
+    setObjectivesText((mod.objectives || []).join('\n'));
+    setOutcomesText((mod.outcomes || []).join('\n'));
     setMaterialsText(materialsToText(mod.additionalMaterials));
     setOutlineText((mod.outline || []).join('\n'));
     setRubricCriteria(mod.rubricCriteria || []);
     setRubricPaste('');
+    setRubricParseError(null);
     const video = moduleVideos.find(v => v.moduleId === mod.id);
     setVideoType(video?.type || 'external');
     setVideoTitle(video?.title || '');
     setVideoUrl(video?.url || '');
+  };
+
+  // Dirty-tracks the open editor so switching what's being edited (Edit on
+  // another card, a sidebar quick-jump, Add Module) can warn before wiping
+  // out in-progress work instead of silently overwriting editForm. The ref
+  // tells "editingModule itself just changed - this is a fresh load, not an
+  // edit" apart from "some field changed while the same module stayed open."
+  const loadedModuleRef = useRef<string | null>(null);
+  const [isEditDirty, setIsEditDirty] = useState(false);
+  useEffect(() => {
+    if (loadedModuleRef.current !== editingModule) {
+      loadedModuleRef.current = editingModule;
+      setIsEditDirty(false);
+      return;
+    }
+    if (editingModule) setIsEditDirty(true);
+  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materialsText, rubricCriteria, videoType, videoTitle, videoUrl]);
+
+  const [discardConfirmAction, setDiscardConfirmAction] = useState<(() => void) | null>(null);
+  const requestEditChange = (action: () => void) => {
+    if (isEditDirty) {
+      setDiscardConfirmAction(() => action);
+    } else {
+      action();
+    }
   };
 
   // Clicking a module in the sidebar used to do nothing here - the list
@@ -148,21 +184,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     const mod = modules.find(m => m.id === focusModuleId);
     if (!mod) return;
     setActiveTab('modules');
-    handleEditClick(mod);
+    requestEditChange(() => handleEditClick(mod));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusNonce]);
 
-  const handleAddModule = async () => {
+  const handleAddModule = () => requestEditChange(async () => {
     const newModule = await createModule();
     setActiveTab('modules');
     handleEditClick(newModule);
-  };
+  });
 
-  const handleDeleteModule = (mod: { id: string; title: string }) => {
-    if (confirm(`Delete "${mod.title}"? This removes the module and its video for everyone - existing submissions/grades for it are kept but will no longer show curriculum details.`)) {
-      deleteModule(mod.id);
-    }
-  };
+  const handleDeleteModule = (mod: Module) => setPendingConfirm({ kind: 'delete-module', mod });
 
   const handleSaveModule = () => {
     if (editingModule) {
@@ -172,8 +204,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         ...editForm,
         order: parsedOrder > 0 ? parsedOrder : fallbackOrder,
         outline: splitLines(outlineText),
-        objectives: splitPeriodList(objectivesText),
-        outcomes: splitPeriodList(outcomesText),
+        objectives: splitLines(objectivesText),
+        outcomes: splitLines(outcomesText),
         additionalMaterials: parseMaterialsText(materialsText),
         // Drop sub-skills the admin left completely blank rather than saving
         // empty tables.
@@ -201,12 +233,14 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       return { ...c, levels };
     }));
 
+  const [rubricParseError, setRubricParseError] = useState<string | null>(null);
   const handleImportRubric = () => {
     const { note, criteria } = parseRubricText(rubricPaste);
     if (criteria.length === 0) {
-      alert('Could not find any "Sub-skill N: ..." sections in the pasted text.');
+      setRubricParseError('Could not find any "Sub-skill N: ..." sections in the pasted text.');
       return;
     }
+    setRubricParseError(null);
     setRubricCriteria(criteria);
     if (note) setEditForm({ ...editForm, rubricNote: note });
     setRubricPaste('');
@@ -357,11 +391,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
 
                       <button
-                        onClick={() => {
-                          if (confirm(`Promote ${designer.name} to Audio Engineer? They'll be able to view and grade every designer's submissions.`)) {
-                            updateUserRole(designer.id, 'audio_engineer');
-                          }
-                        }}
+                        onClick={() => setPendingConfirm({ kind: 'promote', user: designer })}
                         className="self-start text-[10px] font-black uppercase tracking-wide text-gray-600 bg-white border-2 border-black px-2.5 py-1 rounded-full hover:bg-black hover:text-white transition-colors"
                       >
                         Promote to Engineer
@@ -455,11 +485,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
 
                       <button
-                        onClick={() => {
-                          if (confirm(`Move ${engineer.name} back to Sound Designer? They'll lose access to the roster and grading tools.`)) {
-                            updateUserRole(engineer.id, 'sound_designer');
-                          }
-                        }}
+                        onClick={() => setPendingConfirm({ kind: 'demote', user: engineer })}
                         className="self-start text-[10px] font-black uppercase tracking-wide text-gray-600 bg-white border-2 border-black px-2.5 py-1 rounded-full hover:bg-black hover:text-white transition-colors"
                       >
                         Move to Designer
@@ -619,18 +645,20 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Learning Objectives (period separated)</label>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Learning Objectives (one per line)</label>
                         <textarea
                           value={objectivesText}
                           onChange={(e) => setObjectivesText(e.target.value)}
+                          placeholder={'e.g. Understand subtractive EQ\nApply gain staging correctly'}
                           className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Outcomes (period separated)</label>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Outcomes (one per line)</label>
                         <textarea
                           value={outcomesText}
                           onChange={(e) => setOutcomesText(e.target.value)}
+                          placeholder={'e.g. A mix with balanced frequency content'}
                           className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
@@ -698,18 +726,22 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           <label className="block text-xs font-black text-gray-500 uppercase mb-1">Import from pasted text</label>
                           <textarea
                             value={rubricPaste}
-                            onChange={(e) => setRubricPaste(e.target.value)}
+                            onChange={(e) => { setRubricPaste(e.target.value); setRubricParseError(null); }}
                             placeholder={'Paste from Notion, e.g.:\nRubric (1 = Just Starting · 4 = Strong · 3+ = pass)\nSub-skill 1: DX chain order\nScore\tWhat it looks like in the session\n1\tPlugins in no deliberate order...\n2\t...'}
-                            className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
+                            className={`w-full bg-gray-50 border-2 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24 ${rubricParseError ? 'border-[#B23A2E]' : 'border-black'}`}
                           />
                           <button
                             onClick={handleImportRubric}
                             disabled={!rubricPaste.trim()}
-                            className="mt-2 bg-[#E0F2FE] border-2 border-black text-[#1E40AF] font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-black hover:text-white transition-colors disabled:opacity-40"
+                            className="mt-2 bg-[#E0F2FE] border-2 border-black text-[#1E40AF] font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-black hover:text-white transition-colors disabled:bg-gray-100 disabled:text-gray-400"
                           >
                             Parse & Fill Sub-skills
                           </button>
-                          <p className="text-[10px] text-gray-400 mt-1">Replaces the sub-skills above with what's parsed from the pasted text. Nothing is saved until you hit Save Changes.</p>
+                          {rubricParseError ? (
+                            <p className="text-[10px] text-[#B23A2E] font-bold mt-1">{rubricParseError}</p>
+                          ) : (
+                            <p className="text-[10px] text-gray-400 mt-1">Replaces the sub-skills above with what's parsed from the pasted text. Nothing is saved until you hit Save Changes.</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-xs font-black text-gray-500 uppercase mb-1">Plain-text Rubric (legacy fallback)</label>
@@ -835,18 +867,25 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <button
-                          onClick={() => handleEditClick(mod)}
+                          onClick={() => requestEditChange(() => handleEditClick(mod))}
                           className="bg-white border-[3px] border-black text-black hover:bg-black hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
                         >
                           Edit
                         </button>
+                        {/* Deliberately quieter than Edit - a delete is
+                            permanent and used to sit at equal visual weight
+                            right next to it, one mis-click from curriculum
+                            loss. Muted by default, still gated by the
+                            confirm modal below. */}
                         <button
                           onClick={() => handleDeleteModule(mod)}
-                          className="bg-white border-[3px] border-black text-[#B23A2E] hover:bg-[#B23A2E] hover:text-white font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
+                          title="Delete module"
+                          aria-label="Delete module"
+                          className="w-9 h-9 flex-shrink-0 flex items-center justify-center text-gray-400 border-2 border-transparent rounded-lg hover:text-white hover:bg-[#B23A2E] hover:border-black transition-colors ml-1"
                         >
-                          Delete
+                          🗑
                         </button>
                       </div>
                     </div>
@@ -865,6 +904,45 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           <span>{grades.length} graded</span>
         </div>
       </div>
+
+      <ConfirmModal
+        open={pendingConfirm !== null}
+        title={
+          pendingConfirm?.kind === 'delete-module' ? `Delete "${pendingConfirm.mod.title}"?` :
+          pendingConfirm?.kind === 'promote' ? `Promote ${pendingConfirm.user.name}?` :
+          pendingConfirm?.kind === 'demote' ? `Move ${pendingConfirm.user.name} back to Sound Designer?` : ''
+        }
+        message={
+          pendingConfirm?.kind === 'delete-module'
+            ? "This removes the module and its video for everyone - existing submissions/grades for it are kept but will no longer show curriculum details."
+            : pendingConfirm?.kind === 'promote'
+            ? `${pendingConfirm.user.name} will be able to view and grade every designer's submissions.`
+            : pendingConfirm?.kind === 'demote'
+            ? `${pendingConfirm.user.name} will lose access to the roster and grading tools.`
+            : ''
+        }
+        confirmLabel={pendingConfirm?.kind === 'delete-module' ? 'Delete' : pendingConfirm?.kind === 'promote' ? 'Promote' : 'Move'}
+        danger={pendingConfirm?.kind === 'delete-module'}
+        onConfirm={() => {
+          if (pendingConfirm?.kind === 'delete-module') deleteModule(pendingConfirm.mod.id);
+          else if (pendingConfirm?.kind === 'promote') updateUserRole(pendingConfirm.user.id, 'audio_engineer');
+          else if (pendingConfirm?.kind === 'demote') updateUserRole(pendingConfirm.user.id, 'sound_designer');
+          setPendingConfirm(null);
+        }}
+        onCancel={() => setPendingConfirm(null)}
+      />
+
+      <ConfirmModal
+        open={discardConfirmAction !== null}
+        title="Discard Unsaved Changes?"
+        message="You have unsaved edits to this module. Switching now will discard them."
+        confirmLabel="Discard & Continue"
+        onConfirm={() => {
+          discardConfirmAction?.();
+          setDiscardConfirmAction(null);
+        }}
+        onCancel={() => setDiscardConfirmAction(null)}
+      />
     </main>
   );
 };
