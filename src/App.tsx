@@ -19,6 +19,23 @@ const AppContent = () => {
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const [view, setView] = useState<'module' | 'profile'>('module');
 
+  // hasSession-but-no-currentUser is a normal, brief gap on every sign-in
+  // (Firebase Auth resolves before the /users/{uid} listener's first
+  // snapshot arrives) and especially on sign-up (that snapshot can arrive
+  // before the profile doc write finishes). It used to jump straight to a
+  // "couldn't load your profile, sign out and try again" error screen for
+  // that entire window, which read as a broken sign-in on every attempt.
+  // Now it only escalates to that error state if the gap actually persists.
+  const [profileLoadTimedOut, setProfileLoadTimedOut] = useState(false);
+  useEffect(() => {
+    if (!hasSession || currentUser) {
+      setProfileLoadTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setProfileLoadTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, [hasSession, currentUser]);
+
   // Lands a student on the module they should actually work on next
   // (first without a graded submission) instead of a hardcoded module id -
   // previously every new student's first screen was module 6 of 11. Runs
@@ -94,11 +111,20 @@ const AppContent = () => {
   }
 
   // Signed in (Firebase Auth confirms a real session) but no matching
-  // /users/{uid} profile doc could be loaded - either it's still arriving
-  // (rare race) or something failed while writing it during signup. Showing
-  // the sign-in form here would be confusing since the person IS signed in;
-  // show a clear message with a way out instead.
+  // /users/{uid} profile doc has arrived yet. Almost always this resolves
+  // within a second (the listener just needs a round trip, or - on
+  // sign-up - the profile doc write to finish) - show the same loading
+  // spinner as authLoading for that window instead of alarming the user.
+  // Only escalate to a real error state if it's an actual Firestore error
+  // (authError) or the gap has genuinely persisted (profileLoadTimedOut).
   if (hasSession && !currentUser) {
+    if (!authError && !profileLoadTimedOut) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-[#F5FAFF] text-gray-400 font-bold text-sm">
+          Loading...
+        </div>
+      );
+    }
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#F5FAFF] px-6 text-center">
         <p className="text-sm font-bold text-gray-600 max-w-sm">
