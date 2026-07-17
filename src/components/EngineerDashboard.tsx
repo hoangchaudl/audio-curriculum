@@ -1,22 +1,29 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Grade, Module, Submission, User } from '../types';
+import { groupOutline } from '../outline';
+import { RubricTable } from './RubricTable';
 
 // Shared by both the cross-module Review Queue and the per-module Student
 // Submissions list below it - grading a submission looks the same either way,
 // only whether the module name needs to be shown (queue: yes, since it's not
-// implied by context) differs.
+// implied by context) differs. When the module defines structured
+// rubricCriteria, grading is a per-sub-skill matrix and the overall score is
+// the lowest sub-skill score; otherwise it falls back to the single 1-4 pick.
 const SubmissionCard: React.FC<{
   sub: Submission;
   student?: User;
   grade?: Grade;
+  module?: Module;
   moduleLabel?: string;
   score?: 1 | 2 | 3 | 4;
   feedback?: string;
+  criterionScores?: Record<string, 1 | 2 | 3 | 4>;
   onScoreChange: (score: 1 | 2 | 3 | 4) => void;
   onFeedbackChange: (feedback: string) => void;
+  onCriterionScore: (criterionId: string, score: 1 | 2 | 3 | 4) => void;
   onGrade: () => void;
-}> = ({ sub, student, grade, moduleLabel, score, feedback, onScoreChange, onFeedbackChange, onGrade }) => (
+}> = ({ sub, student, grade, module, moduleLabel, score, feedback, criterionScores, onScoreChange, onFeedbackChange, onCriterionScore, onGrade }) => (
   <div className="bg-white rounded-2xl p-6 border-[3px] border-black flex flex-col gap-4">
     <div className="flex justify-between items-center gap-2 flex-wrap">
       <div className="flex items-center gap-3">
@@ -54,11 +61,51 @@ const SubmissionCard: React.FC<{
     </div>
 
     {sub.status === 'graded' && grade ? (
-      <div className="bg-[#E0F2FE] p-4 rounded-xl">
-        <div className="flex justify-between mb-2">
+      <div className="bg-[#E0F2FE] p-4 rounded-xl space-y-3">
+        <div className="flex justify-between">
           <span className="text-xs font-black text-[#1E40AF]">Score: {grade.score}/4</span>
         </div>
+        {module?.rubricCriteria && grade.criterionScores && grade.criterionScores.length > 0 && (
+          <RubricTable
+            criteria={module.rubricCriteria}
+            selected={Object.fromEntries(grade.criterionScores.map(c => [c.criterionId, c.score]))}
+          />
+        )}
         <p className="text-sm text-[#1E40AF] italic">"{grade.feedback}"</p>
+      </div>
+    ) : module?.rubricCriteria && module.rubricCriteria.length > 0 ? (
+      <div className="border-t-2 border-black/10 pt-4 mt-2 space-y-4">
+        <p className="text-xs font-black text-gray-500 uppercase tracking-wide">
+          Grade each sub-skill — the overall score is the lowest one
+        </p>
+        <RubricTable
+          criteria={module.rubricCriteria}
+          note={module.rubricNote}
+          selected={criterionScores}
+          onSelect={onCriterionScore}
+        />
+        <div className="flex gap-4 items-stretch">
+          <div className="flex-1">
+            <textarea
+              placeholder="Provide constructive feedback..."
+              value={feedback || ''}
+              onChange={(e) => onFeedbackChange(e.target.value)}
+              className="w-full bg-gray-100 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] min-h-[80px]"
+            />
+          </div>
+          <button
+            onClick={onGrade}
+            disabled={!feedback || module.rubricCriteria.some(c => !criterionScores?.[c.id])}
+            className="bg-[#2E9DF7] text-white font-black uppercase text-xs tracking-wide px-6 py-4 rounded-xl border-2 border-black hover:bg-black transition-colors disabled:opacity-40 disabled:hover:bg-[#2E9DF7] flex flex-col items-center justify-center gap-1"
+          >
+            Submit Grade
+            {module.rubricCriteria.every(c => criterionScores?.[c.id]) && (
+              <span className="text-[10px] normal-case font-bold opacity-80">
+                Overall: {Math.min(...module.rubricCriteria.map(c => criterionScores![c.id]))}/4
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     ) : (
       <div className="flex gap-4 items-start border-t-2 border-black/10 pt-4 mt-2">
@@ -106,9 +153,26 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
   // whichever tab the engineer is grading from.
   const [score, setScore] = useState<Record<string, 1 | 2 | 3 | 4>>({});
   const [feedback, setFeedback] = useState<Record<string, string>>({});
+  // Per-submission, per-sub-skill picks for modules graded against a
+  // structured rubric (subId -> criterionId -> score).
+  const [criterionScores, setCriterionScores] = useState<Record<string, Record<string, 1 | 2 | 3 | 4>>>({});
 
-  const handleGrade = (subId: string) => {
-    if (score[subId] && feedback[subId]) {
+  const setCriterionScore = (subId: string, criterionId: string, s: 1 | 2 | 3 | 4) => {
+    setCriterionScores(prev => ({ ...prev, [subId]: { ...prev[subId], [criterionId]: s } }));
+  };
+
+  const handleGrade = (subId: string, subModule?: Module) => {
+    if (!feedback[subId]) return;
+    const criteria = subModule?.rubricCriteria;
+    if (criteria && criteria.length > 0) {
+      const picks = criterionScores[subId] || {};
+      if (criteria.some(c => !picks[c.id])) return;
+      // The rubric's pass bar is per sub-skill, so the overall grade is the
+      // weakest sub-skill - a strong chain order shouldn't hide audible
+      // artifacts.
+      const overall = Math.min(...criteria.map(c => picks[c.id])) as 1 | 2 | 3 | 4;
+      gradeHomework(subId, overall, feedback[subId], criteria.map(c => ({ criterionId: c.id, score: picks[c.id] })));
+    } else if (score[subId]) {
       gradeHomework(subId, score[subId], feedback[subId]);
     }
   };
@@ -188,12 +252,15 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                   key={sub.id}
                   sub={sub}
                   student={student}
+                  module={subModule}
                   moduleLabel={moduleLabelFor(subModule)}
                   score={score[sub.id]}
                   feedback={feedback[sub.id]}
+                  criterionScores={criterionScores[sub.id]}
                   onScoreChange={(s) => setScore({ ...score, [sub.id]: s })}
                   onFeedbackChange={(f) => setFeedback({ ...feedback, [sub.id]: f })}
-                  onGrade={() => handleGrade(sub.id)}
+                  onCriterionScore={(cId, s) => setCriterionScore(sub.id, cId, s)}
+                  onGrade={() => handleGrade(sub.id, subModule)}
                 />
               );
             })
@@ -226,21 +293,39 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                 )}
                 {mod.outline && (
                   <div className="bg-gray-100 p-4 rounded-xl col-span-2">
-                    <h4 className="text-xs font-black text-gray-500 uppercase mb-2">Outline</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {mod.outline.map((item, i) => (
-                        <span key={i} className="bg-white border-2 border-black px-3 py-1 rounded-full text-xs font-bold text-gray-700">{item}</span>
+                    <h4 className="text-xs font-black text-gray-500 uppercase mb-3">Outline</h4>
+                    <ol className="space-y-3">
+                      {groupOutline(mod.outline).map((lesson, i) => (
+                        <li key={i}>
+                          <div className="flex items-center gap-3 text-sm text-gray-800">
+                            <span className="flex-shrink-0 w-6 h-6 bg-white border-2 border-black rounded-full flex items-center justify-center text-[10px] font-black text-[#1E40AF]">
+                              {i + 1}
+                            </span>
+                            <span className="font-bold">{lesson.title}</span>
+                          </div>
+                          {lesson.items.length > 0 && (
+                            <ul className="mt-1.5 ml-9 pl-4 list-disc space-y-1">
+                              {lesson.items.map((item, j) => (
+                                <li key={j} className="text-sm text-gray-600">{item}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
                       ))}
-                    </div>
+                    </ol>
                   </div>
                 )}
-                {mod.rubric && (
+                {(mod.rubricCriteria?.length || mod.rubric) && (
                   <div className="bg-gray-100 p-4 rounded-xl col-span-2">
                     <h4 className="text-xs font-black text-gray-500 uppercase mb-2">Grading Rubric</h4>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{mod.rubric}</p>
+                    {mod.rubricCriteria && mod.rubricCriteria.length > 0 ? (
+                      <RubricTable criteria={mod.rubricCriteria} note={mod.rubricNote} />
+                    ) : (
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{mod.rubric}</p>
+                    )}
                   </div>
                 )}
-                {!mod.objectives && !mod.outcomes && !mod.outline && !mod.rubric && !mod.additionalMaterials && (
+                {!mod.objectives && !mod.outcomes && !mod.outline && !mod.rubric && !mod.rubricCriteria?.length && !mod.additionalMaterials && (
                   <p className="text-sm text-gray-500 italic col-span-2">No detailed module information provided.</p>
                 )}
                 {mod.additionalMaterials && mod.additionalMaterials.length > 0 && (
@@ -339,11 +424,14 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                       sub={sub}
                       student={student}
                       grade={grade}
+                      module={mod}
                       score={score[sub.id]}
                       feedback={feedback[sub.id]}
+                      criterionScores={criterionScores[sub.id]}
                       onScoreChange={(s) => setScore({ ...score, [sub.id]: s })}
                       onFeedbackChange={(f) => setFeedback({ ...feedback, [sub.id]: f })}
-                      onGrade={() => handleGrade(sub.id)}
+                      onCriterionScore={(cId, s) => setCriterionScore(sub.id, cId, s)}
+                      onGrade={() => handleGrade(sub.id, mod)}
                     />
                   );
                 })

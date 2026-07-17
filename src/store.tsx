@@ -28,7 +28,7 @@ interface AppContextType extends AppState {
   submitHomework: (moduleId: string, driveLink: string) => void;
   deleteSubmission: (moduleId: string) => void;
   markVideoWatched: (moduleId: string) => void;
-  gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => void;
+  gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string, criterionScores?: Grade['criterionScores']) => void;
   updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
   updateUserRole: (userId: string, role: User['role']) => void;
@@ -357,7 +357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // it look like grading was broken when a director tried it. Deterministic
   // grade id keeps this idempotent if it's ever called twice for the same
   // submission.
-  const gradeHomework = async (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => {
+  const gradeHomework = async (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string, criterionScores?: Grade['criterionScores']) => {
     if (!currentUser || (currentUser.role !== 'audio_engineer' && currentUser.role !== 'admin')) return;
     const gradeId = `g_${submissionId}`;
     const newGrade: Grade = {
@@ -367,6 +367,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       score,
       feedback,
       gradedAt: new Date().toISOString(),
+      // Firestore rejects explicit `undefined` values, so only include the
+      // field when the module was graded against structured criteria.
+      ...(criterionScores && criterionScores.length > 0 ? { criterionScores } : {}),
     };
     try {
       await setDoc(doc(db, 'grades', gradeId), newGrade);

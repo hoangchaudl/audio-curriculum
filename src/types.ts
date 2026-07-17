@@ -17,6 +17,18 @@ export interface Resource {
   author?: string;
 }
 
+// One gradeable sub-skill of a module's rubric. `levels` holds the
+// descriptor for scores 1 through 4 (levels[0] = what a 1 looks like).
+// `scoreLabel` is the descriptor column's header and can differ between
+// criteria in the same module (e.g. "What it looks like in the session"
+// vs "What it looks like on playback").
+export interface RubricCriterion {
+  id: string;
+  title: string;
+  scoreLabel?: string;
+  levels: [string, string, string, string];
+}
+
 export interface Module {
   id: string;
   order: number;
@@ -27,6 +39,8 @@ export interface Module {
   textContent: string;
   outline?: string[];
   rubric?: string;
+  rubricNote?: string;
+  rubricCriteria?: RubricCriterion[];
   outcomes?: string[];
   objectives?: string[];
   homeworkLink?: string;
@@ -58,6 +72,9 @@ export interface Grade {
   score: 1 | 2 | 3 | 4;
   feedback: string;
   gradedAt: string;
+  // Per-sub-skill scores when the module was graded against structured
+  // rubricCriteria; `score` above is then the lowest of these.
+  criterionScores?: { criterionId: string; score: 1 | 2 | 3 | 4 }[];
 }
 
 export interface VideoTask {

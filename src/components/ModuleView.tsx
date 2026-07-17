@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../store';
+import { groupOutline } from '../outline';
+import { RubricTable } from './RubricTable';
 
 const SCORE_LABELS: Record<number, string> = { 1: 'Needs Work', 2: 'Fair', 3: 'Good', 4: 'Excellent' };
 
@@ -172,7 +174,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
             </p>
 
             {(mod.objectives || mod.outcomes) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t-2 border-black/10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t-2 border-black/10 mb-6">
                 {mod.objectives && mod.objectives.length > 0 && (
                   <div>
                     <h4 className="text-xs font-black text-gray-500 uppercase mb-3 tracking-widest">Objectives</h4>
@@ -185,7 +187,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                 )}
                 {mod.outcomes && mod.outcomes.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-black text-gray-500 uppercase mb-3 tracking-widest">Outcomes</h4>
+                    <h4 className="text-xs font-black text-gray-500 uppercase mb-3 tracking-widest">Learning Outcomes</h4>
                     <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
                       {mod.outcomes.map((out, i) => (
                         <li key={i}>{out}</li>
@@ -195,7 +197,55 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                 )}
               </div>
             )}
+
+            {mod.outline && mod.outline.length > 0 && (
+              <div className="pt-6 border-t-2 border-black/10">
+                <h4 className="text-xs font-black text-gray-500 uppercase mb-3 tracking-widest">Module Outline</h4>
+                <ol className="space-y-3">
+                  {groupOutline(mod.outline).map((lesson, i) => (
+                    <li key={i}>
+                      <div className="flex items-center gap-3 text-sm text-gray-800">
+                        <span className="flex-shrink-0 w-6 h-6 bg-[#E0F2FE] border-2 border-black rounded-full flex items-center justify-center text-[10px] font-black text-[#1E40AF]">
+                          {i + 1}
+                        </span>
+                        <span className="font-bold">{lesson.title}</span>
+                      </div>
+                      {lesson.items.length > 0 && (
+                        <ul className="mt-1.5 ml-9 pl-4 list-disc space-y-1">
+                          {lesson.items.map((item, j) => (
+                            <li key={j} className="text-sm text-gray-600">{item}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
+
+          {/* Grading Rubric - shown before submitting so designers know the
+              bar they're graded against; once graded, their achieved level
+              per sub-skill is highlighted in place. */}
+          {mod.rubricCriteria && mod.rubricCriteria.length > 0 && (
+            <div className="bg-white rounded-2xl p-8 border-[3px] border-black">
+              <h4 className="text-sm font-black uppercase text-black mb-1 tracking-widest flex items-center gap-2">
+                <span className="text-xl">🎯</span> How You'll Be Graded
+              </h4>
+              <p className="text-xs text-gray-500 font-medium mb-4">
+                {grade
+                  ? 'Your result for each sub-skill is highlighted below.'
+                  : 'Your submission is scored on each sub-skill below. The overall grade is the lowest sub-skill score.'}
+              </p>
+              <RubricTable
+                criteria={mod.rubricCriteria}
+                note={mod.rubricNote}
+                selected={grade?.criterionScores
+                  ? Object.fromEntries(grade.criterionScores.map(c => [c.criterionId, c.score]))
+                  : undefined}
+              />
+            </div>
+          )}
 
           {/* Additional Materials */}
           {mod.additionalMaterials && mod.additionalMaterials.length > 0 && (
