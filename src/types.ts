@@ -70,6 +70,15 @@ export interface VideoTask {
   videoUrl?: string;
 }
 
+// Records that a designer watched a module's video through to the end -
+// used to anchor that module's homework deadline (see ModuleView).
+export interface VideoProgress {
+  id: string;
+  moduleId: string;
+  userId: string;
+  watchedAt: string;
+}
+
 export interface AppState {
   currentUser: User | null;
   users: User[];
@@ -78,4 +87,5 @@ export interface AppState {
   submissions: Submission[];
   grades: Grade[];
   videoTasks: VideoTask[];
+  videoProgress: VideoProgress[];
 }

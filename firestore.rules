@@ -82,7 +82,10 @@ service cloud.firestore {
                       isEngineerOrAdmin()
                     );
 
-      allow delete: if isAdmin();
+      // Owner can pull back their own work before it's graded (lets them fix
+      // a bad link and resend); admins can remove any submission.
+      allow delete: if isAdmin() ||
+                      (isSignedIn() && resource.data.userId == request.auth.uid && resource.data.status != 'graded');
     }
 
     // --- grades ---
@@ -105,6 +108,17 @@ service cloud.firestore {
                       isAdmin() ||
                       resource.data.engineerId == request.auth.uid
                     );
+    }
+
+    // --- videoProgress (marks a designer finished a module's video) ---
+    // Anchors homework deadlines (see ModuleView) - only the designer
+    // themselves ever needs to write their own completion record. It isn't
+    // currently used for grading, but reads are left open to any signed-in
+    // user for simplicity.
+    match /videoProgress/{progressId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     // Deny everything else by default (no catch-all open rule).

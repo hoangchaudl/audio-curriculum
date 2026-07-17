@@ -3,6 +3,8 @@ import { useAppContext } from '../store';
 import { Resource } from '../types';
 
 const splitPeriodList = (text: string) => text.split('.').map(s => s.trim()).filter(Boolean);
+const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
+const CATEGORIES = ['Onboarding', 'Intermediate', 'Advanced'] as const;
 
 // Admins just paste a link or type a book/article title, one per line - we
 // infer the resource type instead of asking them to hand-write JSON.
@@ -28,7 +30,10 @@ const CARD_THEMES = [
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
 export const AdminDashboard: React.FC = () => {
-  const { users, modules, submissions, grades, videoTasks, updateModule } = useAppContext();
+  const {
+    users, modules, moduleVideos, submissions, grades, videoTasks,
+    updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo,
+  } = useAppContext();
   const [activeTab, setActiveTab] = useState<'designers' | 'engineers' | 'modules'>('modules');
 
   const designers = users.filter(u => u.role === 'sound_designer');
@@ -39,6 +44,10 @@ export const AdminDashboard: React.FC = () => {
   const [objectivesText, setObjectivesText] = useState('');
   const [outcomesText, setOutcomesText] = useState('');
   const [materialsText, setMaterialsText] = useState('');
+  const [outlineText, setOutlineText] = useState('');
+  const [videoType, setVideoType] = useState<'internal' | 'external'>('external');
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
 
   const handleEditClick = (mod: any) => {
     setEditingModule(mod.id);
@@ -46,16 +55,40 @@ export const AdminDashboard: React.FC = () => {
     setObjectivesText((mod.objectives || []).join('. '));
     setOutcomesText((mod.outcomes || []).join('. '));
     setMaterialsText(materialsToText(mod.additionalMaterials));
+    setOutlineText((mod.outline || []).join('\n'));
+    const video = moduleVideos.find(v => v.moduleId === mod.id);
+    setVideoType(video?.type || 'external');
+    setVideoTitle(video?.title || '');
+    setVideoUrl(video?.url || '');
+  };
+
+  const handleAddModule = async () => {
+    const newModule = await createModule();
+    setActiveTab('modules');
+    handleEditClick(newModule);
+  };
+
+  const handleDeleteModule = (mod: { id: string; title: string }) => {
+    if (confirm(`Delete "${mod.title}"? This removes the module and its video for everyone - existing submissions/grades for it are kept but will no longer show curriculum details.`)) {
+      deleteModule(mod.id);
+    }
   };
 
   const handleSaveModule = () => {
     if (editingModule) {
       updateModule(editingModule, {
         ...editForm,
+        order: Number(editForm.order) || editForm.order,
+        outline: splitLines(outlineText),
         objectives: splitPeriodList(objectivesText),
         outcomes: splitPeriodList(outcomesText),
         additionalMaterials: parseMaterialsText(materialsText),
       });
+      if (videoUrl.trim()) {
+        upsertModuleVideo(editingModule, { type: videoType, url: videoUrl.trim(), title: videoTitle.trim() || 'Module Video' });
+      } else {
+        deleteModuleVideo(editingModule);
+      }
       setEditingModule(null);
     }
   };
@@ -178,6 +211,17 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
 
+                      <button
+                        onClick={() => {
+                          if (confirm(`Promote ${designer.name} to Audio Engineer? They'll be able to view and grade every designer's submissions.`)) {
+                            updateUserRole(designer.id, 'audio_engineer');
+                          }
+                        }}
+                        className="self-start text-[10px] font-black uppercase tracking-wide text-gray-600 bg-white border-2 border-black px-2.5 py-1 rounded-full hover:bg-black hover:text-white transition-colors"
+                      >
+                        Promote to Engineer
+                      </button>
+
                       <div>
                         <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
                           <span>Course Progress</span>
@@ -265,6 +309,17 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
 
+                      <button
+                        onClick={() => {
+                          if (confirm(`Move ${engineer.name} back to Sound Designer? They'll lose access to the roster and grading tools.`)) {
+                            updateUserRole(engineer.id, 'sound_designer');
+                          }
+                        }}
+                        className="self-start text-[10px] font-black uppercase tracking-wide text-gray-600 bg-white border-2 border-black px-2.5 py-1 rounded-full hover:bg-black hover:text-white transition-colors"
+                      >
+                        Move to Designer
+                      </button>
+
                       <div className="space-y-2.5">
                         {assignedTasks.map(task => (
                           <div key={task.id} className="flex justify-between items-center p-3 bg-gray-50 border-2 border-black/10 rounded-xl gap-2">
@@ -301,9 +356,17 @@ export const AdminDashboard: React.FC = () => {
               <h3 className="text-lg font-black uppercase text-black tracking-wider flex items-center gap-2">
                 📚 Curriculum Management
               </h3>
-              <span className="flex items-center gap-1.5 bg-white border-2 border-black rounded-full px-3 py-1 text-xs font-black text-[#2A8F62]">
-                <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 bg-white border-2 border-black rounded-full px-3 py-1 text-xs font-black text-[#2A8F62]">
+                  <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
+                </span>
+                <button
+                  onClick={handleAddModule}
+                  className="bg-[#3DDC97] text-black font-black uppercase text-xs tracking-wide px-4 py-2 rounded-full border-2 border-black hover:bg-black hover:text-white transition-colors"
+                >
+                  + Add Module
+                </button>
+              </div>
             </div>
             <div className="grid gap-6">
               {modules.sort((a, b) => a.order - b.order).map((mod, i) => {

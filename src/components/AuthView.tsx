@@ -9,7 +9,6 @@ export const AuthView: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'sound_designer' | 'audio_engineer' | 'admin'>('sound_designer');
   const [pod, setPod] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -48,8 +47,12 @@ export const AuthView: React.FC = () => {
         setError('Password must be at least 6 characters');
         return;
       }
+      // Self-service signup is always Sound Designer - Audio Engineer and
+      // Admin accounts are provisioned by an existing admin (see
+      // AdminDashboard's role control) rather than chosen at signup, so a
+      // new account can't grant itself grading/roster access.
       setSubmitting(true);
-      const success = await signup(name, email, password, role, pod);
+      const success = await signup(name, email, password, 'sound_designer', pod);
       setSubmitting(false);
       if (!success) {
         setError('Error creating account');
@@ -191,28 +194,18 @@ export const AuthView: React.FC = () => {
               {mode === 'signup' && (
                 <>
                   <div>
-                    <label className="block text-xs font-black text-gray-500 uppercase mb-1 ml-1">Role</label>
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as any)}
+                    <label className="block text-xs font-black text-gray-500 uppercase mb-1 ml-1">Pod (Optional)</label>
+                    <input
+                      type="text"
+                      value={pod}
+                      onChange={(e) => setPod(e.target.value)}
                       className="w-full bg-gray-50 border-2 border-black rounded-xl p-4 text-sm focus:ring-2 focus:ring-[#2E9DF7] transition-all font-medium"
-                    >
-                      <option value="sound_designer">Sound Designer</option>
-                      <option value="audio_engineer">Audio Engineer</option>
-                    </select>
+                      placeholder="e.g. Neon Synthesis"
+                    />
                   </div>
-                  {role === 'sound_designer' && (
-                    <div>
-                      <label className="block text-xs font-black text-gray-500 uppercase mb-1 ml-1">Pod (Optional)</label>
-                      <input
-                        type="text"
-                        value={pod}
-                        onChange={(e) => setPod(e.target.value)}
-                        className="w-full bg-gray-50 border-2 border-black rounded-xl p-4 text-sm focus:ring-2 focus:ring-[#2E9DF7] transition-all font-medium"
-                        placeholder="e.g. Neon Synthesis"
-                      />
-                    </div>
-                  )}
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    Signing up creates a Sound Designer account. Audio Engineer access is granted by an admin afterward.
+                  </p>
                   <p className="text-[10px] text-gray-400 leading-relaxed">
                     By creating an account, you agree to StoryCo's Terms of Service and Privacy Policy.
                   </p>

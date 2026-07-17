@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { AppState, User, Module, Submission, Grade, VideoTask } from './types';
+import { AppState, User, Module, ModuleVideo, Submission, Grade, VideoTask, VideoProgress } from './types';
 import { initialData } from './data';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, doc, setDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -26,10 +26,17 @@ interface AppContextType extends AppState {
   resetPassword: (email: string) => Promise<boolean>;
   logout: () => void;
   submitHomework: (moduleId: string, driveLink: string) => void;
+  deleteSubmission: (moduleId: string) => void;
+  markVideoWatched: (moduleId: string) => void;
   gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => void;
   updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
+  updateUserRole: (userId: string, role: User['role']) => void;
   updateModule: (moduleId: string, updates: Partial<Module>) => void;
+  createModule: () => Promise<Module>;
+  deleteModule: (moduleId: string) => void;
+  upsertModuleVideo: (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title'>) => void;
+  deleteModuleVideo: (moduleId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -60,65 +67,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Firebase Auth (authUid) joined against the live `users` list below. This
   // avoids ever trusting a client-set "currentUser" that isn't backed by a
   // real authenticated session.
-  const [state, setState] = useState<Omit<AppState, 'currentUser'>>(() => {
-    const { currentUser, ...rest } = initialData;
-    return rest;
-  });
+  //
+  // Only `modules`/`moduleVideos` start from the local seed data (so the
+  // curriculum isn't blank before Firestore has anything in it - see
+  // seedCurriculumIfEmpty below). Everything else - submissions, grades,
+  // video tasks, video-watch progress - is real usage data with nothing to
+  // seed, so it starts empty and is filled in entirely by Firestore listeners.
+  const [state, setState] = useState<Omit<AppState, 'currentUser'>>(() => ({
+    users: [],
+    modules: initialData.modules,
+    moduleVideos: initialData.moduleVideos,
+    submissions: [],
+    grades: [],
+    videoTasks: [],
+    videoProgress: [],
+  }));
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const clearAuthError = () => setAuthError(null);
 
-  // Track the real Firebase Auth session AND sync the `users` collection
-  // together, because firestore.rules now requires being signed in to read
-  // /users. The two used to be separate effects, with the users listener
+  // Track the real Firebase Auth session AND sync every collection the app
+  // reads together, because firestore.rules requires being signed in to read
+  // any of them. The two used to be separate effects, with the users listener
   // subscribing once at page load (before anyone was signed in) - that first
   // subscription attempt was silently denied (no error handler was attached)
   // and never retried, so after a real sign-in the local `users` list stayed
   // empty forever and `currentUser` could never resolve. Now we tear down and
-  // re-create the users listener every time the auth state actually changes.
+  // re-create every listener each time the auth state actually changes.
   useEffect(() => {
-    let unsubscribeUsers: (() => void) | null = null;
+    let unsubscribers: Array<() => void> = [];
 
     const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
       setAuthUid(fbUser ? fbUser.uid : null);
 
-      if (unsubscribeUsers) {
-        unsubscribeUsers();
-        unsubscribeUsers = null;
-      }
+      unsubscribers.forEach(u => u());
+      unsubscribers = [];
 
       if (!fbUser) {
-        // Signed out: nothing to read, and no session to read it with.
-        setState(s => ({ ...s, users: [] }));
+        // Signed out: nothing to read, and no session to read it with. Keep
+        // showing the local curriculum fallback rather than blanking it.
+        setState(s => ({ ...s, users: [], submissions: [], grades: [], videoTasks: [], videoProgress: [] }));
         setAuthLoading(false);
         return;
       }
 
-      const usersCol = collection(db, 'users');
-      unsubscribeUsers = onSnapshot(
-        usersCol,
-        (snapshot) => {
-          const users: User[] = [];
-          snapshot.forEach(d => users.push(d.data() as User));
-          setState(s => ({ ...s, users }));
-          setAuthLoading(false);
-        },
-        (error) => {
-          // Surface Firestore permission/rules errors instead of failing
-          // silently - this is exactly the kind of bug that caused the
-          // "stuck on loading, never reaches dashboard" symptom above.
-          console.error('Error syncing users from Firestore:', error);
-          setAuthError('Signed in, but could not load your profile. Please refresh or contact an admin.');
-          setAuthLoading(false);
-        }
-      );
+      // Surfaces Firestore permission/rules errors instead of failing
+      // silently - this is exactly the kind of bug that caused the "stuck on
+      // loading, never reaches dashboard" symptom the comment above refers to.
+      const onError = (label: string) => (error: unknown) => {
+        console.error(`Error syncing ${label} from Firestore:`, error);
+        setAuthError('Signed in, but could not load your profile. Please refresh or contact an admin.');
+        setAuthLoading(false);
+      };
+
+      unsubscribers.push(onSnapshot(collection(db, 'users'), (snapshot) => {
+        const users: User[] = [];
+        snapshot.forEach(d => users.push(d.data() as User));
+        setState(s => ({ ...s, users }));
+        setAuthLoading(false);
+      }, onError('users')));
+
+      // Modules/moduleVideos: an empty snapshot means nobody has seeded the
+      // curriculum into Firestore yet - keep showing the local fallback
+      // instead of blanking the sidebar until that happens.
+      unsubscribers.push(onSnapshot(collection(db, 'modules'), (snapshot) => {
+        if (snapshot.empty) return;
+        const modules: Module[] = [];
+        snapshot.forEach(d => modules.push(d.data() as Module));
+        setState(s => ({ ...s, modules }));
+      }, onError('modules')));
+
+      unsubscribers.push(onSnapshot(collection(db, 'moduleVideos'), (snapshot) => {
+        if (snapshot.empty) return;
+        const moduleVideos: ModuleVideo[] = [];
+        snapshot.forEach(d => moduleVideos.push(d.data() as ModuleVideo));
+        setState(s => ({ ...s, moduleVideos }));
+      }, onError('moduleVideos')));
+
+      unsubscribers.push(onSnapshot(collection(db, 'submissions'), (snapshot) => {
+        const submissions: Submission[] = [];
+        snapshot.forEach(d => submissions.push(d.data() as Submission));
+        setState(s => ({ ...s, submissions }));
+      }, onError('submissions')));
+
+      unsubscribers.push(onSnapshot(collection(db, 'grades'), (snapshot) => {
+        const grades: Grade[] = [];
+        snapshot.forEach(d => grades.push(d.data() as Grade));
+        setState(s => ({ ...s, grades }));
+      }, onError('grades')));
+
+      unsubscribers.push(onSnapshot(collection(db, 'videoTasks'), (snapshot) => {
+        const videoTasks: VideoTask[] = [];
+        snapshot.forEach(d => videoTasks.push(d.data() as VideoTask));
+        setState(s => ({ ...s, videoTasks }));
+      }, onError('videoTasks')));
+
+      unsubscribers.push(onSnapshot(collection(db, 'videoProgress'), (snapshot) => {
+        const videoProgress: VideoProgress[] = [];
+        snapshot.forEach(d => videoProgress.push(d.data() as VideoProgress));
+        setState(s => ({ ...s, videoProgress }));
+      }, onError('videoProgress')));
     });
 
     return () => {
       unsubscribeAuth();
-      if (unsubscribeUsers) unsubscribeUsers();
+      unsubscribers.forEach(u => u());
     };
   }, []);
 
@@ -126,6 +181,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!authUid) return null;
     return state.users.find(u => u.id === authUid) ?? null;
   }, [authUid, state.users]);
+
+  // One-time curriculum bootstrap: the very first admin to sign in after
+  // this collection is empty writes the local module/moduleVideo seed data
+  // into Firestore (mirrors the "first signup becomes admin" bootstrap in
+  // signup() below). Only admins can write /modules per firestore.rules, so
+  // this can't run as a plain signed-in user - it just quietly does nothing
+  // until an admin opens the app once.
+  useEffect(() => {
+    if (currentUser?.role !== 'admin') return;
+    let cancelled = false;
+
+    const seedIfEmpty = async (collectionName: string, rows: Array<{ id: string }>) => {
+      const existing = await getDocs(collection(db, collectionName));
+      if (cancelled || !existing.empty) return;
+      const batch = writeBatch(db);
+      rows.forEach(row => batch.set(doc(db, collectionName, row.id), row));
+      await batch.commit();
+    };
+
+    seedIfEmpty('modules', initialData.modules).catch(err => console.error('Error seeding modules', err));
+    seedIfEmpty('moduleVideos', initialData.moduleVideos).catch(err => console.error('Error seeding moduleVideos', err));
+
+    return () => { cancelled = true; };
+  }, [currentUser?.role]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setAuthError(null);
@@ -204,54 +283,188 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const submitHomework = (moduleId: string, driveLink: string) => {
+  // Admin-only: promote/demote a user between Sound Designer and Audio
+  // Engineer (see AdminDashboard). Self-service signup no longer offers a
+  // role picker - see AuthView/signup below - so this is the only way an
+  // account becomes an engineer after the very first (admin) signup.
+  const updateUserRole = async (userId: string, role: User['role']) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    try {
+      await setDoc(doc(db, 'users', userId), { role }, { merge: true });
+    } catch (error) {
+      console.error('Error updating user role', error);
+    }
+  };
+
+  // Deterministic id (one submission per designer per module) so a resubmit
+  // is just an overwrite of the same document instead of orphaning the old
+  // one - matches firestore.rules, which lets the owner update/delete their
+  // own submission only while it isn't graded yet.
+  const submitHomework = async (moduleId: string, driveLink: string) => {
     if (!currentUser) return;
+    const submissionId = `${moduleId}_${currentUser.id}`;
     const newSubmission: Submission = {
-      id: `s_${Date.now()}`,
+      id: submissionId,
       moduleId,
       userId: currentUser.id,
       driveLink,
       status: 'submitted',
       submittedAt: new Date().toISOString(),
     };
-    setState((s) => ({
-      ...s,
-      submissions: [...s.submissions.filter(sub => !(sub.moduleId === moduleId && sub.userId === currentUser.id)), newSubmission],
-    }));
+    try {
+      await setDoc(doc(db, 'submissions', submissionId), newSubmission);
+    } catch (error) {
+      console.error('Error submitting homework', error);
+    }
+  };
+
+  // Lets a designer pull back a wrong submission before it's graded. Once
+  // graded, a Grade record points at the submission id, so firestore.rules
+  // blocks deleting it here - only an admin can remove a graded submission.
+  const deleteSubmission = async (moduleId: string) => {
+    if (!currentUser) return;
+    const submissionId = `${moduleId}_${currentUser.id}`;
+    try {
+      await deleteDoc(doc(db, 'submissions', submissionId));
+    } catch (error) {
+      console.error('Error deleting submission', error);
+    }
+  };
+
+  // Anchors a module's homework deadline to when its video was actually
+  // finished, not just opened - see ModuleView's embedded player, which
+  // calls this on the video's `ended` event. Re-watching just moves the
+  // deadline to the latest completion (same deterministic-id overwrite
+  // pattern as submitHomework).
+  const markVideoWatched = async (moduleId: string) => {
+    if (!currentUser) return;
+    const progressId = `${moduleId}_${currentUser.id}`;
+    const record: VideoProgress = {
+      id: progressId,
+      moduleId,
+      userId: currentUser.id,
+      watchedAt: new Date().toISOString(),
+    };
+    try {
+      await setDoc(doc(db, 'videoProgress', progressId), record);
+    } catch (error) {
+      console.error('Error marking video watched', error);
+    }
   };
 
   // Fixed: admins should also be able to grade homework, not only
   // audio_engineers. Previously this silently no-op'd for admins, which made
-  // it look like grading was broken when a director tried it.
-  const gradeHomework = (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => {
+  // it look like grading was broken when a director tried it. Deterministic
+  // grade id keeps this idempotent if it's ever called twice for the same
+  // submission.
+  const gradeHomework = async (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string) => {
     if (!currentUser || (currentUser.role !== 'audio_engineer' && currentUser.role !== 'admin')) return;
+    const gradeId = `g_${submissionId}`;
     const newGrade: Grade = {
-      id: `g_${Date.now()}`,
+      id: gradeId,
       submissionId,
       engineerId: currentUser.id,
       score,
       feedback,
       gradedAt: new Date().toISOString(),
     };
-    setState((s) => ({
-      ...s,
-      grades: [...s.grades, newGrade],
-      submissions: s.submissions.map((sub) => (sub.id === submissionId ? { ...sub, status: 'graded' } : sub)),
-    }));
+    try {
+      await setDoc(doc(db, 'grades', gradeId), newGrade);
+      await updateDoc(doc(db, 'submissions', submissionId), { status: 'graded' });
+    } catch (error) {
+      console.error('Error grading homework', error);
+    }
   };
 
-  const updateVideoTask = (taskId: string, status: VideoTask['status'], url?: string) => {
-    setState((s) => ({
-      ...s,
-      videoTasks: s.videoTasks.map((t) => (t.id === taskId ? { ...t, status, videoUrl: url || t.videoUrl } : t)),
-    }));
+  // Only ever updates a task an admin has already assigned - firestore.rules
+  // reserves *creating* a videoTasks doc for admins, and an engineer typing a
+  // link for a module with no assigned task has nothing to update (see the
+  // "no task assigned yet" state in EngineerDashboard).
+  const updateVideoTask = async (taskId: string, status: VideoTask['status'], url?: string) => {
+    const existing = state.videoTasks.find(t => t.id === taskId);
+    if (!existing) {
+      console.warn('No admin-assigned video task exists for this module yet.');
+      return;
+    }
+    const nextUrl = url ?? existing.videoUrl;
+    const payload: Partial<VideoTask> = { status };
+    if (nextUrl !== undefined) payload.videoUrl = nextUrl;
+    try {
+      await updateDoc(doc(db, 'videoTasks', taskId), payload);
+    } catch (error) {
+      console.error('Error updating video task', error);
+    }
   };
 
-  const updateModule = (moduleId: string, updates: Partial<Module>) => {
-    setState((s) => ({
-      ...s,
-      modules: s.modules.map((m) => (m.id === moduleId ? { ...m, ...updates } : m)),
-    }));
+  const updateModule = async (moduleId: string, updates: Partial<Module>) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const clean: Record<string, unknown> = {};
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined) clean[key] = value;
+    });
+    try {
+      await updateDoc(doc(db, 'modules', moduleId), clean);
+    } catch (error) {
+      console.error('Error updating module', error);
+    }
+  };
+
+  // Returns the created module (not just its id) so the caller can open it
+  // straight into the edit form without waiting on the modules listener to
+  // round-trip the write back down.
+  const createModule = async (): Promise<Module> => {
+    if (!currentUser || currentUser.role !== 'admin') throw new Error('Only admins can create modules.');
+    const id = `m_${Date.now()}`;
+    const nextOrder = state.modules.length > 0 ? Math.max(...state.modules.map(m => m.order)) + 1 : 1;
+    const newModule: Module = {
+      id,
+      order: nextOrder,
+      category: 'Onboarding',
+      title: 'New Module',
+      description: '',
+      textContent: '',
+    };
+    await setDoc(doc(db, 'modules', id), newModule);
+    return newModule;
+  };
+
+  // Removes the module and, if the admin had set one, its video - orphaned
+  // submissions/grades for a deleted module are left alone (same as
+  // deleting a submission doesn't touch its grade) rather than cascading.
+  const deleteModule = async (moduleId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    try {
+      await deleteDoc(doc(db, 'modules', moduleId));
+      const video = state.moduleVideos.find(v => v.moduleId === moduleId);
+      if (video) await deleteDoc(doc(db, 'moduleVideos', video.id));
+    } catch (error) {
+      console.error('Error deleting module', error);
+    }
+  };
+
+  // One video per module - reuses the existing video's doc id if the admin
+  // is editing one already set, otherwise creates a new deterministic id.
+  const upsertModuleVideo = async (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title'>) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const existing = state.moduleVideos.find(v => v.moduleId === moduleId);
+    const videoId = existing?.id || `mv_${moduleId}`;
+    const video: ModuleVideo = { id: videoId, moduleId, ...updates };
+    try {
+      await setDoc(doc(db, 'moduleVideos', videoId), video);
+    } catch (error) {
+      console.error('Error saving module video', error);
+    }
+  };
+
+  const deleteModuleVideo = async (moduleId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const existing = state.moduleVideos.find(v => v.moduleId === moduleId);
+    if (!existing) return;
+    try {
+      await deleteDoc(doc(db, 'moduleVideos', existing.id));
+    } catch (error) {
+      console.error('Error deleting module video', error);
+    }
   };
 
   return (
@@ -268,10 +481,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetPassword,
         logout,
         submitHomework,
+        deleteSubmission,
+        markVideoWatched,
         gradeHomework,
         updateVideoTask,
         updateUserAvatar,
+        updateUserRole,
         updateModule,
+        createModule,
+        deleteModule,
+        upsertModuleVideo,
+        deleteModuleVideo,
       }}
     >
       {children}

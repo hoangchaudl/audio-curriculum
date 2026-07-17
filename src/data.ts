@@ -149,21 +149,15 @@ export const initialData: AppState = {
   moduleVideos: [
     { id: 'v1', moduleId: 'm4', type: 'internal', url: '#', title: 'Mastering the Frequency Spectrum' },
   ],
-  submissions: [
-    { id: 's1', moduleId: 'm1', userId: 'u1', driveLink: 'https://drive.google.com/...', status: 'graded', submittedAt: '2026-07-10T10:00:00Z' },
-    { id: 's2', moduleId: 'm2', userId: 'u1', driveLink: 'https://drive.google.com/...', status: 'graded', submittedAt: '2026-07-12T10:00:00Z' },
-    { id: 's3', moduleId: 'm3', userId: 'u1', driveLink: 'https://drive.google.com/...', status: 'graded', submittedAt: '2026-07-14T10:00:00Z' },
-    { id: 's4', moduleId: 'm4', userId: 'u1', driveLink: 'https://drive.google.com/open?id=123', status: 'submitted', submittedAt: '2026-07-15T14:30:00Z' },
-    { id: 's5', moduleId: 'm4', userId: 'u4', driveLink: 'https://drive.google.com/open?id=124', status: 'submitted', submittedAt: '2026-07-15T16:00:00Z' },
-  ],
-  grades: [
-    { id: 'g1', submissionId: 's1', engineerId: 'u2', score: 4, feedback: 'Great job!', gradedAt: '2026-07-11T10:00:00Z' },
-    { id: 'g2', submissionId: 's2', engineerId: 'u2', score: 4, feedback: 'Solid work.', gradedAt: '2026-07-13T10:00:00Z' },
-    { id: 'g3', submissionId: 's3', engineerId: 'u2', score: 4, feedback: 'Excellent placement.', gradedAt: '2026-07-15T10:00:00Z' },
-  ],
-  videoTasks: [
-    { id: 'vt1', moduleId: 'm5', engineerId: 'u2', title: 'Character Voice Design Walkthrough', status: 'completed', assignedAt: '2026-07-10T10:00:00Z', videoUrl: 'https://vimeo.com/123456' },
-    { id: 'vt2', moduleId: 'm6', engineerId: 'u2', title: 'Granular Synthesis Techniques', status: 'in_progress', assignedAt: '2026-07-11T10:00:00Z' },
-    { id: 'vt3', moduleId: 'm7', engineerId: 'u2', title: 'Storytelling via Audio', status: 'pending', assignedAt: '2026-07-12T10:00:00Z' }
-  ],
+  // These used to hold fake demo rows (referencing user ids like 'u1'/'u2'
+  // that never existed as real Firebase Auth accounts). Submissions, grades,
+  // video tasks, and video-watch progress are now real Firestore-backed data
+  // that accumulates from real usage - see store.tsx - so there's nothing to
+  // seed here. `modules` and `moduleVideos` above are still used as the
+  // one-time curriculum seed an admin's client writes into Firestore the
+  // first time they sign in (see seedCurriculumIfEmpty in store.tsx).
+  submissions: [],
+  grades: [],
+  videoTasks: [],
+  videoProgress: [],
 };
