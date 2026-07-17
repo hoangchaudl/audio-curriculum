@@ -246,8 +246,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     setRubricPaste('');
   };
 
-  const newVideosCount = videoTasks.filter(vt => vt.status === 'completed').length;
-
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
       <header className="border-b-[3px] border-black bg-white px-4 md:px-10 py-6 flex-shrink-0">
@@ -263,18 +261,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             <span className="bg-black text-white text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
               {designers.length} Designers / {engineers.length} Engineers / {modules.length} Modules
             </span>
-            <div
-              className="relative cursor-pointer border-2 border-black bg-white p-2 rounded-full hover:bg-gray-50 transition-colors"
-              title="Notifications"
-              onClick={() => setActiveTab('engineers')}
-            >
-              <span className="text-xl block leading-none">🔔</span>
-              {newVideosCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-black">
-                  {newVideosCount}
-                </span>
-              )}
-            </div>
           </div>
         </div>
       </header>
@@ -874,11 +860,9 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             confirm modal below. */}
                         <button
                           onClick={() => handleDeleteModule(mod)}
-                          title="Delete module"
-                          aria-label="Delete module"
-                          className="w-9 h-9 flex-shrink-0 flex items-center justify-center text-gray-400 border-2 border-transparent rounded-lg hover:text-white hover:bg-[#B23A2E] hover:border-black transition-colors ml-1"
+                          className="flex-shrink-0 text-gray-400 font-black uppercase text-xs tracking-wide px-3 py-2 border-2 border-transparent rounded-lg hover:text-white hover:bg-[#B23A2E] hover:border-black transition-colors ml-1"
                         >
-                          🗑
+                          Delete
                         </button>
                       </div>
                     </div>
