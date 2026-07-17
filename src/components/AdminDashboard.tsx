@@ -15,7 +15,7 @@ const CATEGORIES = ['Onboarding', 'Intermediate', 'Advanced'] as const;
 // showing when a link exists) instead of being treated as broken.
 const getMissingContentFields = (mod: Module): string[] => {
   const missing: string[] = [];
-  if (!mod.textContent?.trim()) missing.push('Content');
+  if (!mod.description?.trim()) missing.push('Content');
   if (!mod.objectives?.length) missing.push('Objectives');
   if (!mod.outcomes?.length) missing.push('Outcomes');
   if (!mod.rubric?.trim() && !mod.rubricCriteria?.length) missing.push('Rubric');
@@ -621,18 +621,11 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
                       <div>
                         <label className="block text-xs font-black text-gray-500 uppercase mb-1">Description</label>
+                        <p className="text-[10px] text-gray-400 mb-1">Shown on curriculum cards and as "About this Module" on the designer's page.</p>
                         <textarea
                           value={editForm.description || ''}
                           onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-14"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Text Content</label>
-                        <textarea
-                          value={editForm.textContent || ''}
-                          onChange={(e) => setEditForm({ ...editForm, textContent: e.target.value })}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-16"
+                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
                       <div>

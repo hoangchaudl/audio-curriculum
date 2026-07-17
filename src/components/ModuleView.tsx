@@ -221,7 +221,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
           <div className="bg-white rounded-2xl p-8 border-[3px] border-black">
             <h4 className="text-sm font-black uppercase text-black mb-3 tracking-widest">About this Module</h4>
             <p className="text-gray-600 leading-relaxed whitespace-pre-wrap mb-6">
-              {mod.textContent}
+              {mod.description}
             </p>
 
             {(mod.objectives || mod.outcomes) && (

@@ -464,7 +464,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: 'Onboarding',
       title: 'New Module',
       description: '',
-      textContent: '',
     };
     await setDoc(doc(db, 'modules', id), newModule);
     return newModule;
