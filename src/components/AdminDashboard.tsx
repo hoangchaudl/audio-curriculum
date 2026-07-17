@@ -62,17 +62,29 @@ const parseRubricText = (text: string): { note?: string; criteria: RubricCriteri
   return { note, criteria };
 };
 
-// Admins just paste a link or type a book/article title, one per line - we
-// infer the resource type instead of asking them to hand-write JSON.
-const parseMaterialsText = (text: string): Resource[] =>
-  text.split('\n').map(s => s.trim()).filter(Boolean).map(line => {
-    const isUrl = /^(https?:\/\/|www\.)/i.test(line);
-    if (!isUrl) return { type: 'book', title: line };
-    const isVideo = /youtube\.com|youtu\.be|vimeo\.com/i.test(line);
-    return { type: isVideo ? 'video' : 'article', title: line, url: line };
-  });
+// Admins give each material a display title plus an optional link - we still
+// infer the resource type from the URL instead of asking for it.
+const inferMaterialType = (url: string): Resource['type'] => {
+  if (!url) return 'book';
+  return /youtube\.com|youtu\.be|vimeo\.com/i.test(url) ? 'video' : 'article';
+};
 
-const materialsToText = (materials: Resource[] = []) => materials.map(r => r.url || r.title).join('\n');
+interface MaterialRow { title: string; url: string; }
+
+const materialsToRows = (materials: Resource[] = []): MaterialRow[] =>
+  // Older entries used the raw URL as the title - show those with an empty
+  // title box so admins can type a proper one.
+  materials.map(r => ({ title: r.title === r.url ? '' : r.title, url: r.url || '' }));
+
+const rowsToMaterials = (rows: MaterialRow[]): Resource[] =>
+  rows
+    .map(r => ({ title: r.title.trim(), url: r.url.trim() }))
+    .filter(r => r.title || r.url)
+    .map(r => ({
+      type: inferMaterialType(r.url),
+      title: r.title || r.url,
+      ...(r.url ? { url: r.url } : {}),
+    }));
 
 const CARD_THEMES = [
   { bg: '#BFE3FF', accent: '#2E9DF7' },
@@ -113,7 +125,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const [editForm, setEditForm] = useState<any>({});
   const [objectivesText, setObjectivesText] = useState('');
   const [outcomesText, setOutcomesText] = useState('');
-  const [materialsText, setMaterialsText] = useState('');
+  const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [outlineText, setOutlineText] = useState('');
   const [rubricCriteria, setRubricCriteria] = useState<RubricCriterion[]>([]);
   const [rubricPaste, setRubricPaste] = useState('');
@@ -136,7 +148,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     setEditForm({ ...mod });
     setObjectivesText((mod.objectives || []).join('\n'));
     setOutcomesText((mod.outcomes || []).join('\n'));
-    setMaterialsText(materialsToText(mod.additionalMaterials));
+    setMaterials(materialsToRows(mod.additionalMaterials));
     setOutlineText((mod.outline || []).join('\n'));
     setRubricCriteria(mod.rubricCriteria || []);
     setRubricPaste('');
@@ -161,7 +173,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       return;
     }
     if (editingModule) setIsEditDirty(true);
-  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materialsText, rubricCriteria, videoType, videoTitle, videoUrl]);
+  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materials, rubricCriteria, videoType, videoTitle, videoUrl]);
 
   const [discardConfirmAction, setDiscardConfirmAction] = useState<(() => void) | null>(null);
   const requestEditChange = (action: () => void) => {
@@ -206,7 +218,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         outline: splitLines(outlineText),
         objectives: splitLines(objectivesText),
         outcomes: splitLines(outcomesText),
-        additionalMaterials: parseMaterialsText(materialsText),
+        additionalMaterials: rowsToMaterials(materials),
         // Drop sub-skills the admin left completely blank rather than saving
         // empty tables.
         rubricCriteria: rubricCriteria.filter(c => c.title.trim() || c.levels.some(l => l.trim())),
@@ -219,6 +231,11 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       setEditingModule(null);
     }
   };
+
+  const addMaterial = () => setMaterials([...materials, { title: '', url: '' }]);
+  const removeMaterial = (idx: number) => setMaterials(materials.filter((_, i) => i !== idx));
+  const patchMaterial = (idx: number, patch: Partial<MaterialRow>) =>
+    setMaterials(materials.map((m, i) => (i === idx ? { ...m, ...patch } : m)));
 
   const addCriterion = () =>
     setRubricCriteria([...rubricCriteria, { id: `rc_${rubricCriteria.length + 1}_${Date.now()}`, title: '', levels: ['', '', '', ''] }]);
@@ -756,14 +773,41 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
 
                       <div>
-                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Additional Materials (one link or book title per line)</label>
-                        <textarea
-                          value={materialsText}
-                          onChange={(e) => setMaterialsText(e.target.value)}
-                          placeholder={'https://example.com/great-article\nThe Sound Effects Bible'}
-                          className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-32"
-                        />
-                        <p className="text-[10px] text-gray-400 mt-1">Paste a link or type a book/article title on each line - we'll sort out the type automatically.</p>
+                        <label className="block text-xs font-black text-gray-500 uppercase mb-1">Additional Materials</label>
+                        <div className="space-y-2">
+                          {materials.map((material, idx) => (
+                            <div key={idx} className="grid grid-cols-[1fr_1.4fr_auto] gap-2">
+                              <input
+                                type="text"
+                                value={material.title}
+                                onChange={(e) => patchMaterial(idx, { title: e.target.value })}
+                                placeholder="Title (e.g. The Sound Effects Bible)"
+                                className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                              />
+                              <input
+                                type="text"
+                                value={material.url}
+                                onChange={(e) => patchMaterial(idx, { url: e.target.value })}
+                                placeholder="https://... (leave blank for a book)"
+                                className="w-full bg-gray-50 border-2 border-black rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                              />
+                              <button
+                                onClick={() => removeMaterial(idx)}
+                                title="Remove material"
+                                className="bg-white border-2 border-black text-[#B23A2E] hover:bg-[#B23A2E] hover:text-white font-black px-3 rounded-xl transition-colors"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={addMaterial}
+                            className="bg-white border-2 border-dashed border-black/40 text-gray-600 hover:border-black hover:text-black font-black py-2 px-4 rounded-xl transition-colors uppercase text-xs tracking-wide"
+                          >
+                            + Add Material
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mt-1">Sound designers only see the title - clicking it opens the link. Leave the link blank for books.</p>
                       </div>
 
                       <div className="border-2 border-dashed border-black/30 rounded-xl p-4 space-y-3">
