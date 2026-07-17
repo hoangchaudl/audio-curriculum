@@ -72,9 +72,23 @@ const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w
 export const AdminDashboard: React.FC = () => {
   const {
     users, modules, moduleVideos, submissions, grades, videoTasks,
-    updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo,
+    updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo, createVideoTask,
   } = useAppContext();
   const [activeTab, setActiveTab] = useState<'designers' | 'engineers' | 'modules'>('modules');
+
+  // Per-engineer draft for the "assign a video task" form on the Engineers
+  // tab - keyed by engineer id so each card's inputs are independent.
+  const [assignDraft, setAssignDraft] = useState<Record<string, { moduleId: string; title: string }>>({});
+  const getAssignDraft = (engineerId: string) => assignDraft[engineerId] || { moduleId: modules[0]?.id || '', title: '' };
+  const setAssignField = (engineerId: string, field: 'moduleId' | 'title', value: string) => {
+    setAssignDraft(d => ({ ...d, [engineerId]: { ...getAssignDraft(engineerId), [field]: value } }));
+  };
+  const handleAssignTask = (engineerId: string) => {
+    const draft = getAssignDraft(engineerId);
+    if (!draft.moduleId || !draft.title.trim()) return;
+    createVideoTask(engineerId, draft.moduleId, draft.title.trim());
+    setAssignDraft(d => ({ ...d, [engineerId]: { moduleId: draft.moduleId, title: '' } }));
+  };
 
   const designers = users.filter(u => u.role === 'sound_designer');
   const engineers = users.filter(u => u.role === 'audio_engineer');
@@ -170,7 +184,7 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
-      <header className="border-b-[3px] border-black bg-white px-10 py-6 flex-shrink-0">
+      <header className="border-b-[3px] border-black bg-white px-4 md:px-10 py-6 flex-shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <span className="inline-block bg-[#FFD84D] border-2 border-black text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2">
@@ -199,7 +213,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-10 space-y-8">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
         {/* Tabs */}
         <div className="flex gap-3 flex-wrap">
           <button
@@ -415,6 +429,35 @@ export const AdminDashboard: React.FC = () => {
                         {assignedTasks.length === 0 && (
                           <p className="text-sm text-gray-400 italic text-center py-4 font-semibold">No video tasks assigned.</p>
                         )}
+                      </div>
+
+                      <div className="pt-3 border-t-2 border-black/10 space-y-2">
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wide">Assign a Video Task</p>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <select
+                            value={getAssignDraft(engineer.id).moduleId}
+                            onChange={(e) => setAssignField(engineer.id, 'moduleId', e.target.value)}
+                            className="flex-1 bg-gray-50 border-2 border-black rounded-lg p-2 text-xs font-medium"
+                          >
+                            {modules.sort((a, b) => a.order - b.order).map(mod => (
+                              <option key={mod.id} value={mod.id}>{mod.label || mod.order.toString().padStart(2, '0')} — {mod.title}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            value={getAssignDraft(engineer.id).title}
+                            onChange={(e) => setAssignField(engineer.id, 'title', e.target.value)}
+                            placeholder="Task title, e.g. Record intro walkthrough"
+                            className="flex-1 bg-gray-50 border-2 border-black rounded-lg p-2 text-xs font-medium"
+                          />
+                          <button
+                            onClick={() => handleAssignTask(engineer.id)}
+                            disabled={!getAssignDraft(engineer.id).title.trim()}
+                            className="bg-[#2E9DF7] text-white font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-lg border-2 border-black hover:bg-black transition-colors disabled:opacity-40 disabled:hover:bg-[#2E9DF7] whitespace-nowrap"
+                          >
+                            + Assign
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

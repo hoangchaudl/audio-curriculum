@@ -35,6 +35,11 @@ const AppContent = () => {
   // Sidebar (see isRealAdmin usage there).
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Below the lg: breakpoint the sidebar renders as an off-canvas drawer
+  // (see Sidebar.tsx) instead of taking a fixed 288px out of a phone-width
+  // screen. Closed by default; opened via the hamburger button below.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   const isRealAdmin = currentUser?.role === 'admin';
   const effectiveRole: Role | undefined = isRealAdmin ? (previewRole ?? 'admin') : currentUser?.role;
 
@@ -112,14 +117,29 @@ const AppContent = () => {
         setSelectedModuleId={(id) => {
           setSelectedModuleId(id);
           setView('module');
+          setMobileSidebarOpen(false);
         }}
         isRealAdmin={isRealAdmin}
         previewRole={previewRole}
         onChangePreviewRole={setPreviewRole}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
       <div className="flex-1 flex flex-col min-w-0">
+        <div className="lg:hidden flex items-center gap-3 h-14 px-4 bg-white border-b-[3px] border-black flex-shrink-0">
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Open menu"
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center border-2 border-black rounded-lg bg-white hover:bg-gray-50 transition-colors"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+          </button>
+          <span className="font-black text-sm uppercase tracking-tight text-black truncate">Story Co Audio Academy</span>
+        </div>
         {isRealAdmin && previewRole && (
           <div className="bg-[#F4511E] border-b-[3px] border-black text-white text-xs font-bold px-6 py-2 flex items-center justify-between flex-shrink-0">
             <span>

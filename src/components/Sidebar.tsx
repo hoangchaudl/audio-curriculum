@@ -16,7 +16,9 @@ export const Sidebar: React.FC<{
   onChangePreviewRole: (role: Role | null) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
-}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, previewRole, onChangePreviewRole, collapsed, onToggleCollapse }) => {
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
   const { modules, currentUser, submissions, logout } = useAppContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -35,7 +37,15 @@ export const Sidebar: React.FC<{
   const isCollapsed = isRealAdmin && collapsed;
 
   return (
-    <aside className={`${isCollapsed ? 'w-24' : 'w-72'} bg-[#2E9DF7] border-r-[3px] border-black flex flex-col p-4 relative overflow-hidden flex-shrink-0 transition-all duration-200`}>
+    <>
+      {mobileOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          aria-hidden="true"
+        />
+      )}
+      <aside className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-[#2E9DF7] border-r-[3px] border-black flex flex-col p-4 overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className={`flex items-center gap-3 mb-8 z-10 ${isCollapsed ? 'flex-col' : ''}`}>
         <div className="w-10 h-10 bg-white border-[3px] border-black rounded-full flex items-center justify-center flex-shrink-0">
           <div className="w-5 h-5 bg-[#2E9DF7] rounded-full"></div>
@@ -56,11 +66,18 @@ export const Sidebar: React.FC<{
           <button
             onClick={onToggleCollapse}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={`${isCollapsed ? '' : 'ml-auto'} w-7 h-7 flex-shrink-0 bg-white border-2 border-black rounded-full flex items-center justify-center text-black font-black text-xs hover:bg-gray-100 transition-colors`}
+            className={`${isCollapsed ? '' : 'ml-auto'} hidden lg:flex w-7 h-7 flex-shrink-0 bg-white border-2 border-black rounded-full items-center justify-center text-black font-black text-xs hover:bg-gray-100 transition-colors`}
           >
             {collapsed ? '»' : '«'}
           </button>
         )}
+        <button
+          onClick={onCloseMobile}
+          title="Close menu"
+          className="ml-auto lg:hidden w-7 h-7 flex-shrink-0 bg-white border-2 border-black rounded-full flex items-center justify-center text-black font-black text-xs hover:bg-gray-100 transition-colors"
+        >
+          ✕
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 z-10 scrollbar-hide pb-4">
@@ -215,5 +232,6 @@ export const Sidebar: React.FC<{
         </div>
       </div>
     </aside>
+    </>
   );
 };

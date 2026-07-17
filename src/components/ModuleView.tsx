@@ -100,13 +100,23 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
   // deadline rather than a guessed one.
   const watched = videoProgress.find(v => v.moduleId === moduleId && v.userId === currentUser?.id);
   const deadline = watched ? new Date(new Date(watched.watchedAt).getTime() + 7 * 24 * 60 * 60 * 1000) : null;
+  // Only YouTube/direct-file videos are embedded with playback tracking, so
+  // only those can ever fire markVideoWatched and set a deadline. A link
+  // that just opens in a new tab has no way to report "finished," so it
+  // never gets a deadline - that's communicated below instead of silently
+  // showing nothing.
+  const isTrackableVideo = hasPlayableVideo && (!!youtubeId || isDirectVideo);
+  const isUntrackableVideo = hasPlayableVideo && !isTrackableVideo;
+  // Once a submission is graded the deadline no longer matters - don't show
+  // stale/overdue urgency for work that's already been turned in and scored.
+  const isOverdue = !!deadline && sub?.status !== 'graded' && deadline.getTime() < Date.now();
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 bg-[#F5FAFF]">
+    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
       {/* Top Navbar */}
-      <header className="h-20 bg-white border-b-[3px] border-black flex items-center justify-between px-10 flex-shrink-0">
-        <div>
-          <h2 className="text-2xl font-black text-black">Module {mod.label || mod.order.toString().padStart(2, '0')}: {mod.title}</h2>
+      <header className="min-h-20 bg-white border-b-[3px] border-black flex items-center justify-between gap-4 px-4 md:px-10 py-3 flex-shrink-0">
+        <div className="min-w-0">
+          <h2 className="text-lg md:text-2xl font-black text-black truncate">Module {mod.label || mod.order.toString().padStart(2, '0')}: {mod.title}</h2>
           <p className="text-xs text-gray-500 font-bold flex items-center gap-2 mt-1">
             Status:{' '}
             <span className={`px-3 py-1 rounded-full border-2 border-black text-[10px] font-black uppercase tracking-wider ${
@@ -119,7 +129,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
             </span>
           </p>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="hidden sm:flex items-center gap-6 flex-shrink-0">
           <div className="flex flex-col items-end">
             <span className="text-[10px] uppercase font-black text-gray-400">Your Pod</span>
             <span className="text-sm font-bold">{currentUser?.pod || 'Unassigned'}</span>
@@ -128,9 +138,9 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
       </header>
 
       {/* Page Layout */}
-      <div className="flex-1 p-10 flex gap-8 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 lg:p-10 flex flex-col lg:flex-row gap-6 lg:gap-8 overflow-y-auto">
         {/* Content Section */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 min-w-0 space-y-6">
           {hasPlayableVideo ? (
             <div className="aspect-video bg-[#2D2D2D] rounded-2xl border-[3px] border-black relative overflow-hidden">
               {youtubeId ? (
@@ -285,7 +295,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
         </div>
 
         {/* Right Interaction Panel */}
-        <div className="w-80 space-y-6 flex-shrink-0">
+        <div className="w-full lg:w-80 space-y-6 flex-shrink-0">
           {/* Progress */}
           <div className="bg-white border-[3px] border-black rounded-2xl p-6 relative">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-black rounded-full px-4 py-1.5">
@@ -331,11 +341,24 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               <p className="text-[11px] text-[#1E40AF]/80 mb-4 font-medium leading-relaxed">
                 {mod.homeworkDescription || 'Download the files needed for this module\'s homework.'}
               </p>
-              {deadline && (
-                <div className="inline-flex items-center gap-1.5 bg-white border-2 border-black rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#1E40AF] mb-4">
-                  <span>⏰</span> Due {deadline.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              {deadline && sub?.status !== 'graded' && (
+                <div className={`inline-flex items-center gap-1.5 border-2 border-black rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide mb-2 ${
+                  isOverdue ? 'bg-[#F4511E] text-white' : 'bg-white text-[#1E40AF]'
+                }`}>
+                  <span>{isOverdue ? '⚠️' : '⏰'}</span>
+                  {isOverdue ? 'Overdue — was due ' : 'Due '}
+                  {deadline.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               )}
+              <p className="text-[10px] text-[#1E40AF]/70 font-bold leading-relaxed mb-4">
+                {deadline
+                  ? 'Deadline: 7 days after you finish watching the module video above.'
+                  : isTrackableVideo
+                  ? "No deadline yet — finish watching the video above to start your 7-day submission window."
+                  : isUntrackableVideo
+                  ? "This module's video opens in a new tab, so we can't detect when you finish it - no deadline applies."
+                  : 'This module has no video yet, so no submission deadline applies.'}
+              </p>
               <a
                 href={mod.homeworkLink}
                 target="_blank"
