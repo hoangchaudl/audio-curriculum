@@ -106,6 +106,16 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showResubmitConfirm, setShowResubmitConfirm] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Each module can have a very different content height (its own video,
+  // materials, rubric). Without this, switching from a long module to a
+  // shorter one while scrolled down leaves the scroll container stuck past
+  // the new content's height - reading as blank space / a stuck page until
+  // the student manually scrolls back up.
+  useEffect(() => {
+    scrollRef.current?.scrollTo(0, 0);
+  }, [moduleId]);
 
   const mod = modules.find(m => m.id === moduleId);
   const sub = submissions.find(s => s.moduleId === moduleId && s.userId === currentUser?.id);
@@ -206,7 +216,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
       </header>
 
       {/* Page Layout */}
-      <div className="flex-1 p-4 md:p-6 lg:p-10 flex flex-col lg:flex-row gap-6 lg:gap-8 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:p-10 flex flex-col lg:flex-row gap-6 lg:gap-8 overflow-y-auto">
         {/* Content Section */}
         <div className="flex-1 min-w-0 space-y-6">
           {hasPlayableVideo ? (
