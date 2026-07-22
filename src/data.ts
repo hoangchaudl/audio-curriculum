@@ -89,6 +89,49 @@ export const initialData: AppState = {
       description: "In this module, we explore the surgical and creative uses of equalization. You'll learn to identify frequency clashes in a complex mix and use dynamic compression to control transients. Focus on the low-end definition without sacrificing punch.",
       outline: ['1. Intro to EQ', '2. Subtractive vs Additive EQ', '3. Dynamic Range Compression', '4. Parallel Processing'],
       rubric: '4: Excellent balance and clarity. 3: Good balance, minor masking. 2: Needs work on frequency clashes. 1: Poor balance or inappropriate use of compression.',
+      rubricNote: '1–4 scale, 3+ average to pass',
+      rubricCriteria: [
+        {
+          id: 'm4-balance-priority',
+          title: 'Balance & Priority Judgment (MX/SFX vs. DX)',
+          levels: [
+            "Levels don't match reference in direction or degree; DX gets buried or MX/SFX fight for space",
+            'Gets the general balance right but timing of ducks/transitions is off from reference',
+            'Balance matches reference closely — same priority calls (what recedes, what leads) at the right moments',
+            'Matches reference and can articulate why the engineer made each call, not just replicate it',
+          ],
+        },
+        {
+          id: 'm4-processing-chain',
+          title: 'Processing Chain Application',
+          levels: [
+            'Chain order wrong or missing steps (e.g. compression before EQ with no reasoning)',
+            'Chain order correct but overshoots or undershoots — audible over-processing or under-treatment vs. reference',
+            'Chain order and amount closely track the reference; sounds clean, not over-worked',
+            "Matches reference and can explain the reasoning for each stage's placement/amount unprompted",
+          ],
+        },
+        {
+          id: 'm4-dynamic-decision',
+          title: 'Dynamic Decision-Making Under Density',
+          levels: [
+            "At the scene's busiest moment, no clear reduce/gain logic — everything competes or one element dominates by accident",
+            'Some elements correctly prioritized, but misses one or two competing elements at the busiest moment',
+            "Replicates the engineer's reduce/gain calls at the busiest moment, or deviates with a clearly reasoned justification",
+            "Replicates and identifies a moment where they'd make a different call than the engineer, with sound reasoning — shows independent judgment, not just imitation",
+          ],
+        },
+        {
+          id: 'm4-delivery-loudness',
+          title: 'Delivery & Loudness Compliance',
+          levels: [
+            'Fails platform LUFS target; no Insight verification submitted',
+            'Close to target but outside tolerance; inconsistent stem print',
+            'Hits platform spec; Insight screenshot confirms compliance',
+            'Hits spec with margin to spare across multiple platform targets, stems cleanly organized for handoff',
+          ],
+        },
+      ],
       outcomes: ['Understand the frequency spectrum', 'Apply compression effectively', 'Enhance low-end definition'],
       objectives: ['Identify problematic frequencies', 'Use a parametric EQ to shape sounds', 'Apply compression to control peaks'],
       homeworkLink: 'https://drive.google.com/drive/folders/homework-example-link',
