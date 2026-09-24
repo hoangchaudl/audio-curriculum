@@ -1,4 +1,4 @@
-import { Assignment, AssessmentSubmission, Enrollment, Exercise, OutlineItem, ProgramOutline, VideoProgress } from '../types';
+import { Assignment, AssessmentSubmission, Enrollment, Exercise, OutlineItem, OutlineSection, OutlineWeek, ProgramOutline, VideoProgress } from '../types';
 import { stageSubmissions } from './scoring';
 
 // Where an assignment sits in the outline (1-based week number).
@@ -81,7 +81,36 @@ export const programProgress = (
       }
       return [];
     });
-    return { id: w.id, title: w.title, done: flags.filter(Boolean).length, total: flags.length };
+    return { id: w.id, title: weekLabel(outline!.weeks.indexOf(w)), done: flags.filter(Boolean).length, total: flags.length };
   });
   return { weeks, done: weeks.reduce((t, w) => t + w.done, 0), total: weeks.reduce((t, w) => t + w.total, 0) };
 };
+
+// Weeks are fixed and named by position.
+export const weekLabel = (index: number) => `Week ${index + 1}`;
+
+// A week's items in the order trainees see them. Weeks that have been
+// organised into sections keep the admin's manual order; older weeks are
+// ordered by day.
+export const weekItemsInOrder = (week: OutlineWeek, assignments: Assignment[]) =>
+  week.sections ? week.items : sortByDay(week.items, assignments);
+
+// The week as trainees see it: each section with its items, then anything
+// not in a section (or in a deleted one) under `section: null`.
+export const weekGroups = (week: OutlineWeek, assignments: Assignment[]): { section: OutlineSection | null; items: OutlineItem[] }[] => {
+  const items = weekItemsInOrder(week, assignments);
+  const sections = week.sections ?? [];
+  const known = new Set(sections.map(s => s.id));
+  return [
+    ...sections.map(section => ({ section, items: items.filter(i => i.sectionId === section.id) })),
+    { section: null, items: items.filter(i => !i.sectionId || !known.has(i.sectionId)) },
+  ];
+};
+
+// Items rewritten in display order (sections first), so a week can be
+// edited by position; also turns an older day-ordered week into a manual one.
+export const normalizeWeek = (week: OutlineWeek, assignments: Assignment[]): OutlineWeek => ({
+  ...week,
+  sections: week.sections ?? [],
+  items: weekGroups(week, assignments).flatMap(g => g.items),
+});

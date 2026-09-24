@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
 import { Assignment, Module, Role } from '../types';
 
-type WeekRow = { key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment };
+// `section`: the week section heading it sits under (null = not in a section).
+type WeekRow = ({ key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment }) & { section?: string | null };
 import { countUnseenGrades, isGradeSeen } from '../notifications';
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
-import { assignmentApplies, assignmentStatus, dueLabel, sortByDay } from '../assessment/outline';
+import { assignmentApplies, assignmentStatus, dueLabel, weekGroups, weekLabel } from '../assessment/outline';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -191,17 +192,19 @@ export const Sidebar: React.FC<{
         )}
 
         {weekMode && programOutline!.weeks.map(week => {
-          const rows = sortByDay(week.items, assignments).flatMap<WeekRow>(it => {
+          const rows = weekGroups(week, assignments).flatMap(g => g.items.flatMap<WeekRow>(it => {
+            const section = g.section?.title ?? null;
             if (it.kind === 'content') {
               const mod = modules.find(m => m.id === it.moduleId);
-              return mod ? [{ key: it.id, kind: 'content' as const, mod }] : [];
+              return mod ? [{ key: it.id, kind: 'content' as const, mod, section }] : [];
             }
             if (it.kind === 'assignment') {
               const asg = assignments.find(a => a.id === it.assignmentId);
-              return asg && assignmentApplies(asg, ownEnrollment) ? [{ key: it.id, kind: 'assignment' as const, asg }] : [];
+              return asg && assignmentApplies(asg, ownEnrollment) ? [{ key: it.id, kind: 'assignment' as const, asg, section }] : [];
             }
             return []; // milestones show on My Program, not in the sidebar
-          });
+          }));
+          const hasSections = rows.some(r => r.section);
           if (!rows.length) return null;
           const weekNo = programOutline!.weeks.indexOf(week) + 1;
           const isDone = (row: WeekRow) => row.kind === 'content'
@@ -217,7 +220,7 @@ export const Sidebar: React.FC<{
                 <button onClick={() => toggleWeek(week.id)} aria-expanded={weekOpen}
                   className="w-full flex items-center gap-1.5 text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2 hover:text-white">
                   <span aria-hidden="true" className={`transition-transform ${weekOpen ? 'rotate-90' : ''}`}>›</span>
-                  <span className="text-left">{week.title}</span>
+                  <span className="text-left">{weekLabel(programOutline!.weeks.indexOf(week))}</span>
                   <span className="ml-auto pr-2 text-white/60">{doneCount}/{rows.length}</span>
                 </button>
               )}
@@ -242,8 +245,13 @@ export const Sidebar: React.FC<{
                       </button>
                     );
                   }
+                  // Section heading above the first row of each section; loose
+                  // items after the sections get "Also this week".
+                  const heading = hasSections && (i === 0 || rows[i - 1].section !== row.section) ? (row.section ?? 'Also this week') : null;
                   return (
-                    <button key={row.key} onClick={open} aria-current={selected ? 'page' : undefined}
+                    <React.Fragment key={row.key}>
+                    {heading && <p className="text-white/70 text-[11px] font-black pl-3 pt-2">{heading}</p>}
+                    <button onClick={open} aria-current={selected ? 'page' : undefined}
                       className={`w-full flex items-center justify-between gap-2 p-3 rounded-2xl text-left transition-all ${cls}`}>
                       <span className="flex items-center gap-3 min-w-0">
                         <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
@@ -265,6 +273,7 @@ export const Sidebar: React.FC<{
                         </span>
                       )}
                     </button>
+                    </React.Fragment>
                   );
                 })}
               </div>

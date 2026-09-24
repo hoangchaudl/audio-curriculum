@@ -186,14 +186,26 @@ export interface Assignment {
   weight?: number;
 }
 
-export type OutlineItem =
+// sectionId: the week section it's grouped under (unset = after the sections).
+export type OutlineItem = (
   | { id: string; kind: 'content'; moduleId: string; day?: number }
   | { id: string; kind: 'assignment'; assignmentId: string }
-  | { id: string; kind: 'milestone'; title: string; day?: number; description?: string };
+  | { id: string; kind: 'milestone'; title: string; day?: number; description?: string }
+) & { sectionId?: string };
+
+// Named group of items inside a week (e.g. "StoryCo General Onboarding").
+export interface OutlineSection {
+  id: string;
+  title: string;
+}
 
 export interface OutlineWeek {
   id: string;
+  // Legacy: weeks are shown as "Week N" by position; titles are no longer edited.
   title: string;
+  // Once set, `items` is in the admin's manual order (sections first, in
+  // this order). Unset = older outline, ordered by day.
+  sections?: OutlineSection[];
   items: OutlineItem[];
 }
 

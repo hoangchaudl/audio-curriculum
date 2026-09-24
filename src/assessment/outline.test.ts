@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Assignment, OutlineItem } from '../types';
-import { itemDay, programProgress, sortByDay } from './outline';
+import { itemDay, normalizeWeek, programProgress, sortByDay, weekGroups } from './outline';
 
 const asg: Assignment[] = [{ id: 'a1', title: 'A', stage: 'A', materials: [], dueDay: 3 }, { id: 'a2', title: 'B', stage: 'A', materials: [] }];
 
@@ -44,5 +44,26 @@ describe('program progress', () => {
     const p = programProgress(outline, assignments, enrollment, 't', watched, subs);
     expect(p.weeks.map(w => [w.done, w.total])).toEqual([[2, 3], [0, 0]]);
     expect([p.done, p.total]).toEqual([2, 3]);
+  });
+});
+
+describe('week sections', () => {
+  const items: OutlineItem[] = [
+    { id: 'asg', kind: 'assignment', assignmentId: 'a1', sectionId: 'gone' },
+    { id: 'c2', kind: 'content', moduleId: 'm2', sectionId: 's2' },
+    { id: 'c1', kind: 'content', moduleId: 'm1', sectionId: 's1', day: 4 },
+    { id: 'c3', kind: 'content', moduleId: 'm3', sectionId: 's1', day: 1 },
+  ];
+  const week = { id: 'w', title: 'Week 1', sections: [{ id: 's1', title: 'Onboarding' }, { id: 's2', title: 'Dialogue' }], items };
+  it('groups by section in section order, manual order inside, loose items last', () => {
+    expect(weekGroups(week, asg).map(g => [g.section?.title ?? null, g.items.map(i => i.id)])).toEqual([
+      ['Onboarding', ['c1', 'c3']], ['Dialogue', ['c2']], [null, ['asg']],
+    ]);
+    expect(normalizeWeek(week, asg).items.map(i => i.id)).toEqual(['c1', 'c3', 'c2', 'asg']);
+  });
+  it('older weeks without sections keep day order until organised', () => {
+    const old = { id: 'w', title: 'Week 1', items: items.map(({ sectionId: _, ...i }) => i as OutlineItem) };
+    expect(weekGroups(old, asg)[0].items.map(i => i.id)).toEqual(['c2', 'c3', 'asg', 'c1']);
+    expect(normalizeWeek(old, asg).sections).toEqual([]);
   });
 });
