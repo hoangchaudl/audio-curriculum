@@ -47,13 +47,21 @@ service cloud.firestore {
              ));
     }
 
+    // A reviewer (trainer, engineer, key sound designer, producer) assigned
+    // to this trainee in the assessment program.
+    function isReviewerOf(traineeId) {
+      return exists(/databases/$(database)/documents/enrollments/$(traineeId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/enrollments/$(traineeId)).data.get('reviewerUids', []);
+    }
+
     // --- users ---
-    // Anyone signed in can read the roster (needed for dashboards, avatars,
-    // "who submitted this" displays). A user may only create/update their
-    // own document, and may not grant themselves a different role than they
-    // signed up with - only an admin can change someone's role.
+    // Profiles (name, email, role) are private: you read your own; admins
+    // and audio engineers read the roster (dashboards, legacy grading);
+    // reviewers read only the trainees assigned to them. A user may only
+    // create/update their own document, and may not grant themselves a
+    // different role than they signed up with - only an admin can.
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == userId || isEngineerOrAdmin() || isReviewerOf(userId));
 
       // New accounts can only create themselves as a sound designer. The
       // single exception is the very first admin: allowed only when the
@@ -162,14 +170,13 @@ service cloud.firestore {
                     );
     }
 
-    // --- videoProgress (marks a designer finished a module's video) ---
-    // Anchors homework deadlines (see ModuleView) - only the designer
-    // themselves ever needs to write their own completion record. It isn't
-    // currently used for grading, but reads are left open to any signed-in
-    // user for simplicity. Also the trainee's own "Mark as done" toggle on
-    // program content pages, so they may delete (un-mark) their own record.
+    // --- videoProgress (a trainee finished a lesson / its video) ---
+    // Written only by the trainee: a video watched to the end, or the
+    // "Mark as done" toggle on program content pages (so they may also
+    // delete - un-mark - their own record). Read: your own records, plus
+    // admins/engineers for the progress dashboards.
     match /videoProgress/{progressId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isEngineerOrAdmin());
       allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
