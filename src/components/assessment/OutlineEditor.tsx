@@ -10,6 +10,7 @@ const uid = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toStr
 // `input` is full-width; the per-item day/week pickers stay compact.
 const smallSelect = 'bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-[#2E9DF7]';
 const round = (n: number) => Math.round(n * 100) / 100;
+const PROGRAM_WEEKS = 4;
 const dayOption = (d: number) => `Day ${d} · ${DAY_NAMES[d - 1]}`;
 const STAGE_OPTIONS: { id: AssessmentStage; label: string }[] = [
   { id: 'A', label: 'Episode A – scored on its criteria' },
@@ -341,6 +342,15 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
               {legacyTitle && (
                 <button onClick={() => titleToSection(week, wi)} className="ml-auto text-xs font-bold text-[#2E9DF7] hover:underline">
                   Make "{legacyTitle}" a section of this week
+                </button>
+              )}
+              {/* The program is 4 weeks; weeks beyond that (left over from
+                  before) can be removed once they're empty. */}
+              {wi >= PROGRAM_WEEKS && (
+                <button onClick={() => save(outline.weeks.filter(w => w.id !== week.id))} disabled={week.items.length > 0}
+                  title={week.items.length ? 'Move or remove its items first' : 'Remove this extra week'}
+                  className="ml-auto text-xs font-bold text-ember hover:underline disabled:text-gray-400 disabled:no-underline">
+                  {week.items.length ? `Extra week - move its ${week.items.length} item${week.items.length === 1 ? '' : 's'} out to remove it` : 'Remove extra week'}
                 </button>
               )}
             </div>
