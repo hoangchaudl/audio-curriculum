@@ -566,7 +566,7 @@ const BriefsTab: React.FC = () => {
 const ROLE_OPTIONS: { id: Role; label: string; help: string }[] = [
   { id: 'sound_designer', label: 'Sound Designer (trainee)', help: 'Can be enrolled and submit work.' },
   { id: 'reviewer', label: 'Reviewer', help: 'Producer / Key Sound Designer: reviews only what they are assigned. Not a trainee.' },
-  { id: 'audio_engineer', label: 'Audio Engineer', help: 'Can be assigned as Audio Engineer; sees the full curriculum and legacy grading.' },
+  { id: 'audio_engineer', label: 'Audio Engineer', help: 'Can be assigned as Audio Engineer; sees the full roster and curriculum.' },
   { id: 'admin', label: 'Admin', help: 'Full access: curriculum, enrollment, reviewer assignment and publishing.' },
 ];
 const roleLabel = (role: Role) => ROLE_OPTIONS.find(o => o.id === role)?.label ?? role;

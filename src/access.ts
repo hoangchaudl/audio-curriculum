@@ -1,7 +1,7 @@
 import { Category, Module, Role, User } from './types';
 
-// Engineers grade every module and admins manage them, so only sound
-// designers are ever subject to category locks.
+// Engineers review every trainee and admins manage the curriculum, so only
+// sound designers are ever subject to category locks.
 export const seesAllCategories = (role?: Role) => role === 'audio_engineer' || role === 'admin';
 
 // A module whose category no longer exists is treated as unrestricted, so

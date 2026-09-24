@@ -8,7 +8,7 @@ const enrollmentFromInvite = (invite: Invite, uid: string): Enrollment => ({
   id: uid, traineeId: uid, startDate: invite.startDate!, podEpisodesRequired: invite.podEpisodesRequired ?? 1,
   reviewers: invite.reviewers ?? {}, reviewerUids: invite.reviewerUids ?? [], createdAt: new Date().toISOString(),
 });
-import { AppState, User, Category, Module, ModuleVideo, Submission, Grade, VideoTask, VideoProgress } from './types';
+import { AppState, User, Category, Module, ModuleVideo, VideoProgress } from './types';
 import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
 import { initialData } from './data';
 import { AssessmentApi, useAssessment } from './assessment/useAssessment';
@@ -35,19 +35,13 @@ interface AppContextType extends AppState, AssessmentApi {
   // (even an empty one) for the current session - lets callers that pick a
   // default based on submissions (see App.tsx) wait for real data instead
   // of racing an empty initial array and locking in the wrong default.
-  submissionsLoaded: boolean;
   clearAuthError: () => void;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string, role: User['role'], pod?: string) => Promise<boolean>;
   resetPassword: (email: string) => Promise<boolean>;
   logout: () => void;
-  submitHomework: (moduleId: string, driveLink: string) => void;
-  deleteSubmission: (moduleId: string) => void;
   markVideoWatched: (moduleId: string) => void;
   unmarkVideoWatched: (moduleId: string) => void;
-  gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string, criterionScores?: Grade['criterionScores']) => void;
-  createVideoTask: (engineerId: string, moduleId: string, title: string) => void;
-  updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
   updateUserName: (userId: string, name: string) => void;
   updateUserRole: (userId: string, role: User['role']) => void;
@@ -103,15 +97,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     categories: initialData.categories,
     modules: initialData.modules,
     moduleVideos: initialData.moduleVideos,
-    submissions: [],
-    grades: [],
-    videoTasks: [],
     videoProgress: [],
   }));
   const [authUid, setAuthUid] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [submissionsLoaded, setSubmissionsLoaded] = useState(false);
   // True once modules/categories actually came from Firestore (not the local
   // seed fallback) - the admin reconcile below must never write seed data
   // back over real documents.
@@ -142,13 +132,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Signed out: nothing to read, and no session to read it with. Keep
         // showing the local curriculum fallback rather than blanking it.
         setState(s => ({
-          ...s, submissions: [], grades: [], videoTasks: [], videoProgress: [],
+          ...s, videoProgress: [],
           categories: initialData.categories, modules: initialData.modules, moduleVideos: initialData.moduleVideos,
         }));
         setCurriculumFromFirestore({ modules: false, videos: false, categories: false });
         setOwnProfile(null);
         setAuthLoading(false);
-        setSubmissionsLoaded(false);
         return;
       }
 
@@ -177,25 +166,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setState(s => ({ ...s, categories }));
         setCurriculumFromFirestore(f => ({ ...f, categories: true }));
       }, onError('categories')));
-
-      unsubscribers.push(onSnapshot(collection(db, 'submissions'), (snapshot) => {
-        const submissions: Submission[] = [];
-        snapshot.forEach(d => submissions.push(d.data() as Submission));
-        setState(s => ({ ...s, submissions }));
-        setSubmissionsLoaded(true);
-      }, onError('submissions')));
-
-      unsubscribers.push(onSnapshot(collection(db, 'grades'), (snapshot) => {
-        const grades: Grade[] = [];
-        snapshot.forEach(d => grades.push(d.data() as Grade));
-        setState(s => ({ ...s, grades }));
-      }, onError('grades')));
-
-      unsubscribers.push(onSnapshot(collection(db, 'videoTasks'), (snapshot) => {
-        const videoTasks: VideoTask[] = [];
-        snapshot.forEach(d => videoTasks.push(d.data() as VideoTask));
-        setState(s => ({ ...s, videoTasks }));
-      }, onError('videoTasks')));
 
     });
 
@@ -459,46 +429,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Deterministic id (one submission per designer per module) so a resubmit
-  // is just an overwrite of the same document instead of orphaning the old
-  // one - matches firestore.rules, which lets the owner update/delete their
-  // own submission only while it isn't graded yet.
-  const submitHomework = async (moduleId: string, driveLink: string) => {
-    if (!currentUser) return;
-    const submissionId = `${moduleId}_${currentUser.id}`;
-    const newSubmission: Submission = {
-      id: submissionId,
-      moduleId,
-      userId: currentUser.id,
-      driveLink,
-      status: 'submitted',
-      submittedAt: new Date().toISOString(),
-    };
-    try {
-      await setDoc(doc(db, 'submissions', submissionId), newSubmission);
-    } catch (error) {
-      console.error('Error submitting homework', error);
-    }
-  };
-
-  // Lets a designer pull back a wrong submission before it's graded. Once
-  // graded, a Grade record points at the submission id, so firestore.rules
-  // blocks deleting it here - only an admin can remove a graded submission.
-  const deleteSubmission = async (moduleId: string) => {
-    if (!currentUser) return;
-    const submissionId = `${moduleId}_${currentUser.id}`;
-    try {
-      await deleteDoc(doc(db, 'submissions', submissionId));
-    } catch (error) {
-      console.error('Error deleting submission', error);
-    }
-  };
-
-  // Anchors a module's homework deadline to when its video was actually
-  // finished, not just opened - see ModuleView's embedded player, which
-  // calls this on the video's `ended` event. Re-watching just moves the
-  // deadline to the latest completion (same deterministic-id overwrite
-  // pattern as submitHomework).
+  // A lesson finished: its video(s) played to the end (see ContentPageView)
+  // or the trainee marked it done. One record per trainee per lesson.
   const markVideoWatched = async (moduleId: string) => {
     if (!currentUser) return;
     const progressId = `${moduleId}_${currentUser.id}`;
@@ -523,74 +455,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await deleteDoc(doc(db, 'videoProgress', `${moduleId}_${currentUser.id}`));
     } catch (error) {
       console.error('Error un-marking video watched', error);
-    }
-  };
-
-  // Fixed: admins should also be able to grade homework, not only
-  // audio_engineers. Previously this silently no-op'd for admins, which made
-  // it look like grading was broken when a director tried it. Deterministic
-  // grade id keeps this idempotent if it's ever called twice for the same
-  // submission.
-  const gradeHomework = async (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string, criterionScores?: Grade['criterionScores']) => {
-    if (!currentUser || (currentUser.role !== 'audio_engineer' && currentUser.role !== 'admin')) return;
-    const gradeId = `g_${submissionId}`;
-    const newGrade: Grade = {
-      id: gradeId,
-      submissionId,
-      engineerId: currentUser.id,
-      score,
-      feedback,
-      gradedAt: new Date().toISOString(),
-      // Firestore rejects explicit `undefined` values, so only include the
-      // field when the module was graded against structured criteria.
-      ...(criterionScores && criterionScores.length > 0 ? { criterionScores } : {}),
-    };
-    try {
-      await setDoc(doc(db, 'grades', gradeId), newGrade);
-      await updateDoc(doc(db, 'submissions', submissionId), { status: 'graded' });
-    } catch (error) {
-      console.error('Error grading homework', error);
-    }
-  };
-
-  // The admin side of the video task workflow - firestore.rules reserves
-  // *creating* a videoTasks doc for admins, matching the engineer-side
-  // updateVideoTask below which can only ever update one already assigned.
-  const createVideoTask = async (engineerId: string, moduleId: string, title: string) => {
-    if (!currentUser || currentUser.role !== 'admin') return;
-    const id = `vt_${Date.now()}`;
-    const newTask: VideoTask = {
-      id,
-      moduleId,
-      engineerId,
-      title: title.trim(),
-      status: 'pending',
-      assignedAt: new Date().toISOString(),
-    };
-    try {
-      await setDoc(doc(db, 'videoTasks', id), newTask);
-    } catch (error) {
-      console.error('Error creating video task', error);
-    }
-  };
-
-  // Only ever updates a task an admin has already assigned - firestore.rules
-  // reserves *creating* a videoTasks doc for admins, and an engineer typing a
-  // link for a module with no assigned task has nothing to update (see the
-  // "no task assigned yet" state in EngineerDashboard).
-  const updateVideoTask = async (taskId: string, status: VideoTask['status'], url?: string) => {
-    const existing = state.videoTasks.find(t => t.id === taskId);
-    if (!existing) {
-      console.warn('No admin-assigned video task exists for this module yet.');
-      return;
-    }
-    const nextUrl = url ?? existing.videoUrl;
-    const payload: Partial<VideoTask> = { status };
-    if (nextUrl !== undefined) payload.videoUrl = nextUrl;
-    try {
-      await updateDoc(doc(db, 'videoTasks', taskId), payload);
-    } catch (error) {
-      console.error('Error updating video task', error);
     }
   };
 
@@ -626,9 +490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newModule;
   };
 
-  // Removes the module and, if the admin had set one, its video - orphaned
-  // submissions/grades for a deleted module are left alone (same as
-  // deleting a submission doesn't touch its grade) rather than cascading.
+  // Removes the lesson and, if the admin had set one, its video.
   const deleteModule = async (moduleId: string) => {
     if (!currentUser || currentUser.role !== 'admin') return;
     try {
@@ -738,8 +600,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // New 1-5 assessment program (separate collections; legacy
-  // submissions/grades above are untouched).
+  // The 1-5 assessment program (see src/assessment/).
   const assessment = useAssessment(authUid, currentUser);
 
   // An existing trainee account invited later is enrolled at their next
@@ -807,19 +668,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         hasSession: authUid !== null,
         authLoading,
         authError,
-        submissionsLoaded,
         clearAuthError,
         login,
         signup,
         resetPassword,
         logout,
-        submitHomework,
-        deleteSubmission,
         markVideoWatched,
         unmarkVideoWatched,
-        gradeHomework,
-        createVideoTask,
-        updateVideoTask,
         updateUserAvatar,
         updateUserName,
         updateUserRole,

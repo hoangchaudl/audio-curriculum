@@ -5,15 +5,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
-import { ModuleView } from './components/ModuleView';
-import { EngineerDashboard } from './components/EngineerDashboard';
 import { WaitingView } from './components/WaitingView';
 import { ProfileView } from './components/ProfileView';
 import { AuthView } from './components/AuthView';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
-import { getNextActionableModule } from './progress';
 import { useApplyTheme, useResolvedTheme } from './theme';
 import { ProgramOverview } from './components/assessment/ProgramOverview';
 import { ContentPageView } from './components/assessment/ContentPageView';
@@ -44,7 +41,7 @@ const getPageFromHash = (): { view: View; stage?: EpisodeStage; assignmentId?: s
 };
 
 const AppContent = () => {
-  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded, enrollments, ownEnrollmentLoaded, programOutline } = useAppContext();
+  const { currentUser, authLoading, hasSession, authError, logout, modules, enrollments, ownEnrollmentLoaded } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   useApplyTheme(useResolvedTheme(currentUser));
   const initialPage = useRef(getPageFromHash());
@@ -69,41 +66,25 @@ const AppContent = () => {
     return () => clearTimeout(timer);
   }, [hasSession, currentUser]);
 
-  // Lands a student on the module they should actually work on next
-  // (first without a graded submission) instead of a hardcoded module id -
-  // previously every new student's first screen was module 6 of 11. Runs
-  // once per login: the ref guard stops it from yanking the student back to
-  // "next actionable" after they've deliberately navigated elsewhere. Waits
-  // on submissionsLoaded for designers specifically, so it doesn't compute
-  // "next" off a still-empty submissions array on the very first render.
+  // A module named in the URL (#/module/<id>) opens on load, so shared or
+  // bookmarked lesson links land where they point. Otherwise the landing
+  // page below (My Program / Review Queue) applies.
   const defaultAppliedForUser = useRef<string | null>(null);
   useEffect(() => {
     if (!currentUser || modules.length === 0) return;
-    if (currentUser.role === 'sound_designer' && !submissionsLoaded) return;
     if (defaultAppliedForUser.current === currentUser.id) return;
     defaultAppliedForUser.current = currentUser.id;
-    // A module named in the URL (#/module/<id>) wins over the computed
-    // default, so shared/bookmarked module links land where they point.
     const fromHash = getModuleIdFromHash();
-    if (fromHash && modules.some(m => m.id === fromHash)) {
-      setSelectedModuleId(fromHash);
-      return;
-    }
-    const sorted = [...modules].sort((a, b) => a.order - b.order);
-    const nextId = currentUser.role === 'sound_designer'
-      ? getNextActionableModule(modules, submissions, currentUser.id)?.id
-      : sorted[0]?.id;
-    if (nextId) setSelectedModuleId(nextId);
-  }, [currentUser, modules, submissions, submissionsLoaded]);
+    if (fromHash && modules.some(m => m.id === fromHash)) setSelectedModuleId(fromHash);
+  }, [currentUser, modules]);
 
-  // Assessment landing page, once per login, only when the URL didn't
-  // already name a page: enrolled trainees start on My Program and
-  // reviewer-only accounts on their queue.
+  // Landing page, once per login, only when the URL didn't already name a
+  // page: trainees start on My Program, reviewers and engineers on their queue.
   const landingAppliedForUser = useRef<string | null>(null);
   useEffect(() => {
     if (!currentUser || landingAppliedForUser.current === currentUser.id) return;
     if (window.location.hash.startsWith('#/module/') || getPageFromHash()) { landingAppliedForUser.current = currentUser.id; return; }
-    if (currentUser.role === 'reviewer') {
+    if (currentUser.role === 'reviewer' || currentUser.role === 'audio_engineer') {
       landingAppliedForUser.current = currentUser.id;
       window.location.hash = '#/review';
     } else if (currentUser.role === 'sound_designer' && enrollments.some(e => e.id === currentUser.id)) {
@@ -232,7 +213,7 @@ const AppContent = () => {
   }
 
   // A sound designer account that isn't enrolled yet waits here instead of
-  // seeing the legacy curriculum (real role, so an admin's preview isn't affected).
+  // (real role, so an admin's preview isn't affected).
   const awaitingEnrollment = currentUser.role === 'sound_designer' && ownEnrollmentLoaded && !enrollments.some(e => e.id === currentUser.id);
 
   const renderContent = () => {
@@ -245,43 +226,16 @@ const AppContent = () => {
     if (view === 'review') return <ReviewerQueue />;
     if (view === 'assignment') return <AssignmentView key={assignmentId} assignmentId={assignmentId} />;
 
-    // Modules placed in the weekly outline are reading content in the
-    // program - submissions happen on assignment pages - for everyone
-    // except admins, who manage them from the dashboard.
-    const selected = modules.find(m => m.id === selectedModuleId);
-    const inOutline = !!programOutline?.weeks.some(w => w.items.some(i => i.kind === 'content' && i.moduleId === selectedModuleId));
-    if (selected && inOutline && effectiveRole !== 'admin' && effectiveRole !== 'audio_engineer') {
-      return <ContentPageView moduleId={selectedModuleId} />;
-    }
-
-    // selectedModuleId is briefly '' on first render while the "next
-    // actionable module" effect above resolves - show a loading state
-    // instead of letting ModuleView/EngineerDashboard flash "Module not
-    // found" for an id that hasn't been picked yet.
-    if (!selectedModuleId && (effectiveRole === 'sound_designer' || effectiveRole === 'audio_engineer')) {
-      return (
-        <div className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">
-          Loading your course...
-        </div>
-      );
-    }
-
-    if (effectiveRole === 'sound_designer') {
-      return <ModuleView moduleId={selectedModuleId} />;
-    }
-
-    if (effectiveRole === 'audio_engineer') {
-      return <EngineerDashboard moduleId={selectedModuleId} />;
-    }
-
+    // Admins manage lessons from the dashboard; everyone else reads a lesson
+    // as a program content page (submissions happen on assignment pages).
     if (effectiveRole === 'admin') {
       return <AdminDashboard focusModuleId={selectedModuleId} focusNonce={moduleNavNonce} />;
     }
-    // Assessment-only accounts (producers, key sound designers). Their
-    // reviewer queue arrives with the assessment screens.
-    if (effectiveRole === 'reviewer') {
-      return selected ? <ModuleView moduleId={selectedModuleId} /> : <ReviewerQueue />;
-    }
+    if (modules.some(m => m.id === selectedModuleId)) return <ContentPageView moduleId={selectedModuleId} />;
+    // Nothing selected: a trainee's home is My Program; reviewers' and
+    // engineers' is their review queue.
+    if (effectiveRole === 'sound_designer') return <ProgramOverview />;
+    if (effectiveRole === 'reviewer' || effectiveRole === 'audio_engineer') return <ReviewerQueue />;
     return null;
   };
 

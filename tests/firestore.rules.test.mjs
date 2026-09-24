@@ -131,6 +131,23 @@ describe('videoProgress (mark as done)', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('legacy 1-4 homework archive', () => {
+  beforeEach(() => seed(async (db) => {
+    await baseUsers(db);
+    await setDoc(doc(db, 'submissions/s1'), { id: 's1', userId: 'designer', moduleId: 'm1', status: 'graded' });
+    await setDoc(doc(db, 'grades/g1'), { id: 'g1', submissionId: 's1', score: 3 });
+  }));
+  it('admins can read it (to export); nobody else reads, and nobody writes', async () => {
+    await assertSucceeds(getDocs(collection(as('admin'), 'submissions')));
+    await assertSucceeds(getDocs(collection(as('admin'), 'grades')));
+    await assertFails(getDoc(doc(as('designer'), 'submissions/s1')));
+    await assertFails(getDoc(doc(as('engineer'), 'grades/g1')));
+    await assertFails(setDoc(doc(as('designer'), 'submissions/s2'), { id: 's2', userId: 'designer' }));
+    await assertFails(setDoc(doc(as('admin'), 'grades/g2'), { id: 'g2' }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe('invites', () => {
   const trainee = {
     id: 'kim@story.co', email: 'kim@story.co', role: 'sound_designer', startDate: '2026-10-05', podEpisodesRequired: 2,

@@ -35,18 +35,6 @@ export interface Resource {
   author?: string;
 }
 
-// One gradeable sub-skill of a module's rubric. `levels` holds the
-// descriptor for scores 1 through 4 (levels[0] = what a 1 looks like).
-// `scoreLabel` is the descriptor column's header and can differ between
-// criteria in the same module (e.g. "What it looks like in the session"
-// vs "What it looks like on playback").
-export interface RubricCriterion {
-  id: string;
-  title: string;
-  scoreLabel?: string;
-  levels: [string, string, string, string];
-}
-
 export interface Module {
   id: string;
   order: number;
@@ -59,13 +47,8 @@ export interface Module {
   title: string;
   description: string;
   outline?: string[];
-  rubric?: string;
-  rubricNote?: string;
-  rubricCriteria?: RubricCriterion[];
   outcomes?: string[];
   objectives?: string[];
-  homeworkLink?: string;
-  homeworkDescription?: string;
   additionalMaterials?: Resource[];
   // --- Legacy "skill" modules (before grading moved onto assignments) ---
   // Only read by convertSkillGrading (assessment/migrate.ts), which turns
@@ -101,43 +84,8 @@ export interface ModuleVideo {
   restricted?: boolean;
 }
 
-export interface Submission {
-  id: string;
-  moduleId: string;
-  userId: string;
-  driveLink: string;
-  status: 'not_started' | 'in_progress' | 'submitted' | 'graded';
-  submittedAt?: string;
-}
-
-// Legacy 1-4 grade (original homework flow). Kept as-is and shown as
-// "Legacy (1-4)"; never used by the 1-5 assessment calculations.
-export type LegacyGrade = Grade;
-
-export interface Grade {
-  id: string;
-  submissionId: string;
-  engineerId: string;
-  score: 1 | 2 | 3 | 4;
-  feedback: string;
-  gradedAt: string;
-  // Per-sub-skill scores when the module was graded against structured
-  // rubricCriteria; `score` above is then the lowest of these.
-  criterionScores?: { criterionId: string; score: 1 | 2 | 3 | 4 }[];
-}
-
-export interface VideoTask {
-  id: string;
-  moduleId: string;
-  engineerId: string;
-  title: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  assignedAt: string;
-  videoUrl?: string;
-}
-
-// Records that a designer watched a module's video through to the end -
-// used to anchor that module's homework deadline (see ModuleView).
+// A trainee finished a lesson: watched its video(s) to the end or marked
+// it done (see ContentPageView). Drives program progress.
 export interface VideoProgress {
   id: string;
   moduleId: string;
@@ -331,8 +279,5 @@ export interface AppState {
   categories: Category[];
   modules: Module[];
   moduleVideos: ModuleVideo[];
-  submissions: Submission[];
-  grades: Grade[];
-  videoTasks: VideoTask[];
   videoProgress: VideoProgress[];
 }
