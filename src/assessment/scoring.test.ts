@@ -7,7 +7,7 @@ import {
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
-  podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly,
+  podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -72,6 +72,15 @@ describe('Episode A: assignments, criteria and weights', () => {
     expect(splitEvenly(2)).toEqual([50, 50]);
     expect(splitEvenly(1)).toEqual([100]);
     expect(splitEvenly(0)).toEqual([]);
+  });
+
+  it('scales shares to a new total, keeping proportions', () => {
+    // A new 10% assignment: the others (40/10/20/30) shrink to fit 90%.
+    expect(scaleShares([40, 10, 20, 30], 90)).toEqual([36, 9, 18, 27]);
+    // After deleting one, the rest grow back to 100%.
+    expect(scaleShares([40, 20, 30], 100)).toEqual([44.44, 22.22, 33.34]);
+    expect(scaleShares([0, 0], 100)).toEqual([50, 50]);
+    expect(scaleShares([], 100)).toEqual([]);
   });
 
   it('reports grading setup problems in plain words', () => {

@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
 import { Assignment, CellWeight, ContentBlock, Enrollment, ReviewerSlot, Role, User } from '../../types';
 import { CRITERIA, REVIEWER_SLOTS } from '../../assessment/config';
-import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, splitEvenly } from '../../assessment/scoring';
-import { assignmentWeek, programProgress } from '../../assessment/outline';
+import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, scaleShares, splitEvenly } from '../../assessment/scoring';
+import { DAY_NAMES, assignmentWeek, programProgress } from '../../assessment/outline';
 import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
 import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
-import { OutlineEditor } from './OutlineEditor';
+import { AssignmentForm, OutlineEditor } from './OutlineEditor';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
 
 type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
@@ -213,11 +213,148 @@ const ReviewerTable: React.FC<{ title: string; cells: CellWeight[]; onSave: (cel
   );
 };
 
-const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutline }) => {
-  const { assignments, exercises, programOutline, assessmentConfig: config, updateAssessmentConfig, updateAssignment } = useAppContext();
+// Episode A assignments: rename, reweight, edit criteria, add, delete.
+// Adding one can take its share from the others so the total stays 100%.
+const AssignmentsCard: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutline }) => {
+  const { assignments, exercises, programOutline, assessmentConfig: config, updateAssignment, saveAssignment, deleteAssignment, saveOutline } = useAppContext();
   const w = config.stageWeights;
   const epA = episodeAAssignments(assignments);
   const epATotal = epA.reduce((t, a) => t + (a.weight ?? 0), 0);
+  const weeks = programOutline?.weeks ?? [];
+  const [editing, setEditing] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Assignment | null>(null);
+  const suggested = round2(100 / (epA.length + 1));
+  const [draft, setDraft] = useState<{ title: string; weekId: string; dueDay: number; weight: number; rebalance: boolean } | null>(null);
+
+  const where = (a: Assignment) => {
+    const week = assignmentWeek(programOutline, a.id);
+    return week ? `Week ${week} · due Day ${a.dueDay ?? 7} (${DAY_NAMES[(a.dueDay ?? 7) - 1]})` : 'Not in the outline';
+  };
+  const setWeights = (list: Assignment[], weights: number[]) =>
+    Promise.all(list.map((a, i) => (a.weight === weights[i] ? Promise.resolve() : updateAssignment(a.id, { weight: weights[i] }))));
+
+  const create = async () => {
+    if (!draft || !programOutline) return;
+    const id = `asg_${Date.now().toString(36)}`;
+    const a: Assignment = { id, title: draft.title.trim(), stage: 'A', dueDay: draft.dueDay, weight: draft.weight, materials: [] };
+    const ok = await saveWith((async () => {
+      // Starts with one criterion worth 100% - rename or add more with Edit.
+      await saveAssignment(a, [{ id: `ex_${Date.now().toString(36)}`, assignmentId: id, title: 'Overall', order: 1, weight: 100 }]);
+      await saveOutline({ ...programOutline, weeks: weeks.map(wk => (wk.id === draft.weekId ? { ...wk, items: [...wk.items, { id: `oi_${id}`, kind: 'assignment' as const, assignmentId: id }] } : wk)) });
+      if (draft.rebalance) await setWeights(epA, scaleShares(epA.map(x => x.weight ?? 0), Math.max(0, 100 - draft.weight)));
+    })());
+    if (ok) { setDraft(null); setEditing(id); }
+  };
+
+  return (
+    <div className={card}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h4 className="font-black text-gray-800">Episode A assignments</h4>
+        <div className="flex items-center gap-3">
+          {epA.length > 1 && Math.abs(epATotal - 100) >= 0.01 && (
+            <button onClick={() => saveWith(setWeights(epA, scaleShares(epA.map(a => a.weight ?? 0), 100)))}
+              className="text-xs font-bold text-[#2E9DF7] hover:underline">Make total 100%</button>
+          )}
+          {epA.length > 1 && (
+            <button onClick={() => saveWith(setWeights(epA, splitEvenly(epA.length)))} className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
+          )}
+          <TotalChip total={epATotal} label="Assignments total" />
+        </div>
+      </div>
+      <p className="text-xs text-gray-500 mb-4">
+        Episode A is {w.episodeA}% of the final grade, shared by these assignments. Rename or reweight them here; <b>Edit</b> changes the brief, due day and criteria.
+        They also appear in <button onClick={onOpenOutline} className="font-bold text-[#2E9DF7] hover:underline">Program outline</button>.
+      </p>
+
+      <div className="space-y-2">
+        {epA.map(a => {
+          const criteria = assignmentCriteria(exercises, a.id);
+          const open = editing === a.id;
+          return (
+            <div key={a.id} className="bg-gray-50 rounded-2xl p-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span aria-hidden="true">📝</span>
+                <div className="flex-1 min-w-[220px]">
+                  <input defaultValue={a.title} key={a.title} aria-label="Assignment name"
+                    onBlur={e => { const v = e.target.value.trim(); if (!v) { e.target.value = a.title; return; } if (v !== a.title) saveWith(updateAssignment(a.id, { title: v })); }}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className={`${input} bg-surface font-bold`} />
+                  <p className="text-[11px] font-bold text-gray-400 mt-1 ml-1">
+                    {where(a)} · {criteria.length ? criteria.map(c => `${c.title || '(no name)'} ${c.weight}%`).join(' · ') : <span className="text-ember">no criteria yet</span>}
+                  </p>
+                </div>
+                <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                  <input type="number" min={0} step="0.5" defaultValue={a.weight ?? 0} key={a.weight ?? 0} aria-label={`${a.title} weight in Episode A`}
+                    onBlur={e => Number(e.target.value) !== (a.weight ?? 0) && saveWith(updateAssignment(a.id, { weight: Number(e.target.value) }))}
+                    className={numInput} />%
+                </label>
+                <span className="text-[11px] font-bold text-gray-400 w-24">= {round2(((a.weight ?? 0) * w.episodeA) / 100)}% of final</span>
+                <button onClick={() => setEditing(open ? null : a.id)} className={secondaryBtn}>{open ? 'Close' : 'Edit'}</button>
+                <button onClick={() => setPendingDelete(a)} aria-label={`Delete ${a.title}`} className="text-gray-400 hover:text-ember font-bold px-2">✕</button>
+              </div>
+              {open && (
+                <AssignmentForm initial={a} initialLines={assignmentCriteria(exercises, a.id)}
+                  onSave={async (next, lines) => { if (await saveWith(saveAssignment(next, lines))) setEditing(null); }} onCancel={() => setEditing(null)} />
+              )}
+            </div>
+          );
+        })}
+        {epA.length === 0 && <p className="text-sm text-gray-400">No Episode A assignments yet.</p>}
+      </div>
+
+      {draft ? (
+        <div className="bg-sky rounded-2xl p-4 mt-3 space-y-3">
+          <p className="text-sm font-black text-navy">New Episode A assignment</p>
+          <div className="grid sm:grid-cols-[1fr_auto_auto] gap-2">
+            <input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Week 2 – 3rd assignment: foley" aria-label="New assignment name" className={`${input} bg-surface`} />
+            <select value={draft.weekId} onChange={e => setDraft({ ...draft, weekId: e.target.value })} aria-label="Week" className={`${input} bg-surface w-auto`}>
+              {weeks.map((wk, i) => <option key={wk.id} value={wk.id}>Week {i + 1}</option>)}
+            </select>
+            <select value={draft.dueDay} onChange={e => setDraft({ ...draft, dueDay: Number(e.target.value) })} aria-label="Due day" className={`${input} bg-surface w-auto`}>
+              {[1, 2, 3, 4, 5, 6, 7].map(d => <option key={d} value={d}>Due Day {d} · {DAY_NAMES[d - 1]}</option>)}
+            </select>
+          </div>
+          <label className="flex flex-wrap items-center gap-2 text-sm font-bold text-navy">
+            Counts
+            <input type="number" min={0} max={100} step="0.5" value={draft.weight} onChange={e => setDraft({ ...draft, weight: Number(e.target.value) })} aria-label="New assignment weight" className={`${numInput} bg-surface`} />
+            % of Episode A
+          </label>
+          <label className="flex items-start gap-2 text-xs font-bold text-navy">
+            <input type="checkbox" checked={draft.rebalance} onChange={e => setDraft({ ...draft, rebalance: e.target.checked })} className="mt-0.5" />
+            <span>Take its {draft.weight}% from the other assignments, keeping their proportions, so Episode A still adds up to 100%
+              {draft.rebalance && epA.length > 0 && (
+                <span className="block font-medium mt-0.5">
+                  → {epA.map((a, i) => `${a.title}: ${a.weight ?? 0}% → ${scaleShares(epA.map(x => x.weight ?? 0), Math.max(0, 100 - draft.weight))[i]}%`).join(' · ')}
+                </span>
+              )}
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <button disabled={!draft.title.trim() || !draft.weekId} onClick={create} className={primaryBtn}>Add assignment</button>
+            <button onClick={() => setDraft(null)} className={secondaryBtn}>Cancel</button>
+          </div>
+          <p className="text-[11px] text-navy/80">It starts with one criterion, "Overall" 100%. Open <b>Edit</b> afterwards to rename it or add more criteria.</p>
+        </div>
+      ) : (
+        <button disabled={!weeks.length} onClick={() => setDraft({ title: '', weekId: weeks[0]?.id ?? '', dueDay: 5, weight: suggested, rebalance: true })} className={`${secondaryBtn} mt-3`}>+ New Episode A assignment</button>
+      )}
+
+      <ConfirmModal
+        open={!!pendingDelete}
+        title={`Delete "${pendingDelete?.title}"?`}
+        message={`The assignment, its criteria and its place in the outline are deleted. Trainee submissions and scores are kept but no longer count. Its ${pendingDelete?.weight ?? 0}% is then left over - use "Make total 100%" to share it out.`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => { if (pendingDelete) saveWith(deleteAssignment(pendingDelete.id)); setPendingDelete(null); }}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </div>
+  );
+};
+
+const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutline }) => {
+  const { assessmentConfig: config, updateAssessmentConfig } = useAppContext();
+  const w = config.stageWeights;
   const stage = (key: keyof typeof w, label: string) => (
     <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
       {label}
@@ -226,10 +363,6 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
         className={numInput} />%
     </label>
   );
-  const where = (a: Assignment) => {
-    const week = assignmentWeek(programOutline, a.id);
-    return week ? `Week ${week} · Day ${a.dueDay ?? 7}` : 'Not in the outline';
-  };
   return (
     <div className="space-y-4">
       <div className={card}>
@@ -250,45 +383,7 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
         </div>
       </div>
 
-      <div className={card}>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <h4 className="font-black text-gray-800">Episode A - assignment weights</h4>
-          <div className="flex items-center gap-3">
-            {epA.length > 1 && (
-              <button onClick={() => { const sh = splitEvenly(epA.length); saveWith(Promise.all(epA.map((a, i) => updateAssignment(a.id, { weight: sh[i] })))); }}
-                className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
-            )}
-            <TotalChip total={epATotal} label="Assignments total" />
-          </div>
-        </div>
-        <p className="text-xs text-gray-500 mb-4">
-          Episode A is {w.episodeA}% of the final grade. Each assignment's score comes from its criteria - edit those on the assignment in{' '}
-          <button onClick={onOpenOutline} className="font-bold text-[#2E9DF7] hover:underline">Program outline</button>.
-        </p>
-        {epA.length === 0 ? <p className="text-sm text-gray-400">No Episode A assignments yet - add one on a day in Program outline.</p> : (
-          <div className="space-y-2">
-            {epA.map(a => {
-              const criteria = assignmentCriteria(exercises, a.id);
-              return (
-                <div key={a.id} className="bg-gray-50 rounded-2xl p-3 flex flex-wrap items-center gap-3">
-                  <div className="flex-1 min-w-[200px]">
-                    <p className="text-sm font-bold text-gray-800">📝 {a.title}</p>
-                    <p className="text-[11px] font-bold text-gray-400">
-                      {where(a)} · {criteria.length ? criteria.map(c => `${c.title || '(no name)'} ${c.weight}%`).join(' · ') : <span className="text-ember">no criteria yet</span>}
-                    </p>
-                  </div>
-                  <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
-                    <input type="number" min={0} step="0.5" defaultValue={a.weight ?? 0} key={a.weight ?? 0} aria-label={`${a.title} weight in Episode A`}
-                      onBlur={e => Number(e.target.value) !== (a.weight ?? 0) && saveWith(updateAssignment(a.id, { weight: Number(e.target.value) }))}
-                      className={numInput} />% of Episode A
-                  </label>
-                  <span className="text-[11px] font-bold text-gray-400 w-28 text-right">= {round2(((a.weight ?? 0) * w.episodeA) / 100)}% of final</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <AssignmentsCard onOpenOutline={onOpenOutline} />
 
       <ReviewerTable title={`Episode B reviewer table (${w.episodeB}% of final)`} cells={config.episodeBCells} onSave={cells => updateAssessmentConfig({ episodeBCells: cells })} />
       <ReviewerTable title={`Pod Trial reviewer table (${w.pod}% of final)`} cells={config.podCells} onSave={cells => updateAssessmentConfig({ podCells: cells })} />

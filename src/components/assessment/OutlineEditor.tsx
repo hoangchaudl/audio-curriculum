@@ -20,7 +20,7 @@ const STAGE_OPTIONS: { id: AssessmentStage; label: string }[] = [
 
 // --- Assignment form ------------------------------------------------------------
 
-const AssignmentForm: React.FC<{
+export const AssignmentForm: React.FC<{
   initial: Assignment;
   initialLines: Exercise[];
   onSave: (a: Assignment, lines: Exercise[]) => Promise<void>;
