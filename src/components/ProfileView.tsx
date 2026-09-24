@@ -3,9 +3,9 @@ import { useAppContext } from '../store';
 
 // Keeps avatars small enough that a phone photo (often several MB) can't
 // blow past Firestore's 1MB document limit. avatarBase64 lives on the
-// /users/{uid} doc that every signed-in user reads via a live listener (see
-// store.tsx), so an oversized one doesn't just fail to save for its owner -
-// it silently breaks reads of the whole users collection for everyone else.
+// /users/{uid} doc that admins, engineers and assigned reviewers read via
+// live listeners (see store.tsx), so an oversized one doesn't just fail to
+// save for its owner - it bloats every roster read that includes it.
 // Resizing to a small square JPEG client-side keeps every avatar in the
 // tens-of-KB range regardless of the source photo.
 const MAX_AVATAR_DIMENSION = 256;

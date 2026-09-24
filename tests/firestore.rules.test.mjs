@@ -88,6 +88,36 @@ describe('category lock (curriculum)', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('privacy: profiles and progress', () => {
+  beforeEach(() => seed(async (db) => {
+    await baseUsers(db);
+    await setDoc(doc(db, 'users/reviewer'), { id: 'reviewer', role: 'reviewer', name: 'R' });
+    await setDoc(doc(db, 'enrollments/designer'), { id: 'designer', traineeId: 'designer', reviewers: { producer: 'reviewer' }, reviewerUids: ['reviewer'] });
+    await setDoc(doc(db, 'videoProgress/m1_designer'), { id: 'm1_designer', moduleId: 'm1', userId: 'designer', watchedAt: '2026-01-01' });
+  }));
+
+  it('profiles: own, admins/engineers, and assigned reviewers only', async () => {
+    await assertSucceeds(getDoc(doc(as('designer'), 'users/designer')));
+    await assertFails(getDoc(doc(as('designer'), 'users/unlocked'))); // another trainee
+    await assertFails(getDocs(collection(as('designer'), 'users'))); // no roster for trainees
+    await assertSucceeds(getDocs(collection(as('admin'), 'users')));
+    await assertSucceeds(getDocs(collection(as('engineer'), 'users')));
+    await assertSucceeds(getDoc(doc(as('reviewer'), 'users/designer'))); // assigned trainee
+    await assertFails(getDoc(doc(as('reviewer'), 'users/unlocked'))); // not assigned
+    await assertFails(getDocs(collection(as('reviewer'), 'users')));
+  });
+
+  it('video progress: own records, plus admins/engineers', async () => {
+    await assertSucceeds(getDocs(query(collection(as('designer'), 'videoProgress'), where('userId', '==', 'designer'))));
+    await assertFails(getDocs(collection(as('designer'), 'videoProgress')));
+    await assertFails(getDoc(doc(as('unlocked'), 'videoProgress/m1_designer')));
+    await assertFails(getDoc(doc(as('reviewer'), 'videoProgress/m1_designer')));
+    await assertSucceeds(getDocs(collection(as('admin'), 'videoProgress')));
+    await assertSucceeds(getDocs(collection(as('engineer'), 'videoProgress')));
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe('videoProgress (mark as done)', () => {
   beforeEach(() => seed(baseUsers));
 

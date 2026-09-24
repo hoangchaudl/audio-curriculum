@@ -115,6 +115,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // True once modules/categories actually came from Firestore (not the local
   // seed fallback) - the admin reconcile below must never write seed data
   // back over real documents.
+  const [ownProfile, setOwnProfile] = useState<User | null>(null);
+  const [roster, setRoster] = useState<User[]>([]);
   const [curriculumFromFirestore, setCurriculumFromFirestore] = useState({ modules: false, videos: false, categories: false });
 
   const clearAuthError = () => setAuthError(null);
@@ -140,10 +142,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Signed out: nothing to read, and no session to read it with. Keep
         // showing the local curriculum fallback rather than blanking it.
         setState(s => ({
-          ...s, users: [], submissions: [], grades: [], videoTasks: [], videoProgress: [],
+          ...s, submissions: [], grades: [], videoTasks: [], videoProgress: [],
           categories: initialData.categories, modules: initialData.modules, moduleVideos: initialData.moduleVideos,
         }));
         setCurriculumFromFirestore({ modules: false, videos: false, categories: false });
+        setOwnProfile(null);
         setAuthLoading(false);
         setSubmissionsLoaded(false);
         return;
@@ -158,10 +161,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAuthLoading(false);
       };
 
-      unsubscribers.push(onSnapshot(collection(db, 'users'), (snapshot) => {
-        const users: User[] = [];
-        snapshot.forEach(d => users.push(d.data() as User));
-        setState(s => ({ ...s, users }));
+      // Your own profile. Other people's are private (see firestore.rules);
+      // the roster listener below loads only the ones your role may read.
+      unsubscribers.push(onSnapshot(doc(db, 'users', fbUser.uid), (snapshot) => {
+        setOwnProfile(snapshot.exists() ? (snapshot.data() as User) : null);
         setAuthLoading(false);
       }, onError('users')));
 
@@ -194,11 +197,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setState(s => ({ ...s, videoTasks }));
       }, onError('videoTasks')));
 
-      unsubscribers.push(onSnapshot(collection(db, 'videoProgress'), (snapshot) => {
-        const videoProgress: VideoProgress[] = [];
-        snapshot.forEach(d => videoProgress.push(d.data() as VideoProgress));
-        setState(s => ({ ...s, videoProgress }));
-      }, onError('videoProgress')));
     });
 
     return () => {
@@ -207,10 +205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  const currentUser = useMemo<User | null>(() => {
-    if (!authUid) return null;
-    return state.users.find(u => u.id === authUid) ?? null;
-  }, [authUid, state.users]);
+  const currentUser = authUid && ownProfile?.id === authUid ? ownProfile : null;
 
   // Modules and their videos are read per role, because firestore.rules
   // won't let a sound designer read a restricted category's documents
@@ -768,10 +763,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(error => console.error('Error claiming invite', error));
   }, [authUid, currentUser?.role, assessment.ownEnrollmentLoaded, ownEnrolled]);
 
+  // Other people's profiles and lesson progress, by role (firestore.rules
+  // reject any query that could return something you may not read):
+  // admins/engineers load everyone; reviewers load the trainees assigned to
+  // them; everyone else only themselves.
+  const staff = role === 'admin' || role === 'audio_engineer';
+  const reviewedKey = staff ? '' : assessment.enrollments.filter(e => e.id !== authUid).map(e => e.traineeId).sort().join('|');
+  useEffect(() => {
+    if (!authUid || !role) return;
+    const logError = (label: string) => (error: unknown) => console.error(`Error syncing ${label} from Firestore:`, error);
+    const setProgress = (rows: VideoProgress[]) => setState(s => ({ ...s, videoProgress: rows }));
+    const unsubs: Array<() => void> = [];
+    if (staff) {
+      unsubs.push(onSnapshot(collection(db, 'users'), snap => setRoster(snap.docs.map(d => d.data() as User)), logError('users')));
+      unsubs.push(onSnapshot(collection(db, 'videoProgress'), snap => setProgress(snap.docs.map(d => d.data() as VideoProgress)), logError('videoProgress')));
+    } else {
+      const found = new Map<string, User>();
+      for (const id of reviewedKey ? reviewedKey.split('|') : []) {
+        unsubs.push(onSnapshot(doc(db, 'users', id), snap => {
+          if (snap.exists()) found.set(id, snap.data() as User); else found.delete(id);
+          setRoster([...found.values()]);
+        }, logError('users')));
+      }
+      unsubs.push(onSnapshot(query(collection(db, 'videoProgress'), where('userId', '==', authUid)),
+        snap => setProgress(snap.docs.map(d => d.data() as VideoProgress)), logError('videoProgress')));
+    }
+    return () => { unsubs.forEach(u => u()); setRoster([]); };
+  }, [authUid, role, staff, reviewedKey]);
+  const users = useMemo(
+    () => [...(currentUser ? [currentUser] : []), ...roster.filter(u => u.id !== currentUser?.id)],
+    [currentUser, roster],
+  );
+
   return (
     <AppContext.Provider
       value={{
         ...state,
+        users,
         ...assessment,
         modules: visibleModules,
         moduleVideos: visibleModuleVideos,
