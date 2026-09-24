@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Assignment, OutlineItem } from '../types';
-import { itemDay, normalizeWeek, programProgress, sortByDay, weekGroups } from './outline';
+import { itemDay, nextSteps, normalizeWeek, programProgress, sortByDay, weekGroups } from './outline';
 
 const asg: Assignment[] = [{ id: 'a1', title: 'A', stage: 'A', materials: [], dueDay: 3 }, { id: 'a2', title: 'B', stage: 'A', materials: [] }];
 
@@ -65,5 +65,39 @@ describe('week sections', () => {
     const old = { id: 'w', title: 'Week 1', items: items.map(({ sectionId: _, ...i }) => i as OutlineItem) };
     expect(weekGroups(old, asg)[0].items.map(i => i.id)).toEqual(['c2', 'c3', 'asg', 'c1']);
     expect(normalizeWeek(old, asg).sections).toEqual([]);
+  });
+});
+
+describe('next steps', () => {
+  const assignments: Assignment[] = [
+    { id: 'w1', title: 'Week 1 assignment', stage: 'A', materials: [], dueDay: 5 },
+    { id: 'w2', title: 'Week 2 assignment', stage: 'A', materials: [], dueDay: 2 },
+  ];
+  const modules = [{ id: 'm1', order: 1, title: 'Lesson 1.1', description: '', category: 'x' }, { id: 'm2', order: 2, title: 'Lesson 1.2', description: '', category: 'x' }];
+  const outline = { id: 'current' as const, weeks: [
+    { id: 'k1', title: 'Week 1', items: [
+      { id: 'a', kind: 'content' as const, moduleId: 'm1' }, { id: 'b', kind: 'content' as const, moduleId: 'm2' },
+      { id: 'c', kind: 'assignment' as const, assignmentId: 'w1' },
+    ] },
+    { id: 'k2', title: 'Week 2', items: [{ id: 'd', kind: 'assignment' as const, assignmentId: 'w2' }] },
+  ] };
+  const enrollment = { id: 't', traineeId: 't', startDate: '2026-09-21', podEpisodesRequired: 1 as const, createdAt: '', reviewers: {}, reviewerUids: [] };
+  const watched = (m: string) => ({ id: `${m}_t`, moduleId: m, userId: 't', watchedAt: '' });
+  const at = (iso: string) => new Date(`${iso}T12:00:00`);
+
+  it('points at the first unfinished item in outline order', () => {
+    expect(nextSteps(outline, assignments, modules, enrollment, 't', [], [], at('2026-09-21')).next?.title).toBe('Lesson 1.1');
+    const r = nextSteps(outline, assignments, modules, enrollment, 't', [watched('m1'), watched('m2')], [], at('2026-09-22'));
+    expect([r.next?.kind, r.next?.title, r.next?.hash]).toEqual(['assignment', 'Week 1 assignment', '#/assignment/w1']);
+    expect(r.overdue).toEqual([]);
+  });
+
+  it('lists an assignment as overdue the day after its due day and moves on', () => {
+    // Week 1 assignment due Fri Sep 25.
+    const r = nextSteps(outline, assignments, modules, enrollment, 't', [watched('m1'), watched('m2')], [], at('2026-09-26'));
+    expect(r.overdue.map(s => s.title)).toEqual(['Week 1 assignment']);
+    expect(r.next?.title).toBe('Week 2 assignment');
+    const submitted = [{ id: 's', traineeId: 't', stage: 'A' as const, target: 'w1', version: 1, isComplete: true, links: [], submittedAt: '' }];
+    expect(nextSteps(outline, assignments, modules, enrollment, 't', [watched('m1'), watched('m2')], submitted, at('2026-09-26')).overdue).toEqual([]);
   });
 });

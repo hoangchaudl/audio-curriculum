@@ -3,14 +3,17 @@ import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { Outcome, assignmentCriteria, assignmentOutcome, episodeAAssignments, finalResult } from '../../assessment/scoring';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, card, dateFor, formatDate, sectionTitle } from './ui';
-import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, programProgress, weekLabel } from '../../assessment/outline';
+import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextSteps, programProgress, weekLabel } from '../../assessment/outline';
 
 const go = (hash: string) => { window.location.hash = hash; };
 
 // Trainee home for the assessment program: the three weighted stages, the
 // four-week schedule, and (once everything is published) the final grade.
 export const ProgramOverview: React.FC = () => {
-  const { currentUser, assessmentConfig: config, programOutline, assignments, videoProgress } = useAppContext();
+  const { currentUser, assessmentConfig: config, programOutline, assignments, videoProgress, modules } = useAppContext();
+  // The welcome guide stays open until the trainee first closes it.
+  const [welcomeSeen, setWelcomeSeen] = React.useState(() => { try { return localStorage.getItem('programWelcomeSeen') === '1'; } catch { return false; } });
+  const markWelcomeSeen = () => { setWelcomeSeen(true); try { localStorage.setItem('programWelcomeSeen', '1'); } catch { /* storage blocked */ } };
   // Stage links go to the matching assignment page when the outline has one.
   const stageHash = (stage: 'B' | 'P1' | 'P2' | 'DA') => {
     const a = assignments.find(x => x.stage === stage);
@@ -94,8 +97,55 @@ export const ProgramOverview: React.FC = () => {
 
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-6">
-          <section className="bg-sky rounded-[32px] p-6 md:p-8 text-navy">
-            <h3 className="text-lg font-black mb-2">Welcome to your training program</h3>
+          {(() => {
+            const { overdue, next } = nextSteps(programOutline, assignments, modules, data.enrollment, currentUser?.id, videoProgress, data.submissions);
+            const when = (d?: Date) => (d ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '');
+            const daysLeft = (d?: Date) => (d ? Math.ceil((d.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null);
+            return (
+              <section className="space-y-3">
+                {overdue.length > 0 && (
+                  <div className="bg-rose rounded-[32px] p-5 space-y-2">
+                    <p className="text-xs font-black uppercase text-ember">⚠ Overdue - submit as soon as you can</p>
+                    {overdue.map(o => (
+                      <button key={o.hash} onClick={() => go(o.hash)} className="w-full flex flex-wrap items-center justify-between gap-2 bg-surface rounded-2xl px-4 py-3 text-left hover:shadow-md transition-shadow">
+                        <span className="text-sm font-bold text-gray-800">📝 {o.title}</span>
+                        <span className="text-xs font-black text-ember">was due {when(o.due)} · Open →</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
+                  {next ? (
+                    <>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#2E9DF7]">▶ Up next · Week {next.week}</p>
+                        <p className="text-lg font-black text-gray-800">{next.kind === 'assignment' ? '📝 ' : '📖 '}{next.title}</p>
+                        {next.kind === 'assignment' && next.due && (
+                          <p className="text-xs font-bold text-gray-500">
+                            Due {when(next.due)}{(() => { const d = daysLeft(next.due); return d === null ? '' : d <= 0 ? ' · today' : d === 1 ? ' · tomorrow' : ` · in ${d} days`; })()}
+                          </p>
+                        )}
+                      </div>
+                      <button onClick={() => go(next.hash)} className="bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2.5 rounded-2xl shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]">
+                        {next.kind === 'assignment' ? 'Open assignment' : 'Start lesson'}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-sm font-bold text-leaf">🎉 You've done everything in the program so far - your reviewers will score your work.</p>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* The page guide opens by default on the first visit, then folds away. */}
+          <details open={!welcomeSeen} onToggle={e => { if (!(e.target as HTMLDetailsElement).open) markWelcomeSeen(); }} className="bg-sky rounded-[32px] p-6 md:p-8 text-navy group">
+            <summary className="cursor-pointer list-none flex items-center justify-between gap-2">
+              <span className="text-lg font-black">Welcome to your training program</span>
+              <span className="text-xs font-bold opacity-70 group-open:hidden">About this page ›</span>
+              <span className="text-xs font-bold opacity-70 hidden group-open:inline">Hide</span>
+            </summary>
+            <div className="mt-2">
             <p className="text-sm font-medium mb-4">
               Over {programOutline?.weeks.length || 4} weeks you'll learn the StoryCo workflow and prove it on real episodes. This page is your home base - here's what's on it:
             </p>
@@ -105,7 +155,8 @@ export const ProgramOverview: React.FC = () => {
               <li className="bg-surface/70 rounded-2xl p-3"><b>📝 How you're graded</b><br />{stageList.length} stages - {stageList.slice(0, -1).join(', ')} and {stageList[stageList.length - 1]}. Reviewers score your work from 1 to 5.</li>
               <li className="bg-surface/70 rounded-2xl p-3"><b>🏁 Final grade</b><br />Your overall score, shown once your coordinator publishes every stage. The goal is {config.passThreshold} / 5 or higher.</li>
             </ul>
-          </section>
+            </div>
+          </details>
           {(() => {
             const p = programProgress(programOutline, assignments, data.enrollment, currentUser?.id, videoProgress, data.submissions);
             return p.total > 0 && (
