@@ -125,6 +125,9 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const engineers = users.filter(u => u.role === 'audio_engineer');
 
   const [editingModule, setEditingModule] = useState<string | null>(null);
+  const [moduleQuery, setModuleQuery] = useState('');
+  const [onlyIncomplete, setOnlyIncomplete] = useState(false);
+  const [collapsedCats, setCollapsedCats] = useState<string[]>([]);
   const [editForm, setEditForm] = useState<any>({});
   const [objectivesText, setObjectivesText] = useState('');
   const [outcomesText, setOutcomesText] = useState('');
@@ -265,6 +268,24 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     if (note) setEditForm({ ...editForm, rubricNote: note });
     setRubricPaste('');
   };
+
+  // Curriculum tab: modules grouped under their category (sidebar order),
+  // filtered by the search box / "needs work" toggle. Modules whose category
+  // was deleted land in "Uncategorized" so they can't go missing.
+  const moduleQ = moduleQuery.trim().toLowerCase();
+  const filtering = !!moduleQ || onlyIncomplete;
+  const sortedModules = [...modules].sort((a, b) => a.order - b.order);
+  const shownModules = sortedModules.filter(m =>
+    (!onlyIncomplete || getMissingContentFields(m).length > 0) &&
+    (!moduleQ || `${m.title} ${m.label ?? ''} ${m.description ?? ''}`.toLowerCase().includes(moduleQ)));
+  const sortedCats = sortCategories(categories);
+  const moduleGroups = [
+    ...sortedCats.map(c => ({ id: c.id, name: c.name, restricted: c.restricted, all: sortedModules.filter(m => m.category === c.id) })),
+    { id: '__uncategorized', name: 'Uncategorized', restricted: false, all: sortedModules.filter(m => !sortedCats.some(c => c.id === m.category)) },
+  ]
+    .map(g => ({ ...g, mods: g.all.filter(m => shownModules.includes(m)) }))
+    .filter(g => g.mods.length > 0);
+  const toggleCat = (id: string) => setCollapsedCats(c => (c.includes(id) ? c.filter(x => x !== id) : [...c, id]));
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
@@ -608,13 +629,58 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 </button>
               </div>
             </div>
-            <CategoryManager />
-            <div className="grid gap-6">
-              {modules.sort((a, b) => a.order - b.order).map((mod, i) => {
+            <details className="group">
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-widest text-gray-400 hover:text-[#2E9DF7] list-none flex items-center gap-1.5">
+                <span className="transition-transform group-open:rotate-90">›</span> Manage categories ({categories.length})
+              </summary>
+              <div className="mt-3"><CategoryManager /></div>
+            </details>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="search"
+                value={moduleQuery}
+                onChange={(e) => setModuleQuery(e.target.value)}
+                placeholder="Search modules…"
+                aria-label="Search modules"
+                className="flex-1 min-w-[200px] bg-surface border border-gray-100 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-medium"
+              />
+              <button
+                onClick={() => setOnlyIncomplete(v => !v)}
+                aria-pressed={onlyIncomplete}
+                className={`text-xs font-black uppercase tracking-wide px-4 py-3 rounded-xl transition-colors ${
+                  onlyIncomplete ? 'bg-[#F4511E] text-white' : 'bg-[#F4511E]/15 text-ember hover:bg-[#F4511E]/25'
+                }`}
+              >
+                Needs work ({modules.filter(m => getMissingContentFields(m).length > 0).length})
+              </button>
+            </div>
+            {moduleGroups.length === 0 && (
+              <p className="text-sm text-gray-400 font-medium text-center py-8">No modules match.</p>
+            )}
+            {moduleGroups.map(group => {
+              const open = filtering || !collapsedCats.includes(group.id) || group.mods.some(m => m.id === editingModule);
+              const doneCount = group.all.filter(m => getMissingContentFields(m).length === 0).length;
+              return (
+            <section key={group.id} className="space-y-2">
+              <button
+                onClick={() => toggleCat(group.id)}
+                aria-expanded={open}
+                className="w-full flex items-center gap-2 text-left px-1 py-1 text-gray-700 hover:text-[#2E9DF7]"
+              >
+                <span className={`text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
+                <span className="text-sm font-black uppercase tracking-wider">{group.name}</span>
+                {group.restricted && <span className="text-[10px]" title="Locked category">🔒</span>}
+                <span className="text-[10px] font-bold uppercase text-gray-400">
+                  {group.all.length} module{group.all.length === 1 ? '' : 's'} · {doneCount}/{group.all.length} complete
+                </span>
+              </button>
+              {open && (
+            <div className="grid gap-2">
+              {group.mods.map((mod, i) => {
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
                 const missingFields = getMissingContentFields(mod);
                 return (
-                <div key={mod.id} className="bg-surface rounded-[32px] p-6 border border-gray-100 shadow-sm">
+                <div key={mod.id} className={`bg-surface border border-gray-100 shadow-sm ${editingModule === mod.id ? 'rounded-[32px] p-6' : 'rounded-2xl px-4 py-3'}`}>
                   {editingModule === mod.id ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-3 gap-3">
@@ -901,17 +967,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
                     </div>
                   ) : (
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex gap-4 min-w-0">
+                    <div className="flex justify-between items-center gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm flex-shrink-0"
+                          className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0"
                           style={{ background: theme.bg, color: theme.accent }}
                         >
                           {mod.label || mod.order.toString().padStart(2, '0')}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                            <h4 className="font-black text-lg leading-tight">{mod.title}</h4>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-black text-base leading-tight">{mod.title}</h4>
                             {missingFields.length === 0 ? (
                               <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0">
                                 ✓ Complete
@@ -925,21 +991,13 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 mt-1 mb-2">{mod.description}</p>
-                          <div className="flex gap-2 flex-wrap">
-                            <span className="bg-gray-100 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide">
-                              {mod.objectives?.length || 0} Objectives
-                            </span>
-                            <span className="bg-gray-100 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide">
-                              {mod.additionalMaterials?.length || 0} Resources
-                            </span>
-                          </div>
+                          {mod.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{mod.description}</p>}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => requestEditChange(() => handleEditClick(mod))}
-                          className="bg-surface border-2 border-sky text-[#2E9DF7] hover:bg-sky font-bold py-2 px-4 rounded-xl transition-colors"
+                          className="bg-surface border-2 border-sky text-[#2E9DF7] hover:bg-sky font-bold text-sm py-1.5 px-4 rounded-xl transition-colors"
                         >
                           Edit
                         </button>
@@ -961,6 +1019,10 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 );
               })}
             </div>
+              )}
+            </section>
+              );
+            })}
           </div>
         )}
 
