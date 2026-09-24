@@ -39,7 +39,7 @@ const isDirectVideoFile = (url: string): boolean => /\.(mp4|webm|ogg)(\?|$)/i.te
 // throw NotFoundError mid-commit, blanking the whole app (the "blank page
 // when switching modules" bug). So React owns only the outer host div, and
 // the player gets a throwaway inner div created imperatively here.
-const YouTubePlayer: React.FC<{ videoId: string; onEnded: () => void }> = ({ videoId, onEnded }) => {
+const YouTubePlayer: React.FC<{ videoId: string; onEnded: () => void; start?: number; end?: number }> = ({ videoId, onEnded, start, end }) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
@@ -60,6 +60,8 @@ const YouTubePlayer: React.FC<{ videoId: string; onEnded: () => void }> = ({ vid
         videoId,
         width: '100%',
         height: '100%',
+        // Optional clip; "ended" fires when playback reaches `end`.
+        playerVars: { rel: 0, ...(start ? { start } : {}), ...(end ? { end } : {}) },
         events: {
           onStateChange: (event: any) => {
             if (event.data === w.YT.PlayerState.ENDED) onEndedRef.current();
@@ -96,7 +98,7 @@ const YouTubePlayer: React.FC<{ videoId: string; onEnded: () => void }> = ({ vid
       // React never sees children it didn't render.
       host.textContent = '';
     };
-  }, [videoId]);
+  }, [videoId, start, end]);
 
   return <div ref={hostRef} className="w-full h-full" />;
 };
@@ -223,7 +225,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
           {hasPlayableVideo ? (
             <div className="aspect-video bg-[#2D2D2D] rounded-[40px] shadow-2xl relative overflow-hidden">
               {youtubeId ? (
-                <YouTubePlayer videoId={youtubeId} onEnded={() => markVideoWatched(moduleId)} />
+                <YouTubePlayer videoId={youtubeId} start={video!.start} end={video!.end} onEnded={() => markVideoWatched(moduleId)} />
               ) : isDirectVideo ? (
                 <video
                   src={video!.url}

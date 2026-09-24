@@ -1,4 +1,6 @@
 import React from 'react';
+import { ClipTimes } from './ClipTimes';
+import { clipFields } from '../../videoClip';
 import { ContentBlock } from '../../types';
 import { input, secondaryBtn } from './ui';
 
@@ -72,9 +74,16 @@ export const ContentBlocksEditor: React.FC<{ blocks: ContentBlock[]; onChange: (
           )}
 
           {block.type === 'video' && (
-            <div className="grid grid-cols-2 gap-2">
-              <input value={block.url} onChange={e => update(block.id, { url: e.target.value })} placeholder="https://youtube.com/watch?v=... or any link" className={input} />
-              <input value={block.title ?? ''} onChange={e => update(block.id, { title: e.target.value })} placeholder="Title (optional)" className={input} />
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input value={block.url} onChange={e => update(block.id, { url: e.target.value })} placeholder="https://youtube.com/watch?v=... or any link" className={input} />
+                <input value={block.title ?? ''} onChange={e => update(block.id, { title: e.target.value })} placeholder="Title (optional)" className={input} />
+              </div>
+              <ClipTimes start={block.start} end={block.end}
+                onChange={(start, end) => {
+                  const { start: _s, end: _e, ...rest } = block;
+                  onChange(blocks.map(b => (b.id === block.id ? { ...rest, ...clipFields(start, end) } : b)));
+                }} />
             </div>
           )}
 

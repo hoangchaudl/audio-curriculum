@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { clipFields } from './videoClip';
 import { AppState, User, Category, Module, ModuleVideo, Submission, Grade, VideoTask, VideoProgress } from './types';
 import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
 import { initialData } from './data';
@@ -45,7 +46,7 @@ interface AppContextType extends AppState, AssessmentApi {
   updateModule: (moduleId: string, updates: Partial<Module>) => Promise<void>;
   createModule: () => Promise<Module>;
   deleteModule: (moduleId: string) => Promise<void>;
-  upsertModuleVideo: (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title'>) => void;
+  upsertModuleVideo: (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title' | 'start' | 'end'>) => void;
   deleteModuleVideo: (moduleId: string) => void;
   updateUserTheme: (theme: 'light' | 'dark') => void;
   setUserUnlockedCategories: (userId: string, categoryIds: string[]) => void;
@@ -625,12 +626,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // One video per module - reuses the existing video's doc id if the admin
   // is editing one already set, otherwise creates a new deterministic id.
-  const upsertModuleVideo = async (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title'>) => {
+  const upsertModuleVideo = async (moduleId: string, { start, end, ...updates }: Pick<ModuleVideo, 'type' | 'url' | 'title' | 'start' | 'end'>) => {
     if (!currentUser || currentUser.role !== 'admin') return;
     const existing = state.moduleVideos.find(v => v.moduleId === moduleId);
     const videoId = existing?.id || `mv_${moduleId}`;
     const category = state.modules.find(m => m.id === moduleId)?.category ?? '';
-    const video: ModuleVideo = { id: videoId, moduleId, ...updates, category, restricted: isRestrictedCategory(state.categories, category) };
+    const video: ModuleVideo = { id: videoId, moduleId, ...updates, ...clipFields(start, end), category, restricted: isRestrictedCategory(state.categories, category) };
     try {
       await setDoc(doc(db, 'moduleVideos', videoId), video);
     } catch (error) {

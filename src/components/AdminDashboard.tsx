@@ -8,6 +8,7 @@ import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
 import { ProgressBar, SavedToast, saveWith } from './assessment/ui';
+import { ClipTimes } from './assessment/ClipTimes';
 import { programProgress } from '../assessment/outline';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
@@ -140,6 +141,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const [videoType, setVideoType] = useState<'internal' | 'external'>('external');
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [videoClip, setVideoClip] = useState<{ start?: number; end?: number }>({});
 
   // Replaces the native confirm()/alert() popups previously used for
   // destructive/role actions (delete module, promote/demote) with the
@@ -165,6 +167,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     setVideoType(video?.type || 'external');
     setVideoTitle(video?.title || '');
     setVideoUrl(video?.url || '');
+    setVideoClip({ start: video?.start, end: video?.end });
   };
 
   // Dirty-tracks the open editor so switching what's being edited (Edit on
@@ -181,7 +184,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       return;
     }
     if (editingModule) setIsEditDirty(true);
-  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materials, rubricCriteria, videoType, videoTitle, videoUrl]);
+  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materials, rubricCriteria, videoType, videoTitle, videoUrl, videoClip]);
 
   const [discardConfirmAction, setDiscardConfirmAction] = useState<(() => void) | null>(null);
   const requestEditChange = (action: () => void) => {
@@ -235,7 +238,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         rubricCriteria: rubricCriteria.filter(c => c.title.trim() || c.levels.some(l => l.trim())),
       }));
       if (videoUrl.trim()) {
-        upsertModuleVideo(editingModule, { type: videoType, url: videoUrl.trim(), title: videoTitle.trim() || 'Module Video' });
+        upsertModuleVideo(editingModule, { type: videoType, url: videoUrl.trim(), title: videoTitle.trim() || 'Module Video', ...videoClip });
       } else {
         deleteModuleVideo(editingModule);
       }
@@ -960,6 +963,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           placeholder="Video title"
                           className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
                         />
+                        <ClipTimes key={editingModule} start={videoClip.start} end={videoClip.end} onChange={(start, end) => setVideoClip({ start, end })} />
                         <p className="text-[10px] text-gray-400">Leave the URL blank and save to remove the video from this module.</p>
                       </div>
 
