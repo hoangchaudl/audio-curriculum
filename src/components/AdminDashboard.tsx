@@ -4,6 +4,8 @@ import { Module, Resource, RubricCriterion, User } from '../types';
 import { computeProgress } from '../progress';
 import { ConfirmModal } from './ConfirmModal';
 import { CategoryManager } from './CategoryManager';
+import { AssessmentAdmin } from './assessment/AssessmentAdmin';
+import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
@@ -103,7 +105,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     setUserUnlockedCategories,
   } = useAppContext();
   const lockedCategories = sortCategories(categories).filter(c => c.restricted);
-  const [activeTab, setActiveTab] = useState<'designers' | 'engineers' | 'modules'>('modules');
+  const [activeTab, setActiveTab] = useState<'designers' | 'engineers' | 'modules' | 'assessment'>('modules');
 
   // Per-engineer draft for the "assign a video task" form on the Engineers
   // tab - keyed by engineer id so each card's inputs are independent.
@@ -313,7 +315,19 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           >
             Audio Engineers
           </button>
+          <button
+            onClick={() => setActiveTab('assessment')}
+            className={`px-6 py-2 rounded-full font-bold transition-all ${
+              activeTab === 'assessment'
+                ? 'bg-[#1E40AF] text-white shadow-md'
+                : 'bg-surface text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Assessment (1–5)
+          </button>
         </div>
+
+        {activeTab === 'assessment' && <AssessmentAdmin />}
 
         {activeTab === 'designers' && (
           <div className="space-y-6">
@@ -380,7 +394,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="text-xl font-black" style={{ color: theme.accent }}>{averageScore}</div>
-                          <div className="text-[9px] text-gray-400 font-black uppercase tracking-wide">Avg Score</div>
+                          <div className="text-[9px] text-gray-400 font-black uppercase tracking-wide">Legacy avg (1–4)</div>
                         </div>
                       </div>
 
@@ -790,6 +804,14 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
 
                       <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Content blocks (rich text, schedule, milestones, expectations, optional video)</label>
+                        <ContentBlocksEditor
+                          blocks={editForm.contentBlocks || []}
+                          onChange={(contentBlocks) => setEditForm({ ...editForm, contentBlocks })}
+                        />
+                      </div>
+
+                      <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Materials</label>
                         <div className="space-y-2">
                           {materials.map((material, idx) => (
@@ -938,8 +960,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         <div className="bg-surface text-gray-400 text-[11px] font-bold uppercase tracking-wide px-6 py-3 rounded-full flex flex-wrap gap-x-8 gap-y-1 justify-center shadow-sm border border-gray-100">
           <span>{designers.length} designers tracked</span>
           <span>{engineers.length} engineers tracked</span>
-          <span>{submissions.length} submissions received</span>
-          <span>{grades.length} graded</span>
+          <span>{submissions.length} legacy submissions</span>
+          <span>{grades.length} legacy grades (1–4)</span>
         </div>
       </div>
 

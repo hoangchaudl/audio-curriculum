@@ -25,7 +25,10 @@ const AWAITING_LABELS: Record<AwaitingReason, string> = {
   assessment: 'Awaiting assessment',
 };
 
-export const outcomeLabel = (o: Outcome) => (o.status === 'scored' ? o.value.toFixed(2) : AWAITING_LABELS[o.reason]);
+// Scores are shown and judged at 2 decimals.
+export const roundScore = (v: number) => Math.round(v * 100) / 100;
+
+export const outcomeLabel = (o: Outcome) => (o.status === 'scored' ? roundScore(o.value).toFixed(2) : AWAITING_LABELS[o.reason]);
 
 const scored = (value: number): Outcome => ({ status: 'scored', value });
 const awaiting = (reason: AwaitingReason, missing: string[]): Outcome => ({ status: 'awaiting', reason, missing });
@@ -186,9 +189,10 @@ export const finalResult = (d: TraineeData): FinalResult => {
     { weight: w.episodeB, value: (episodeB as { value: number }).value },
     { weight: w.pod, value: (pod as { value: number }).value },
   ]);
-  // Small tolerance so a mathematically exact 3.5 (e.g. 3.4999999999 from
-  // floating-point weights) still meets the benchmark.
-  return { episodeA, episodeB, pod, podEpisodes, final: scored(value), meetsBenchmark: value >= d.config.passThreshold - 1e-9 };
+  // The benchmark is judged on the score as displayed (2 decimals), so the
+  // label always matches the number people see - e.g. equal 33.33/33.33/
+  // 33.34 exercise weights can compute 3.4999 for what shows as 3.50.
+  return { episodeA, episodeB, pod, podEpisodes, final: scored(value), meetsBenchmark: roundScore(value) >= d.config.passThreshold - 1e-9 };
 };
 
 // --- Configuration checks (shown to admins) ----------------------------
