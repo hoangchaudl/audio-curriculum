@@ -242,6 +242,19 @@ describe('assessment program', () => {
     await assertFails(put('producer', rev('B', 'episode', 'producer', 'producer', 'trainee__B__episode__v2', { sfx: 4, music: 4 })));
     await assertSucceeds(put('duy', rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', FULL)));
   });
+  it('Audio Description (DA): trainee submits; trainer, engineer and producer score every criterion; KSD cannot', async () => {
+    const da = sub('DA', 'episode', 1);
+    await assertSucceeds(setDoc(doc(as(T), `assessmentSubmissions/${da.id}`), da));
+    const bad = sub('DA', 'asg1', 1); // DA is submitted against 'episode', like Episode B
+    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${bad.id}`), bad));
+    await assertSucceeds(put('producer', rev('DA', 'episode', 'producer', 'producer', da.id, FULL)));
+    await assertSucceeds(put('duy', rev('DA', 'episode', 'engineer', 'duy', da.id, FULL)));
+    await assertSucceeds(put('trainer', rev('DA', 'episode', 'trainer', 'trainer', da.id, FULL)));
+    await assertFails(put('ksd', rev('DA', 'episode', 'keySoundDesigner', 'ksd', da.id, FULL)));
+    const q = (uid) => getDocs(query(collection(as(uid), 'assessmentSubmissions'), where('traineeId', '==', T), where('stage', '==', 'DA')));
+    await assertSucceeds(q('producer'));
+    await assertFails(q('ksd'));
+  });
   it('producer can score only SFX and Music', async () => {
     await assertFails(put('producer', rev('P1', 'episode', 'producer', 'producer', 'trainee__P1__episode__v1', FULL)));
     await assertFails(put('producer', rev('P1', 'episode', 'producer', 'producer', 'trainee__P1__episode__v1', { workflow: 4 }, 'draft')));

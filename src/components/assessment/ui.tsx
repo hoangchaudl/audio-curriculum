@@ -9,6 +9,7 @@ export const STAGE_LABELS: Record<AssessmentStage, string> = {
   B: 'Episode B (Final Episode Test)',
   P1: 'Pod Trial – Episode 1',
   P2: 'Pod Trial – Episode 2',
+  DA: 'Audio Description (DA)',
 };
 
 export const card = 'bg-surface rounded-[32px] p-6 md:p-8 border border-gray-100 shadow-sm';

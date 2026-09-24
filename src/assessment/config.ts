@@ -32,7 +32,7 @@ const cells = (rows: [CriterionId, Partial<Record<ReviewerSlot, number>>][]): Ce
 // assessmentConfig/current; admins can adjust them there.
 export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfig = {
   id: 'current',
-  stageWeights: { episodeA: 20, episodeB: 40, pod: 40 },
+  stageWeights: { episodeA: 20, episodeB: 25, pod: 40, da: 15 },
   passThreshold: 3.5,
   // Episode B: trainer and audio engineer weigh equally (50% each).
   episodeBCells: cells([
@@ -48,7 +48,31 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfig = {
     ['sfx', { trainer: 9, engineer: 9, keySoundDesigner: 5, producer: 7 }],
     ['music', { trainer: 8.5, engineer: 8.5, keySoundDesigner: 5, producer: 8 }],
   ]),
+  // Audio Description: trainer, audio engineer and producer, each criterion
+  // a quarter, split equally between the three (admins adjust it).
+  daCells: cells([
+    ['workflow', { trainer: 8.33, engineer: 8.33, producer: 8.34 }],
+    ['dialogue', { trainer: 8.33, engineer: 8.33, producer: 8.34 }],
+    ['sfx', { trainer: 8.33, engineer: 8.33, producer: 8.34 }],
+    ['music', { trainer: 8.33, engineer: 8.33, producer: 8.34 }],
+  ]),
 };
+
+// Configs saved before a field existed get its default; DA starts at 0%
+// (left out of the final grade) until an admin gives it a weight.
+export const withConfigDefaults = (saved: Partial<AssessmentConfig>): AssessmentConfig => ({
+  ...DEFAULT_ASSESSMENT_CONFIG,
+  ...saved,
+  stageWeights: { ...DEFAULT_ASSESSMENT_CONFIG.stageWeights, da: 0, ...saved.stageWeights },
+  daCells: saved.daCells ?? DEFAULT_ASSESSMENT_CONFIG.daCells,
+} as AssessmentConfig);
+
+// The reviewer table that grades a stage (Episode A has none).
+export const stageCells = (config: AssessmentConfig, stage: AssessmentStage): CellWeight[] =>
+  stage === 'B' ? config.episodeBCells : stage === 'DA' ? config.daCells : stage === 'A' ? [] : config.podCells;
+
+// Single-submission stages: only the first version marked complete is graded.
+export const gradesFirstComplete = (stage: AssessmentStage) => stage === 'B' || stage === 'DA';
 
 // Which reviewer slots take part in each stage, and which score keys each
 // may write. Mirrors firestore.rules (allowedSlot / allowedKeys).
@@ -57,6 +81,7 @@ export const STAGE_SLOTS: Record<AssessmentStage, ReviewerSlot[]> = {
   B: ['trainer', 'engineer'],
   P1: ['trainer', 'engineer', 'keySoundDesigner', 'producer'],
   P2: ['trainer', 'engineer', 'keySoundDesigner', 'producer'],
+  DA: ['trainer', 'engineer', 'producer'],
 };
 
 export const allowedScoreKeys = (stage: AssessmentStage, slot: ReviewerSlot): (CriterionId | 'exercise')[] => {
@@ -65,8 +90,9 @@ export const allowedScoreKeys = (stage: AssessmentStage, slot: ReviewerSlot): (C
   return CRITERIA.map(c => c.id);
 };
 
-export const publicationKey = (stage: AssessmentStage): 'episodeA' | 'episodeB' | 'pod' =>
-  stage === 'A' ? 'episodeA' : stage === 'B' ? 'episodeB' : 'pod';
+export type PublicationKey = 'episodeA' | 'episodeB' | 'pod' | 'da';
+export const publicationKey = (stage: AssessmentStage): PublicationKey =>
+  stage === 'A' ? 'episodeA' : stage === 'B' ? 'episodeB' : stage === 'DA' ? 'da' : 'pod';
 
 export const reviewId = (traineeId: string, stage: AssessmentStage, target: string, slot: ReviewerSlot) =>
   `${traineeId}__${stage}__${target}__${slot}`;

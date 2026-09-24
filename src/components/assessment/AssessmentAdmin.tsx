@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
 import { Assignment, CellWeight, ContentBlock, Enrollment, ReviewerSlot, Role, User } from '../../types';
-import { CRITERIA, REVIEWER_SLOTS } from '../../assessment/config';
+import { CRITERIA, PublicationKey, REVIEWER_SLOTS } from '../../assessment/config';
 import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, scaleShares, splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentWeek, programProgress } from '../../assessment/outline';
 import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
@@ -18,7 +18,7 @@ const TAB_GROUPS: { label: string; tabs: { id: Tab; label: string }[] }[] = [
   { label: 'Set up', tabs: [
     { id: 'outline', label: 'Program outline' },
     { id: 'structure', label: 'Grade formula' },
-    { id: 'briefs', label: 'Episode B & Pod briefs' },
+    { id: 'briefs', label: 'Stage briefs' },
   ] },
   { label: 'People', tabs: [
     { id: 'people', label: 'People & roles' },
@@ -32,21 +32,24 @@ const today = () => new Date().toISOString().slice(0, 10);
 // --- Tracking ---------------------------------------------------------------
 
 const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
-  const { users, setPublication, programOutline, assignments, videoProgress } = useAppContext();
+  const { users, setPublication, programOutline, assignments, videoProgress, assessmentConfig } = useAppContext();
   const data = useTraineeData(enrollment.traineeId);
   const progress = programProgress(programOutline, assignments, enrollment, enrollment.traineeId, videoProgress, data.submissions);
   const result = finalResult(data);
   const [open, setOpen] = useState(false);
-  const [pendingPublish, setPendingPublish] = useState<'episodeA' | 'episodeB' | 'pod' | null>(null);
+  const [pendingPublish, setPendingPublish] = useState<PublicationKey | null>(null);
   const name = users.find(u => u.id === enrollment.traineeId)?.name ?? enrollment.traineeId;
+  const w = assessmentConfig.stageWeights;
+  // Stages weighted 0 don't count, so they aren't tracked here either.
   const stages = [
-    { key: 'episodeA' as const, label: 'Episode A', outcome: result.episodeA },
-    { key: 'episodeB' as const, label: 'Episode B', outcome: result.episodeB },
-    { key: 'pod' as const, label: 'Pod Trial', outcome: result.pod },
-  ];
-  const missing = [...new Set([result.episodeA, result.episodeB, result.pod].flatMap(o => (o.status === 'awaiting' ? o.missing : [])))];
+    { key: 'episodeA' as const, label: 'Episode A', outcome: result.episodeA, weight: w.episodeA },
+    { key: 'episodeB' as const, label: 'Episode B', outcome: result.episodeB, weight: w.episodeB },
+    { key: 'pod' as const, label: 'Pod Trial', outcome: result.pod, weight: w.pod },
+    { key: 'da' as const, label: 'Audio Description', outcome: result.da, weight: w.da ?? 0 },
+  ].filter(st => st.weight > 0);
+  const missing = [...new Set(stages.map(st => st.outcome).flatMap(o => (o.status === 'awaiting' ? o.missing : [])))];
 
-  const toggle = (key: 'episodeA' | 'episodeB' | 'pod', next: boolean) => {
+  const toggle = (key: PublicationKey, next: boolean) => {
     const stage = stages.find(s => s.key === key)!;
     // Publishing an incomplete stage is allowed but confirmed first.
     if (next && stage.outcome.status === 'awaiting') setPendingPublish(key);
@@ -67,7 +70,7 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
         </div>
       </div>
       <div className="mb-4"><ProgressBar done={progress.done} total={progress.total} /></div>
-      <div className="grid sm:grid-cols-3 gap-3">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {stages.map(s => (
           <div key={s.key} className="bg-gray-50 rounded-2xl p-3 space-y-2">
             <p className="text-[10px] font-black uppercase text-gray-500">{s.label}</p>
@@ -368,12 +371,13 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
       <div className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h4 className="font-black text-gray-800">Final grade</h4>
-          <TotalChip total={w.episodeA + w.episodeB + w.pod} label="Stages total" />
+          <TotalChip total={w.episodeA + w.episodeB + w.pod + (w.da ?? 0)} label="Stages total" />
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           {stage('episodeA', 'Episode A')}
           {stage('episodeB', 'Episode B')}
           {stage('pod', 'Pod Trial')}
+          {stage('da', 'Audio Description')}
           <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
             Benchmark
             <input type="number" min={1} max={5} step="0.1" defaultValue={config.passThreshold} key={config.passThreshold} aria-label="Benchmark score"
@@ -387,6 +391,7 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
 
       <ReviewerTable title={`Episode B reviewer table (${w.episodeB}% of final)`} cells={config.episodeBCells} onSave={cells => updateAssessmentConfig({ episodeBCells: cells })} />
       <ReviewerTable title={`Pod Trial reviewer table (${w.pod}% of final)`} cells={config.podCells} onSave={cells => updateAssessmentConfig({ podCells: cells })} />
+      <ReviewerTable title={`Audio Description (DA) reviewer table (${w.da}% of final)`} cells={config.daCells} onSave={cells => updateAssessmentConfig({ daCells: cells })} />
     </div>
   );
 };
@@ -441,9 +446,10 @@ const BriefsTab: React.FC = () => {
   const { assessmentConfig, updateAssessmentConfig } = useAppContext();
   const [episodeB, setEpisodeB] = useState<ContentBlock[]>(assessmentConfig.stageContent?.episodeB ?? []);
   const [pod, setPod] = useState<ContentBlock[]>(assessmentConfig.stageContent?.pod ?? []);
+  const [da, setDa] = useState<ContentBlock[]>(assessmentConfig.stageContent?.da ?? []);
   const [saved, setSaved] = useState(false);
   const save = async () => {
-    await updateAssessmentConfig({ stageContent: { episodeB, pod } });
+    await updateAssessmentConfig({ stageContent: { episodeB, pod, da } });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -456,6 +462,10 @@ const BriefsTab: React.FC = () => {
       <div className={card}>
         <h4 className={`${sectionTitle} mb-3`}>Pod Trial (Week 4)</h4>
         <ContentBlocksEditor blocks={pod} onChange={setPod} />
+      </div>
+      <div className={card}>
+        <h4 className={`${sectionTitle} mb-3`}>Audio Description (DA)</h4>
+        <ContentBlocksEditor blocks={da} onChange={setDa} />
       </div>
       <div className="flex items-center gap-3">
         <button onClick={save} className={primaryBtn}>Save briefs</button>

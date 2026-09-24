@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppContext } from '../../store';
 import { AssessmentStage } from '../../types';
 import { stageSubmissions } from '../../assessment/scoring';
+import { gradesFirstComplete } from '../../assessment/config';
 import { input, isHttpUrl, primaryBtn, secondaryBtn } from './ui';
 
 // A trainee's submission history for one exercise/episode, plus a form to
@@ -56,10 +57,10 @@ export const SubmissionPanel: React.FC<{
                 <span className="font-black text-gray-800">v{v.version}</span>
                 <span className="text-xs text-gray-400 font-bold">{new Date(v.submittedAt).toLocaleString()}</span>
                 {askComplete && v.isComplete && <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Complete</span>}
-                {askComplete && stage === 'B' && v.id === firstComplete?.id && (
+                {askComplete && gradesFirstComplete(stage) && v.id === firstComplete?.id && (
                   <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Graded version</span>
                 )}
-                {v.id === gradedSubmissionId && stage !== 'B' && (
+                {v.id === gradedSubmissionId && !gradesFirstComplete(stage) && (
                   <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Graded version</span>
                 )}
               </div>
@@ -102,7 +103,7 @@ export const SubmissionPanel: React.FC<{
               <input type="checkbox" checked={isComplete} onChange={e => setIsComplete(e.target.checked)} className="mt-0.5" />
               <span>
                 This is my complete submission.
-                {stage === 'B' && <span className="block font-medium text-gray-400">Episode B is graded on your first complete submission; later revisions are kept separately.</span>}
+                {gradesFirstComplete(stage) && <span className="block font-medium text-gray-400">This stage is graded on your first complete submission; later revisions are kept separately.</span>}
               </span>
             </label>
           )}

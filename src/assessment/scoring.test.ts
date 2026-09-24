@@ -3,11 +3,11 @@ import {
   AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, CriterionId, Enrollment, ReviewerSlot,
 } from '../types';
 import {
-  DEFAULT_ASSESSMENT_CONFIG as CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, allowedScoreKeys, reviewId, submissionId,
+  DEFAULT_ASSESSMENT_CONFIG as CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, allowedScoreKeys, reviewId, submissionId, withConfigDefaults,
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
-  podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares,
+  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -35,12 +35,16 @@ const review = (
 });
 
 // Every cell for a reviewer-table stage scored with the same value.
-const fullTableReviews = (stage: 'B' | 'P1' | 'P2', score: AssessmentScore, subId: string, slots: ReviewerSlot[]) =>
+const fullTableReviews = (stage: 'B' | 'P1' | 'P2' | 'DA', score: AssessmentScore, subId: string, slots: ReviewerSlot[]) =>
   slots.map(slot => review(stage, 'episode', slot,
     Object.fromEntries(allowedScoreKeys(stage, slot).map(k => [k, score])), subId));
 
+// The original three-stage formula (20/40/40, no Audio Description) - what
+// a config saved before DA existed resolves to. Most fixtures use it.
+const THREE_STAGE = withConfigDefaults({ ...CONFIG, stageWeights: { episodeA: 20, episodeB: 40, pod: 40 } as typeof CONFIG.stageWeights, daCells: undefined as never });
+
 const data = (overrides: Partial<TraineeData> = {}): TraineeData => ({
-  config: CONFIG, assignments: DEFAULT_ASSIGNMENTS, exercises: DEFAULT_CRITERIA,
+  config: THREE_STAGE, assignments: DEFAULT_ASSIGNMENTS, exercises: DEFAULT_CRITERIA,
   enrollment: enrollment(), submissions: [], reviews: [], ...overrides,
 });
 
@@ -351,7 +355,7 @@ describe('Final grade', () => {
     const sb = sub('B', 'episode', 1), sp = sub('P1', 'episode', 1);
     const r = finalResult(data({
       assignments, exercises,
-      config: { ...CONFIG, passThreshold: 3.2 },
+      config: { ...THREE_STAGE, passThreshold: 3.2 },
       submissions: [...epA.submissions, sb, sp],
       reviews: [...epA.reviews, ...fullTableReviews('B', 3, sb.id, ['trainer', 'engineer']), ...fullTableReviews('P1', 3, sp.id, ALL_SLOTS)],
     }));
@@ -365,5 +369,48 @@ describe('Final grade', () => {
     const d = complete(5, 5, 5);
     const withoutPod = { ...d, reviews: d.reviews.filter(r => r.stage !== 'P1') };
     expect(finalResult(withoutPod).final).toMatchObject({ status: 'awaiting', reason: 'assessment' });
+  });
+});
+
+// --- Audio Description (DA) ----------------------------------------------------
+
+describe('Audio Description stage', () => {
+  const DA_SLOTS: ReviewerSlot[] = ['trainer', 'engineer', 'producer'];
+  const everything = (a: AssessmentScore, b: AssessmentScore, p: AssessmentScore, da?: AssessmentScore) => {
+    const epA = gradedEpisodeA(() => a);
+    const sb = sub('B', 'episode', 1), sp = sub('P1', 'episode', 1), sd = sub('DA', 'episode', 1);
+    return data({
+      config: CONFIG,
+      submissions: [...epA.submissions, sb, sp, sd],
+      reviews: [...epA.reviews, ...fullTableReviews('B', b, sb.id, ['trainer', 'engineer']), ...fullTableReviews('P1', p, sp.id, ALL_SLOTS),
+        ...(da ? fullTableReviews('DA', da, sd.id, DA_SLOTS) : [])],
+    });
+  };
+
+  it('new programs weigh A 20 · B 25 · Pod 40 · DA 15, and the producer scores every DA criterion', () => {
+    expect(CONFIG.stageWeights).toEqual({ episodeA: 20, episodeB: 25, pod: 40, da: 15 });
+    expect(slotTotals(CONFIG.daCells)).toEqual({ trainer: expect.closeTo(33.32, 2), engineer: expect.closeTo(33.32, 2), producer: expect.closeTo(33.36, 2) });
+    expect(allowedScoreKeys('DA', 'producer')).toEqual(['workflow', 'dialogue', 'sfx', 'music']);
+    expect(weightIssues(CONFIG)).toEqual([]);
+  });
+
+  it('adds DA into the final grade', () => {
+    const r = finalResult(everything(5, 3, 4, 2));
+    // 0.2*5 + 0.25*3 + 0.4*4 + 0.15*2 = 3.65
+    expect(r.da).toEqual({ status: 'scored', value: expect.closeTo(2, 10) });
+    expect(r.final).toEqual({ status: 'scored', value: expect.closeTo(3.65, 10) });
+  });
+
+  it('holds the final grade until DA is scored', () => {
+    const r = finalResult(everything(5, 3, 4));
+    expect(daOutcome(everything(5, 3, 4)).status).toBe('awaiting');
+    expect(r.final.status).toBe('awaiting');
+  });
+
+  it('a stage weighted 0 is left out (configs saved before DA existed)', () => {
+    expect(THREE_STAGE.stageWeights.da).toBe(0);
+    const r = finalResult({ ...everything(5, 3, 4), config: THREE_STAGE });
+    // DA unscored but weighted 0: 0.2*5 + 0.4*3 + 0.4*4 = 3.8
+    expect(r.final).toEqual({ status: 'scored', value: expect.closeTo(3.8, 10) });
   });
 });

@@ -17,6 +17,7 @@ const STAGE_OPTIONS: { id: AssessmentStage; label: string }[] = [
   { id: 'B', label: 'Episode B – final episode test' },
   { id: 'P1', label: 'Pod Trial – episode 1' },
   { id: 'P2', label: 'Pod Trial – episode 2 (only if 2 required)' },
+  { id: 'DA', label: 'Audio Description (DA) – one submission, reviewer table' },
 ];
 
 // --- Assignment form ------------------------------------------------------------
@@ -102,7 +103,7 @@ export const AssignmentForm: React.FC<{
         </div>
       ) : (
         <p className="text-xs text-gray-500 bg-surface rounded-2xl p-3">
-          Graded with the {a.stage === 'B' ? 'Episode B' : 'Pod Trial'} reviewer table - see the <b>Grade formula</b> tab.
+          Graded with the {a.stage === 'B' ? 'Episode B' : a.stage === 'DA' ? 'Audio Description' : 'Pod Trial'} reviewer table - see the <b>Grade formula</b> tab.
         </p>
       )}
 
@@ -203,8 +204,9 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
   const gradingSummary = (asg: Assignment) => {
     const w = assessmentConfig.stageWeights;
     if (asg.stage !== 'A') {
-      const share = asg.stage === 'B' ? w.episodeB : w.pod;
-      return `${asg.stage === 'B' ? 'Episode B' : 'Pod Trial'} · ${share}% of the final grade${asg.stage !== 'B' ? ' (shared by the pod episodes)' : ''}`;
+      if (asg.stage === 'B') return `Episode B · ${w.episodeB}% of the final grade`;
+      if (asg.stage === 'DA') return `Audio Description · ${w.da}% of the final grade`;
+      return `Pod Trial · ${w.pod}% of the final grade (shared by the pod episodes)`;
     }
     const criteria = assignmentLines(exercises, asg.id);
     return `Counts ${asg.weight ?? 0}% of Episode A → ${round(((asg.weight ?? 0) * w.episodeA) / 100)}% of final`

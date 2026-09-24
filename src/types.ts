@@ -152,7 +152,8 @@ export type CriterionId = 'workflow' | 'dialogue' | 'sfx' | 'music';
 export type ReviewerSlot = 'trainer' | 'engineer' | 'keySoundDesigner' | 'producer';
 // A = Episode A (graded per exercise), B = Episode B final test,
 // P1/P2 = first/second Pod Trial episode.
-export type AssessmentStage = 'A' | 'B' | 'P1' | 'P2';
+// DA = Audio Description: one submission, reviewer-table graded (like B).
+export type AssessmentStage = 'A' | 'B' | 'P1' | 'P2' | 'DA';
 
 // One criterion of an Episode A assignment: a 1-5 score its trainer gives
 // (e.g. Week 1 is scored for Workflow AND Dialogue). `weight` is its share
@@ -227,13 +228,15 @@ export interface CellWeight {
 export interface AssessmentConfig {
   id: 'current';
   // Percent of the final grade.
-  stageWeights: { episodeA: number; episodeB: number; pod: number };
+  // A stage weighted 0 is left out of the final grade entirely.
+  stageWeights: { episodeA: number; episodeB: number; pod: number; da: number };
   passThreshold: number;
   episodeBCells: CellWeight[];
   podCells: CellWeight[];
+  daCells: CellWeight[];
   // Admin-authored briefs, schedules and milestones for the non-module
   // stages (Episode B final test, Pod Trial).
-  stageContent?: { episodeB?: ContentBlock[]; pod?: ContentBlock[] };
+  stageContent?: { episodeB?: ContentBlock[]; pod?: ContentBlock[]; da?: ContentBlock[] };
 }
 
 // One per trainee; doc id = trainee uid. Reviewer slots hold real account
@@ -290,6 +293,7 @@ export interface Publication {
   episodeA: boolean;
   episodeB: boolean;
   pod: boolean;
+  da?: boolean;
   updatedAt?: string;
   updatedBy?: string;
 }
