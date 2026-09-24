@@ -93,14 +93,8 @@ export const AuthView: React.FC = () => {
             </div>
           </div>
           <h1 className="flex flex-col items-center leading-none">
-            <span className="flex items-center text-4xl font-black text-[#2E9DF7] tracking-tight uppercase">
-              STORY
-              <svg viewBox="0 0 24 24" className="w-7 h-7 -mx-0.5 flex-shrink-0 text-[#3DDC97]" fill="currentColor" aria-hidden="true">
-                <path d="M7 2v11h3v9l7-12h-4l4-8z" />
-              </svg>
-              CO
-            </span>
-            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">Audio Academy</span>
+            <img src="/storyco-wordmark.png" alt="StoryCo" className="h-9 w-auto" />
+            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">Audio Training Program</span>
           </h1>
         </div>
 
