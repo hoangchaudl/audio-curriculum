@@ -4,6 +4,7 @@ import { AssessmentStage } from '../../types';
 import { stageSubmissions } from '../../assessment/scoring';
 import { gradesFirstComplete } from '../../assessment/config';
 import { input, isHttpUrl, primaryBtn, secondaryBtn } from './ui';
+import { ConfirmModal } from '../ConfirmModal';
 
 // A trainee's submission history for one exercise/episode, plus a form to
 // add a new revision. History is append-only: nothing here edits or
@@ -28,6 +29,11 @@ export const SubmissionPanel: React.FC<{
   const filled = links.filter(l => l.url.trim());
   const invalid = filled.some(l => !isHttpUrl(l.url));
   const firstComplete = versions.find(v => v.isComplete);
+  // Episode B / Audio Description are graded on the first complete version
+  // only, so marking one complete is final - confirm it first.
+  const [confirmComplete, setConfirmComplete] = useState(false);
+  const needsConfirm = askComplete && isComplete && gradesFirstComplete(stage) && !firstComplete;
+  const alreadyGraded = askComplete && gradesFirstComplete(stage) && !!firstComplete;
 
   const submit = async () => {
     if (!filled.length || invalid) return;
@@ -107,12 +113,25 @@ export const SubmissionPanel: React.FC<{
               </span>
             </label>
           )}
-          <button onClick={submit} disabled={busy || !filled.length || invalid} className={primaryBtn}>
+          {alreadyGraded && (
+            <p className="text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl px-3 py-2">
+              You already submitted a complete version (v{firstComplete!.version}) - that's the one that's graded. New revisions are kept but won't change your score.
+            </p>
+          )}
+          <button onClick={() => (needsConfirm ? setConfirmComplete(true) : submit())} disabled={busy || !filled.length || invalid} className={primaryBtn}>
             {busy ? 'Submitting…' : versions.length ? 'Submit new revision' : 'Submit'}
           </button>
           {message && <p className={`text-xs font-bold ${message.kind === 'ok' ? 'text-leaf' : 'text-ember'}`}>{message.text}</p>}
         </div>
       )}
+      <ConfirmModal
+        open={confirmComplete}
+        title="Submit this as your complete version?"
+        message="This stage is graded on your first complete submission only. You can still add revisions afterwards, but they won't change your score. Make sure everything is finished and exported before you submit."
+        confirmLabel="Yes, it's complete"
+        onConfirm={() => { setConfirmComplete(false); submit(); }}
+        onCancel={() => setConfirmComplete(false)}
+      />
     </div>
   );
 };
