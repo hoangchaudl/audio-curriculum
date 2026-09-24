@@ -144,6 +144,11 @@ export const ProgramOverview: React.FC = () => {
                         {weekLabel(wi)}
                         {start && <span className="normal-case font-bold text-gray-400 ml-2">{formatDate(dateFor(start, weekNo))} – {formatDate(dateFor(start, weekNo, 5))}</span>}
                       </p>
+                      {week.goal && (
+                        <p className="bg-sky text-navy rounded-2xl px-4 py-3 text-sm font-medium mb-2">
+                          <span className="font-black">🎯 Goal: </span>{week.goal}
+                        </p>
+                      )}
                       {entries.length === 0 ? <p className="text-xs text-gray-400">Nothing due this week.</p> : (
                         <ol className="space-y-2">
                           {entries.map(e => (

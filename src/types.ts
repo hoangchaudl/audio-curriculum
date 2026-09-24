@@ -207,6 +207,8 @@ export interface OutlineWeek {
   // Once set, `items` is in the admin's manual order (sections first, in
   // this order). Unset = older outline, ordered by day.
   sections?: OutlineSection[];
+  // What the trainee should achieve this week (shown on My Program).
+  goal?: string;
   items: OutlineItem[];
 }
 

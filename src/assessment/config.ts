@@ -140,12 +140,20 @@ const item = {
 
 // Default outline: the assignments on their due days. Admins add lesson
 // content and milestones to any day.
+// The program's standard goal for each of the 4 weeks.
+export const DEFAULT_WEEK_GOALS = [
+  'Explain the episode lifecycle, verify workstation and asset access, and deliver an organized Pro Tools session with correctly imported video and fully synced, leveled dialogue.',
+  'Build continuous ambience, edit story-appropriate SFX, and select and begin editing music that supports the creative brief.',
+  'Independently complete a full episode with dialogue, ambience, SFX and music, and adapt one episode’s pacing for clear, engaging audio-only listening.',
+  'Complete and revise two pod episodes of 2–3 minutes each, communicate effectively, and deliver organized handoffs under a designated key sound designer’s QC.',
+];
+
 export const DEFAULT_OUTLINE: ProgramOutline = {
   id: 'current',
   weeks: [
-    { id: 'wk1', title: 'Week 1', items: [item.assignment('asg_w1')] },
-    { id: 'wk2', title: 'Week 2', items: [item.assignment('asg_w2a'), item.assignment('asg_w2b')] },
-    { id: 'wk3', title: 'Week 3', items: [item.assignment('asg_w3a'), item.assignment('asg_w3b')] },
-    { id: 'wk4', title: 'Week 4', items: [item.assignment('asg_w4a'), item.assignment('asg_w4b')] },
+    { id: 'wk1', title: 'Week 1', goal: DEFAULT_WEEK_GOALS[0], items: [item.assignment('asg_w1')] },
+    { id: 'wk2', title: 'Week 2', goal: DEFAULT_WEEK_GOALS[1], items: [item.assignment('asg_w2a'), item.assignment('asg_w2b')] },
+    { id: 'wk3', title: 'Week 3', goal: DEFAULT_WEEK_GOALS[2], items: [item.assignment('asg_w3a'), item.assignment('asg_w3b')] },
+    { id: 'wk4', title: 'Week 4', goal: DEFAULT_WEEK_GOALS[3], items: [item.assignment('asg_w4a'), item.assignment('asg_w4b')] },
   ],
 };
