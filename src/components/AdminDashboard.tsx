@@ -7,7 +7,8 @@ import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
-import { SavedToast, saveWith } from './assessment/ui';
+import { ProgressBar, SavedToast, saveWith } from './assessment/ui';
+import { programProgress } from '../assessment/outline';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 
@@ -101,7 +102,7 @@ const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w
 
 export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number }> = ({ focusModuleId, focusNonce }) => {
   const {
-    users, categories, modules, moduleVideos, submissions, grades, videoTasks,
+    users, categories, modules, moduleVideos, submissions, grades, videoTasks, enrollments, assignments, programOutline, videoProgress, assessmentSubmissions,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo, createVideoTask,
     setUserUnlockedCategories,
   } = useAppContext();
@@ -466,9 +467,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         </div>
                       )}
 
+                      {(() => {
+                        const enrollment = enrollments.find(e => e.id === designer.id);
+                        if (!enrollment) return <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">Not enrolled in the program</p>;
+                        const p = programProgress(programOutline, assignments, enrollment, designer.id, videoProgress, assessmentSubmissions);
+                        return <ProgressBar done={p.done} total={p.total} />;
+                      })()}
+
                       <div>
                         <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
-                          <span>Course Progress</span>
+                          <span>Legacy course progress</span>
                           <span>{submitted} submitted · {graded} graded of {total}</span>
                         </div>
                         <div className="h-3 bg-gray-100 rounded-full overflow-hidden">

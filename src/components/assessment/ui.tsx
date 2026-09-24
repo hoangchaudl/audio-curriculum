@@ -53,6 +53,22 @@ export const SavedToast: React.FC = () => {
   );
 };
 
+// Program progress bar (see programProgress in assessment/outline.ts).
+export const ProgressBar: React.FC<{ done: number; total: number; label?: string; size?: 'sm' | 'lg' }> = ({ done, total, label = 'Program progress', size = 'sm' }) => {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <div>
+      <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
+        <span>{label}</span>
+        <span>{total ? `${done} of ${total} done · ${pct}%` : 'Nothing to do yet'}</span>
+      </div>
+      <div className={`${size === 'lg' ? 'h-4' : 'h-3'} bg-gray-100 rounded-full overflow-hidden`} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
+        <div className="h-full rounded-full bg-[#3DDC97] transition-all" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+};
+
 // "3.80 / 5 · Production Ready" for scores, or the awaiting label.
 export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg' }> = ({ outcome, size = 'sm' }) => {
   if (outcome.status === 'awaiting') {

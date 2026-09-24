@@ -146,6 +146,13 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
       if (asg) saveWith(saveAssignment({ ...asg, dueDay: day }, assignmentLines(exercises, asg.id)));
     } else updateItem(weekId, it.id, { day });
   };
+  const moveWeek = (wi: number, dir: -1 | 1) => {
+    const weeks = [...outline.weeks];
+    if (!weeks[wi + dir]) return;
+    [weeks[wi], weeks[wi + dir]] = [weeks[wi + dir], weeks[wi]];
+    // Default "Week N" titles follow the new position; custom titles stay.
+    save(weeks.map((w, i) => (/^Week \d+$/.test(w.title) ? { ...w, title: `Week ${i + 1}` } : w)));
+  };
   // Swap with the neighbour on the same day - the order trainees see.
   const moveWithinDay = (week: OutlineWeek, it: OutlineItem, dir: -1 | 1) => {
     const sameDay = week.items.filter(x => itemDay(x, assignments) === itemDay(it, assignments));
@@ -195,6 +202,11 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
               onBlur={e => e.target.value.trim() && e.target.value !== week.title && save(outline.weeks.map(w => (w.id === week.id ? { ...w, title: e.target.value.trim() } : w)))}
               className={`${input} font-black text-gray-800 max-w-xs`} />
             <span className="text-[10px] font-black uppercase text-gray-400">Week {wi + 1}</span>
+            {/* Reordering weeks renumbers them, so trainees' due dates move with the week. */}
+            <div className="flex gap-1 ml-2">
+              <button onClick={() => moveWeek(wi, -1)} disabled={wi === 0} aria-label="Move week earlier" title="Move week earlier" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▲</button>
+              <button onClick={() => moveWeek(wi, 1)} disabled={wi === outline.weeks.length - 1} aria-label="Move week later" title="Move week later" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▼</button>
+            </div>
             {week.items.length === 0 && outline.weeks.length > 1 && (
               <button onClick={() => save(outline.weeks.filter(w => w.id !== week.id))} className="ml-auto text-xs font-bold text-gray-400 hover:text-ember">Remove empty week</button>
             )}

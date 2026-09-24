@@ -3,13 +3,13 @@ import { useAppContext } from '../../store';
 import { Assignment, CellWeight, ContentBlock, Enrollment, ReviewerSlot, Role, User } from '../../types';
 import { CRITERIA, REVIEWER_SLOTS } from '../../assessment/config';
 import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, splitEvenly } from '../../assessment/scoring';
-import { assignmentWeek } from '../../assessment/outline';
+import { assignmentWeek, programProgress } from '../../assessment/outline';
 import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
 import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { OutlineEditor } from './OutlineEditor';
-import { BenchmarkChip, OutcomeBadge, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
+import { BenchmarkChip, OutcomeBadge, ProgressBar, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
 
 type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 // Grouped in the order an admin works: set the program up, add people,
@@ -32,8 +32,9 @@ const today = () => new Date().toISOString().slice(0, 10);
 // --- Tracking ---------------------------------------------------------------
 
 const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
-  const { users, setPublication } = useAppContext();
+  const { users, setPublication, programOutline, assignments, videoProgress } = useAppContext();
   const data = useTraineeData(enrollment.traineeId);
+  const progress = programProgress(programOutline, assignments, enrollment, enrollment.traineeId, videoProgress, data.submissions);
   const result = finalResult(data);
   const [open, setOpen] = useState(false);
   const [pendingPublish, setPendingPublish] = useState<'episodeA' | 'episodeB' | 'pod' | null>(null);
@@ -65,6 +66,7 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
           <BenchmarkChip meets={result.meetsBenchmark} />
         </div>
       </div>
+      <div className="mb-4"><ProgressBar done={progress.done} total={progress.total} /></div>
       <div className="grid sm:grid-cols-3 gap-3">
         {stages.map(s => (
           <div key={s.key} className="bg-gray-50 rounded-2xl p-3 space-y-2">

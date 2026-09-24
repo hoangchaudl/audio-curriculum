@@ -2,15 +2,15 @@ import React from 'react';
 import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { Outcome, assignmentCriteria, assignmentOutcome, episodeAAssignments, finalResult } from '../../assessment/scoring';
-import { BenchmarkChip, OutcomeBadge, card, dateFor, formatDate, sectionTitle } from './ui';
-import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel } from '../../assessment/outline';
+import { BenchmarkChip, OutcomeBadge, ProgressBar, card, dateFor, formatDate, sectionTitle } from './ui';
+import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, programProgress } from '../../assessment/outline';
 
 const go = (hash: string) => { window.location.hash = hash; };
 
 // Trainee home for the assessment program: the three weighted stages, the
 // four-week schedule, and (once everything is published) the final grade.
 export const ProgramOverview: React.FC = () => {
-  const { currentUser, assessmentConfig: config, programOutline, assignments } = useAppContext();
+  const { currentUser, assessmentConfig: config, programOutline, assignments, videoProgress } = useAppContext();
   // Stage links go to the matching assignment page when the outline has one.
   const stageHash = (stage: 'B' | 'P1' | 'P2') => {
     const a = assignments.find(x => x.stage === stage);
@@ -87,6 +87,22 @@ export const ProgramOverview: React.FC = () => {
 
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-6">
+          {(() => {
+            const p = programProgress(programOutline, assignments, data.enrollment, currentUser?.id, videoProgress, data.submissions);
+            return p.total > 0 && (
+              <section className={card}>
+                <ProgressBar done={p.done} total={p.total} label="Your progress" size="lg" />
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {p.weeks.filter(w => w.total > 0).map(w => (
+                    <span key={w.id} className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${w.done === w.total ? 'bg-[#3DDC97] text-[#0B3D2A]' : 'bg-gray-100 text-gray-500'}`}>
+                      {w.done === w.total ? '✓ ' : ''}{w.title} · {w.done}/{w.total}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 font-medium mt-3">Counts content you've marked done and assignments you've submitted.</p>
+              </section>
+            );
+          })()}
           <div className="grid md:grid-cols-3 gap-6">
             <StageCard title="Episode A" weight={config.stageWeights.episodeA} weeks={weeksOf(['A'], 'Weeks 1–2')} published={pub?.episodeA}
               outcome={result.episodeA} status={`${epASubmitted} of ${epA.length} assignments submitted`}>

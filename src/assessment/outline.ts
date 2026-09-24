@@ -1,4 +1,4 @@
-import { Assignment, AssessmentSubmission, Enrollment, Exercise, OutlineItem, ProgramOutline } from '../types';
+import { Assignment, AssessmentSubmission, Enrollment, Exercise, OutlineItem, ProgramOutline, VideoProgress } from '../types';
 import { stageSubmissions } from './scoring';
 
 // Where an assignment sits in the outline (1-based week number).
@@ -57,3 +57,31 @@ export const itemDay = (it: OutlineItem, assignments: Assignment[]): number => {
 // A week's items in day order; items on the same day keep their saved order.
 export const sortByDay = (items: OutlineItem[], assignments: Assignment[]) =>
   [...items].sort((a, b) => itemDay(a, assignments) - itemDay(b, assignments));
+
+export interface ProgramProgress {
+  done: number;
+  total: number;
+  weeks: { id: string; title: string; done: number; total: number }[];
+}
+
+// How far a trainee is through the weekly outline: content pages marked
+// done (or videos watched to the end) plus assignments submitted, out of
+// everything they have to do. Milestones are checkpoints, not tasks, so
+// they don't count. Same numbers for the trainee and for admins.
+export const programProgress = (
+  outline: ProgramOutline | null, assignments: Assignment[], enrollment: Enrollment | undefined,
+  traineeId: string | undefined, videoProgress: VideoProgress[], submissions: AssessmentSubmission[],
+): ProgramProgress => {
+  const weeks = (outline?.weeks ?? []).map(w => {
+    const flags = w.items.flatMap(it => {
+      if (it.kind === 'content') return [videoProgress.some(v => v.moduleId === it.moduleId && v.userId === traineeId)];
+      if (it.kind === 'assignment') {
+        const a = assignments.find(x => x.id === it.assignmentId);
+        return a && assignmentApplies(a, enrollment) ? [assignmentStatus(a, traineeId, submissions) === 'submitted'] : [];
+      }
+      return [];
+    });
+    return { id: w.id, title: w.title, done: flags.filter(Boolean).length, total: flags.length };
+  });
+  return { weeks, done: weeks.reduce((t, w) => t + w.done, 0), total: weeks.reduce((t, w) => t + w.total, 0) };
+};
