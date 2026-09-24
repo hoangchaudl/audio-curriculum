@@ -1,4 +1,4 @@
-import { Assignment, AssessmentSubmission, Enrollment, Exercise, ProgramOutline } from '../types';
+import { Assignment, AssessmentSubmission, Enrollment, Exercise, OutlineItem, ProgramOutline } from '../types';
 import { stageSubmissions } from './scoring';
 
 // Where an assignment sits in the outline (1-based week number).
@@ -42,3 +42,18 @@ export const assignmentStatus = (a: Assignment, traineeId: string | undefined, s
   if (a.stage !== 'A' && !versions.some(v => v.isComplete)) return 'draft';
   return 'submitted';
 };
+
+export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// Which day of its week (1-7) an outline item sits on. An assignment's day
+// is its due day, so there's one source of truth; items without a day fall
+// back to the start (content) or end (assignments, milestones) of the week.
+export const itemDay = (it: OutlineItem, assignments: Assignment[]): number => {
+  if (it.kind === 'content') return it.day ?? 1;
+  if (it.kind === 'milestone') return it.day ?? 7;
+  return assignments.find(a => a.id === it.assignmentId)?.dueDay ?? 7;
+};
+
+// A week's items in day order; items on the same day keep their saved order.
+export const sortByDay = (items: OutlineItem[], assignments: Assignment[]) =>
+  [...items].sort((a, b) => itemDay(a, assignments) - itemDay(b, assignments));

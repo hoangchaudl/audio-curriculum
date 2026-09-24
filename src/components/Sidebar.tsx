@@ -9,7 +9,7 @@ import { skillNumber } from '../assessment/scoring';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
-import { assignmentApplies, assignmentStatus, dueLabel } from '../assessment/outline';
+import { assignmentApplies, assignmentStatus, dueLabel, sortByDay } from '../assessment/outline';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -192,7 +192,7 @@ export const Sidebar: React.FC<{
         )}
 
         {weekMode && programOutline!.weeks.map(week => {
-          const rows = week.items.flatMap<WeekRow>(it => {
+          const rows = sortByDay(week.items, assignments).flatMap<WeekRow>(it => {
             if (it.kind === 'content') {
               const mod = modules.find(m => m.id === it.moduleId);
               return mod ? [{ key: it.id, kind: 'content' as const, mod }] : [];

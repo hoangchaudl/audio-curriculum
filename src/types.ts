@@ -180,7 +180,7 @@ export interface Assignment {
 }
 
 export type OutlineItem =
-  | { id: string; kind: 'content'; moduleId: string }
+  | { id: string; kind: 'content'; moduleId: string; day?: number }
   | { id: string; kind: 'assignment'; assignmentId: string }
   | { id: string; kind: 'milestone'; title: string; day?: number; description?: string };
 
