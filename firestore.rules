@@ -47,6 +47,18 @@ service cloud.firestore {
              ));
     }
 
+    // --- invites (admin invitations by email; doc id = lowercased email) ---
+    function tokenEmail() {
+      return request.auth.token.get('email', '').lower();
+    }
+    function hasInvite() {
+      return isSignedIn() && tokenEmail() != '' &&
+             exists(/databases/$(database)/documents/invites/$(tokenEmail()));
+    }
+    function invite() {
+      return get(/databases/$(database)/documents/invites/$(tokenEmail())).data;
+    }
+
     // --- users ---
     // Anyone signed in can read the roster (needed for dashboards, avatars,
     // "who submitted this" displays). A user may only create/update their
@@ -64,6 +76,8 @@ service cloud.firestore {
                     && request.resource.data.id == userId
                     && !('unlockedCategories' in request.resource.data)
                     && (request.resource.data.role == 'sound_designer' ||
+                        // An invited email signs up with the invited role.
+                        (hasInvite() && request.resource.data.role == invite().role) ||
                         (request.resource.data.role == 'admin' &&
                          !exists(/databases/$(database)/documents/config/bootstrap) &&
                          getAfter(/databases/$(database)/documents/config/bootstrap).data.adminUid == request.auth.uid));
@@ -265,7 +279,29 @@ service cloud.firestore {
     match /enrollments/{traineeId} {
       allow read: if isAdmin() ||
                   (isSignedIn() && (request.auth.uid == traineeId || request.auth.uid in resource.data.reviewerUids));
-      allow write: if isAdmin();
+      // An invited trainee enrolls themselves - but only with exactly the
+      // settings the admin put on their invite.
+      allow create: if isAdmin() ||
+                    (isSignedIn() && traineeId == request.auth.uid && hasInvite() && enrollmentMatchesInvite(request.resource.data));
+      allow update, delete: if isAdmin();
+    }
+
+    function enrollmentMatchesInvite(d) {
+      let inv = invite();
+      return inv.role == 'sound_designer' && ('startDate' in inv) &&
+             d.keys().hasOnly(['id', 'traineeId', 'startDate', 'reviewers', 'reviewerUids', 'podEpisodesRequired', 'createdAt']) &&
+             d.id == request.auth.uid && d.traineeId == request.auth.uid &&
+             d.startDate == inv.startDate && d.podEpisodesRequired == inv.podEpisodesRequired &&
+             d.reviewers == inv.reviewers && d.reviewerUids == inv.reviewerUids;
+    }
+
+    // Admins create invites (never for the admin role). The invited person
+    // can read theirs and delete it once used.
+    match /invites/{email} {
+      allow read: if isAdmin() || (isSignedIn() && tokenEmail() == email);
+      allow create, update: if isAdmin() && request.resource.data.id == email &&
+                            request.resource.data.role in ['sound_designer', 'reviewer', 'audio_engineer'];
+      allow delete: if isAdmin() || (isSignedIn() && tokenEmail() == email);
     }
 
     // Append-only submission versions. A trainee creates their own (only

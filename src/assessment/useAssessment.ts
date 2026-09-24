@@ -13,7 +13,7 @@ import {
 import { db } from '../firebase';
 import {
   AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, Enrollment, Exercise,
-  Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, User,
+  Invite, Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, User,
 } from '../types';
 import { convertSkillGrading } from './migrate';
 import {
@@ -26,28 +26,32 @@ const STAGES: AssessmentStage[] = ['A', 'B', 'P1', 'P2', 'DA'];
 
 // Subscribes to several queries/docs and merges their rows by id. `key`
 // must change whenever the set of sources should change.
-const useLive = <T extends { id: string }>(key: string | null, build: () => (Query | DocumentReference)[]) => {
-  const [rows, setRows] = useState<T[]>([]);
+// `loaded` turns true once every source has answered at least once.
+type LiveRows<T> = T[] & { loaded?: boolean };
+const useLive = <T extends { id: string }>(key: string | null, build: () => (Query | DocumentReference)[]): LiveRows<T> => {
+  const [rows, setRows] = useState<LiveRows<T>>([]);
   useEffect(() => {
     if (key === null) { setRows([]); return; }
     const sources = build();
     const results: Map<string, T>[] = sources.map(() => new Map());
-    const publish = () => {
+    const answered = new Set<number>();
+    const publish = (i: number) => {
+      answered.add(i);
       const merged = new Map<string, T>();
       results.forEach(r => r.forEach((v, k) => merged.set(k, v)));
-      setRows([...merged.values()]);
+      setRows(Object.assign([...merged.values()], { loaded: answered.size === sources.length }));
     };
     const unsubs = sources.map((src, i) => {
       const onError = (err: unknown) => console.error('Assessment sync error', err);
       if (src instanceof DocumentReference) {
         return onSnapshot(src, snap => {
           results[i] = snap.exists() ? new Map([[snap.id, snap.data() as T]]) : new Map();
-          publish();
+          publish(i);
         }, onError);
       }
       return onSnapshot(src, snap => {
         results[i] = new Map(snap.docs.map(d => [d.id, d.data() as T]));
-        publish();
+        publish(i);
       }, onError);
     });
     return () => unsubs.forEach(u => u());
@@ -92,6 +96,9 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     [assignedEnrollments, uid],
   );
   const reviewScopeKey = reviewScope.map(p => p.join(':')).sort().join('|');
+
+  // --- invites (admins only) ---
+  const invites = useLive<Invite>(ready && isAdmin ? 'invites' : null, () => [collection(db, 'invites')]);
 
   // --- end-of-probation decisions (admins only) ---
   const programOutcomes = useLive<ProgramOutcome>(ready && isAdmin ? 'outcomes' : null, () => [collection(db, 'programOutcomes')]);
@@ -269,6 +276,21 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     await batch.commit();
   };
 
+  // Invite an email that hasn't signed up yet; trainee invites carry the
+  // enrollment settings (see firestore.rules enrollmentMatchesInvite).
+  const createInvite = async (fields: Omit<Invite, 'id' | 'createdAt' | 'createdBy' | 'reviewerUids'>) => {
+    if (!isAdmin) return;
+    const id = fields.email.trim().toLowerCase();
+    const reviewers = fields.reviewers ? Object.fromEntries(Object.entries(fields.reviewers).filter(([, v]) => !!v)) as Enrollment['reviewers'] : undefined;
+    const row: Invite = {
+      ...fields, id, email: id,
+      ...(fields.role === 'sound_designer' ? { reviewers: reviewers ?? {}, reviewerUids: [...new Set(Object.values(reviewers ?? {}))] as string[] } : {}),
+      createdAt: new Date().toISOString(), createdBy: uid,
+    };
+    await setDoc(doc(db, 'invites', id), Object.fromEntries(Object.entries(row).filter(([, v]) => v !== undefined)));
+  };
+  const deleteInvite = async (id: string) => { if (isAdmin) await deleteDoc(doc(db, 'invites', id)); };
+
   // Record (or clear, with null) the full-time offer decision.
   const setProgramOutcome = async (traineeId: string, decision: ProgramOutcome['decision'] | null) => {
     if (!isAdmin) return;
@@ -306,7 +328,8 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
 
   return {
     exercises, assignments, programOutline, assessmentConfig: config, assessmentConfigSaved: configSaved,
-    enrollments, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome,
+    enrollments, ownEnrollmentLoaded: isAdmin || !!ownEnrollment.loaded, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome,
+    invites, createInvite, deleteInvite,
     submitAssessmentVersion, saveReview, upsertEnrollment, setPublication, upsertExercise, deleteExercise,
     updateAssessmentConfig, setupAssessmentProgram, updateAssignment, convertToAssignmentGrading, saveOutline, saveAssignment, deleteAssignment,
   };

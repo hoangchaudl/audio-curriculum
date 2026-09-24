@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { clipFields } from './videoClip';
+import { Invite, Enrollment } from './types';
+
+// The enrollment an invited trainee creates for themselves - exactly the
+// invite's settings (firestore.rules enrollmentMatchesInvite).
+const enrollmentFromInvite = (invite: Invite, uid: string): Enrollment => ({
+  id: uid, traineeId: uid, startDate: invite.startDate!, podEpisodesRequired: invite.podEpisodesRequired ?? 1,
+  reviewers: invite.reviewers ?? {}, reviewerUids: invite.reviewerUids ?? [], createdAt: new Date().toISOString(),
+});
 import { AppState, User, Category, Module, ModuleVideo, Submission, Grade, VideoTask, VideoProgress } from './types';
 import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
 import { initialData } from './data';
@@ -384,6 +392,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // through and sign up as a regular designer instead.
         }
       }
+      // Invited by an admin? Take the invited role, and for a trainee also
+      // create their enrollment with the invited settings - one batch, and
+      // the invite is used up (firestore.rules check it matches).
+      const inviteRef = doc(db, 'invites', email.trim().toLowerCase());
+      const invite = await getDoc(inviteRef).then(snap => (snap.exists() ? snap.data() as Invite : null)).catch(() => null);
+      if (invite) {
+        const invited = makeUser(invite.role);
+        const batch = writeBatch(db);
+        batch.set(doc(db, 'users', invited.id), invited);
+        if (invite.role === 'sound_designer' && invite.startDate) batch.set(doc(db, 'enrollments', invited.id), enrollmentFromInvite(invite, invited.id));
+        batch.delete(inviteRef);
+        await batch.commit();
+        return true;
+      }
       const newUser = makeUser(role === 'admin' ? 'sound_designer' : role);
       await setDoc(doc(db, 'users', newUser.id), newUser);
       return true;
@@ -724,6 +746,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // New 1-5 assessment program (separate collections; legacy
   // submissions/grades above are untouched).
   const assessment = useAssessment(authUid, currentUser);
+
+  // An existing trainee account invited later is enrolled at their next
+  // sign-in (once per session; nothing happens without a matching invite).
+  const inviteChecked = React.useRef<string | null>(null);
+  const ownEnrolled = assessment.enrollments.some(e => e.id === authUid);
+  useEffect(() => {
+    if (!authUid || currentUser?.role !== 'sound_designer' || !assessment.ownEnrollmentLoaded || ownEnrolled) return;
+    if (inviteChecked.current === authUid) return;
+    inviteChecked.current = authUid;
+    const email = auth.currentUser?.email?.toLowerCase();
+    if (!email) return;
+    const inviteRef = doc(db, 'invites', email);
+    getDoc(inviteRef).then(async snap => {
+      const invite = snap.exists() ? snap.data() as Invite : null;
+      if (!invite || invite.role !== 'sound_designer' || !invite.startDate) return;
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'enrollments', authUid), enrollmentFromInvite(invite, authUid));
+      batch.delete(inviteRef);
+      await batch.commit();
+    }).catch(error => console.error('Error claiming invite', error));
+  }, [authUid, currentUser?.role, assessment.ownEnrollmentLoaded, ownEnrolled]);
 
   return (
     <AppContext.Provider

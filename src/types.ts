@@ -255,6 +255,22 @@ export interface Enrollment {
   createdAt: string;
 }
 
+// An admin's invitation for an email address that hasn't signed up yet
+// (doc id = lowercased email). Signing up with that email gives the invited
+// role; a trainee invite also enrolls them with these settings.
+export interface Invite {
+  id: string;
+  email: string;
+  role: 'sound_designer' | 'reviewer' | 'audio_engineer';
+  // Trainee invites only:
+  startDate?: string;
+  podEpisodesRequired?: 1 | 2;
+  reviewers?: Partial<Record<ReviewerSlot, string>>;
+  reviewerUids?: string[];
+  createdAt: string;
+  createdBy: string;
+}
+
 // The coordinator's end-of-probation decision for a trainee. Admin-only
 // (never readable by the trainee or their reviewers).
 export interface ProgramOutcome {

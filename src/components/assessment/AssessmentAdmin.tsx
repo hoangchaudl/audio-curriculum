@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
-import { Assignment, CellWeight, ContentBlock, Enrollment, ReviewerSlot, Role, User } from '../../types';
+import { Assignment, CellWeight, ContentBlock, Enrollment, Invite, ReviewerSlot, Role, User } from '../../types';
 import { CRITERIA, PublicationKey, REVIEWER_SLOTS } from '../../assessment/config';
 import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, scaleShares, splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentWeek, programProgress } from '../../assessment/outline';
@@ -160,6 +160,92 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
         Assign the actual accounts. Trainer scores Episode A, B and Pod; Audio Engineer scores B and Pod; Key Sound Designer and Producer score Pod only (Producer: SFX & Music).
         Set producers and key sound designers to the Reviewer role first on "People & roles".
       </p>
+    </div>
+  );
+};
+
+// --- Invites --------------------------------------------------------------------
+// Set someone up before they sign up: signing up with the invited email
+// gives them the role, and a trainee invite enrolls them with these
+// settings - no chasing new accounts afterwards.
+
+const INVITE_ROLES: { id: Invite['role']; label: string }[] = [
+  { id: 'sound_designer', label: 'Trainee (sound designer)' },
+  { id: 'reviewer', label: 'Reviewer (producer / key sound designer)' },
+  { id: 'audio_engineer', label: 'Audio engineer' },
+];
+
+const InvitePanel: React.FC = () => {
+  const { users, invites, createInvite, deleteInvite } = useAppContext();
+  const blank = { email: '', role: 'sound_designer' as Invite['role'], startDate: today(), pods: 1 as 1 | 2, reviewers: {} as Enrollment['reviewers'] };
+  const [f, setF] = useState(blank);
+  const email = f.email.trim().toLowerCase();
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const taken = users.some(u => u.email?.toLowerCase() === email);
+  const reviewerOptions = users.filter(u => u.role !== 'sound_designer').sort((a, b) => a.name.localeCompare(b.name));
+  const send = async () => {
+    const ok = await saveWith(createInvite({
+      email, role: f.role,
+      ...(f.role === 'sound_designer' ? { startDate: f.startDate, podEpisodesRequired: f.pods, reviewers: f.reviewers } : {}),
+    }));
+    if (ok) setF(blank);
+  };
+  const pending = [...invites].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return (
+    <div className={card}>
+      <h4 className="font-black text-gray-800 mb-1">✉️ Invite by email</h4>
+      <p className="text-xs text-gray-500 mb-4">
+        Set someone up before they sign up. When they create their account with this email they get the role - and a trainee is enrolled
+        with the start date and reviewers below. Share the site link with them yourself (no email is sent).
+      </p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <label className="text-xs font-bold text-gray-500 uppercase">Email
+          <input type="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} placeholder="name@story.co" className={`${input} mt-1`} />
+        </label>
+        <label className="text-xs font-bold text-gray-500 uppercase">Role
+          <select value={f.role} onChange={e => setF({ ...f, role: e.target.value as Invite['role'] })} className={`${input} mt-1`}>
+            {INVITE_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </label>
+      </div>
+      {f.role === 'sound_designer' && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+          <label className="text-xs font-bold text-gray-500 uppercase">Start date
+            <input type="date" value={f.startDate} onChange={e => setF({ ...f, startDate: e.target.value })} className={`${input} mt-1`} />
+          </label>
+          <label className="text-xs font-bold text-gray-500 uppercase">Pod episodes required
+            <select value={f.pods} onChange={e => setF({ ...f, pods: Number(e.target.value) as 1 | 2 })} className={`${input} mt-1`}>
+              <option value={1}>1 episode</option>
+              <option value={2}>2 episodes (averaged)</option>
+            </select>
+          </label>
+          {REVIEWER_SLOTS.map(slot => (
+            <label key={slot.id} className="text-xs font-bold text-gray-500 uppercase">{slot.label}
+              <select value={f.reviewers[slot.id] ?? ''} onChange={e => setF({ ...f, reviewers: { ...f.reviewers, [slot.id as ReviewerSlot]: e.target.value || undefined } })} className={`${input} mt-1`}>
+                <option value="">— Not assigned —</option>
+                {reviewerOptions.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role.replace('_', ' ')})</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3 mt-4">
+        <button disabled={!validEmail || taken} onClick={send} className={primaryBtn}>Create invite</button>
+        {taken && <span className="text-xs font-bold text-ember">That email already has an account - enroll them below or change their role on "People & roles".</span>}
+      </div>
+
+      {pending.length > 0 && (
+        <div className="mt-5 border-t pt-4 space-y-2">
+          <p className="text-[10px] font-black uppercase text-gray-400">Waiting to sign up ({pending.length})</p>
+          {pending.map(inv => (
+            <div key={inv.id} className="flex flex-wrap items-center gap-2 bg-gray-50 rounded-2xl px-3 py-2 text-sm">
+              <span className="font-bold text-gray-800">{inv.email}</span>
+              <span className="text-xs text-gray-500">{INVITE_ROLES.find(r => r.id === inv.role)?.label}{inv.startDate ? ` · starts ${inv.startDate}` : ''}</span>
+              <button onClick={() => saveWith(deleteInvite(inv.id))} className="ml-auto text-xs font-bold text-gray-400 hover:text-ember">Cancel invite</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -632,6 +718,7 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
       )}
       {tab === 'enrollment' && (
         <div className="space-y-4">
+          <InvitePanel />
           {trainees.length === 0 && <p className={`${card} text-sm text-gray-500`}>No sound designer accounts yet.</p>}
           {trainees.map(t => <EnrollmentRow key={t.id} traineeId={t.id} />)}
         </div>
