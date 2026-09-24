@@ -90,7 +90,7 @@ export const ProgramOverview: React.FC = () => {
                 {mods.map(m => (
                   <li key={m.id}>
                     <button onClick={() => go(`#/module/${m.id}`)} className="w-full flex items-center justify-between gap-2 text-left bg-gray-50 hover:bg-gray-100 rounded-xl px-3 py-2">
-                      <span className="text-xs font-bold text-gray-700">{m.label}. {m.title}</span>
+                      <span className="text-xs font-bold text-gray-700">{mods.indexOf(m) + 1}. {m.title}</span>
                       <span className="text-[10px] font-black text-gray-400 whitespace-nowrap">
                         {pub?.episodeA ? (moduleOutcome(data, m).status === 'scored' ? (moduleOutcome(data, m) as { value: number }).value.toFixed(2) : '–') : `${m.episodeAWeight ?? 0}%`}
                       </span>

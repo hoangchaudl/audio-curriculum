@@ -5,6 +5,7 @@ import { Assignment, Module, Role } from '../types';
 type WeekRow = { key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment };
 import { countUnseenGrades, isGradeSeen } from '../notifications';
 import { canSeeModule, sortCategories } from '../access';
+import { skillNumber } from '../assessment/scoring';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
@@ -338,7 +339,7 @@ export const Sidebar: React.FC<{
                     statusBadge = <span className={`${neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Not Started</span>;
                   }
 
-                  const label = mod.label || mod.order.toString().padStart(2, '0');
+                  const label = mod.program === 'episodeA' ? String(skillNumber(allModules, mod.id)) : mod.label || mod.order.toString().padStart(2, '0');
                   // Three states: selected = bright white card, completed =
                   // dimmed, default = standard sidebar item.
                   const stateClass = isSelected
