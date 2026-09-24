@@ -3,12 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { WaitingView } from './components/WaitingView';
 import { ProfileView } from './components/ProfileView';
 import { AuthView } from './components/AuthView';
-import { AdminDashboard } from './components/AdminDashboard';
 import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
 import { useApplyTheme, useResolvedTheme } from './theme';
@@ -16,7 +15,9 @@ import { ProgramOverview } from './components/assessment/ProgramOverview';
 import { ContentPageView } from './components/assessment/ContentPageView';
 import { AssignmentView } from './components/assessment/AssignmentView';
 import { EpisodeView } from './components/assessment/EpisodeView';
-import { ReviewerQueue } from './components/assessment/ReviewerQueue';
+// Loaded on demand so trainees never download the admin screens.
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const ReviewerQueue = lazy(() => import('./components/assessment/ReviewerQueue').then(m => ({ default: m.ReviewerQueue })));
 
 // Modules are addressable via the URL hash (#/module/<id>) so each one has
 // a shareable, bookmarkable link and the browser back/forward buttons work.
@@ -285,7 +286,7 @@ const AppContent = () => {
             </button>
           </div>
         )}
-        {renderContent()}
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>{renderContent()}</Suspense>
       </div>
     </div>
   );

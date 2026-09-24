@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import Markdown from 'react-markdown';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+
+// Loaded when the first Markdown text is shown, not with the app.
+const Markdown = lazy(() => import('react-markdown'));
 import { AssessmentStage } from '../../types';
 import { Outcome, outcomeLabel, roundScore } from '../../assessment/scoring';
 import { SCORE_LABELS_5 } from '../../assessment/config';
@@ -115,11 +117,13 @@ export const formatDate = (d: Date | null) =>
 // Safe Markdown (react-markdown never renders raw HTML by default).
 export const Md: React.FC<{ children: string }> = ({ children }) => (
   <div className="text-sm text-gray-700 leading-relaxed space-y-2 [&_h1]:text-lg [&_h1]:font-black [&_h2]:font-black [&_h3]:font-bold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#2E9DF7] [&_a]:underline [&_strong]:text-gray-800">
-    <Markdown
-      components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" /> }}
-    >
-      {children}
-    </Markdown>
+    <Suspense fallback={<p className="whitespace-pre-wrap">{children}</p>}>
+      <Markdown
+        components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" /> }}
+      >
+        {children}
+      </Markdown>
+    </Suspense>
   </div>
 );
 

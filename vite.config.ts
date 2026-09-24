@@ -11,6 +11,19 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Big libraries in their own files: they change rarely, so browsers
+          // keep them cached across deploys.
+          manualChunks: {
+            react: ['react', 'react-dom'],
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            // (react-markdown is loaded lazily - see Md in assessment/ui.tsx.)
+          },
+        },
+      },
+    },
     server: {
       // Port 3000 by default; PORT env lets tooling assign a free port.
       port: process.env.PORT ? Number(process.env.PORT) : 3000,

@@ -7,7 +7,7 @@ type WeekRow = ({ key: string; kind: 'content'; mod: Module } | { key: string; k
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
-import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
+import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
 import { assignmentApplies, assignmentStatus, dueLabel, programDate, weekGroups, weekLabel } from '../assessment/outline';
 
 const ROLE_LABELS: Record<Role, string> = {
