@@ -346,6 +346,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // End-of-probation (full-time offer) decisions: admins only - never
+    // visible to the trainee or their reviewers.
+    match /programOutcomes/{traineeId} {
+      allow read, write: if isAdmin();
+    }
+
     // Deny everything else by default (no catch-all open rule).
   }
 }

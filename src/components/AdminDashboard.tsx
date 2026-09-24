@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
 import { Module, Resource, RubricCriterion, User } from '../types';
-import { computeProgress } from '../progress';
 import { ConfirmModal } from './ConfirmModal';
 import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
-import { ProgressBar, SavedToast, saveWith } from './assessment/ui';
+import { SavedToast, saveWith } from './assessment/ui';
 import { ClipTimes } from './assessment/ClipTimes';
-import { programProgress } from '../assessment/outline';
+import { DesignerCard, STATUS_ORDER } from './DesignerCard';
+import { behindReasons, traineeStanding } from '../assessment/standing';
+import { traineeDataFrom } from '../assessment/traineeData';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 
@@ -103,7 +104,7 @@ const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w
 
 export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number }> = ({ focusModuleId, focusNonce }) => {
   const {
-    users, categories, modules, moduleVideos, submissions, grades, videoTasks, enrollments, assignments, programOutline, videoProgress, assessmentSubmissions,
+    users, categories, modules, moduleVideos, submissions, grades, videoTasks, enrollments, programOutline, programOutcomes, assessmentConfig,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo, createVideoTask,
     setUserUnlockedCategories,
   } = useAppContext();
@@ -125,6 +126,15 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   };
 
   const designers = users.filter(u => u.role === 'sound_designer');
+  // Probation standing per designer (null = not enrolled), sorted so the
+  // ones needing attention come first.
+  const ctx = useAppContext();
+  const roster = designers.map(designer => ({
+    designer,
+    standing: enrollments.some(e => e.id === designer.id) ? traineeStanding(traineeDataFrom(ctx, designer.id), programOutline) : null,
+  })).sort((a, b) => STATUS_ORDER.indexOf(a.standing?.status ?? 'not_enrolled') - STATUS_ORDER.indexOf(b.standing?.status ?? 'not_enrolled') || a.designer.name.localeCompare(b.designer.name));
+  const behind = roster.filter(r => r.standing?.status === 'behind');
+  const awaitingDecision = roster.filter(r => (r.standing?.status === 'passed' || r.standing?.status === 'not_passed') && !programOutcomes.some(o => o.id === r.designer.id));
   const engineers = users.filter(u => u.role === 'audio_engineer');
 
   const [editingModule, setEditingModule] = useState<string | null>(null);
@@ -312,6 +322,37 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
+        {/* Alerts for coordinators, on every tab: who's falling behind, and
+            who finished probation and is waiting for an offer decision. */}
+        {(behind.length > 0 || awaitingDecision.length > 0) && (
+          <div className="space-y-3">
+            {behind.length > 0 && (
+              <div className="bg-rose rounded-[32px] p-5 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase text-ember mb-1">⚠ {behind.length} sound designer{behind.length === 1 ? ' is' : 's are'} falling behind</p>
+                  <ul className="text-sm text-ember font-bold space-y-0.5">
+                    {behind.map(({ designer, standing }) => (
+                      <li key={designer.id}><b>{designer.name}</b> - {[
+                        ...(standing!.overdue.length ? [`${standing!.overdue.length} overdue assignment${standing!.overdue.length === 1 ? '' : 's'}`] : []),
+                        ...behindReasons({ ...standing!, overdue: [] }, assessmentConfig.passThreshold),
+                      ].join(' · ')}</li>
+                    ))}
+                  </ul>
+                </div>
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#F4511E] text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+              </div>
+            )}
+            {awaitingDecision.length > 0 && (
+              <div className="bg-[#3DDC97]/15 rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-bold text-leaf">
+                  🎓 Probation finished for {awaitingDecision.map(r => `${r.designer.name} (${r.standing!.status === 'passed' ? 'passed' : 'below benchmark'})`).join(', ')} - record the full-time offer decision.
+                </p>
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#3DDC97] text-[#0B3D2A] font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-3 flex-wrap">
           <button
@@ -333,6 +374,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             }`}
           >
             Sound Designers
+            {behind.length > 0 && <span className="ml-2 bg-[#F4511E] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{behind.length}</span>}
           </button>
           <button
             onClick={() => setActiveTab('engineers')}
@@ -369,150 +411,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
-                📋 Designer Progress Overview
+                📋 Probation progress
               </h3>
-              <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-leaf">
-                <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
+              <span className="text-xs font-bold text-gray-500">
+                Pass = final score of {assessmentConfig.passThreshold}+ / 5 after week 4 → recommend a full-time offer
               </span>
             </div>
-
-            {/* The per-module chips below (a score, "Rev", or "-") only had
-                their meaning in a hover tooltip - this is the legend for
-                anyone not hovering every single one. */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 bg-surface rounded-xl px-4 py-2.5 text-[10px] font-bold text-gray-600">
-              <span className="font-black uppercase tracking-wide text-gray-400">Module chip key:</span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded bg-[#3DDC97]/20 text-leaf flex items-center justify-center font-black text-[9px]">4</span>
-                Graded (number = score)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded bg-[#2E9DF7]/20 text-navy flex items-center justify-center font-black text-[9px]">Rev</span>
-                Submitted, awaiting review
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded bg-gray-100 text-gray-400 flex items-center justify-center font-black text-[9px]">–</span>
-                Not submitted yet
-              </span>
-            </div>
-
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {designers.map((designer, i) => {
-                const theme = CARD_THEMES[i % CARD_THEMES.length];
-                const userSubmissions = submissions.filter(s => s.userId === designer.id);
-                // Same definition the designer sees on their own progress
-                // card (ModuleView) - this used to show submissions/total
-                // here while the student's own view showed graded/total,
-                // so the same person's progress disagreed depending who
-                // was looking.
-                const { submitted, graded, total } = computeProgress(designer.id, submissions, modules.length);
-                const gradedPercent = total > 0 ? Math.round((graded / total) * 100) : 0;
-                const userGrades = grades.filter(g => userSubmissions.some(s => s.id === g.submissionId));
-                const averageScore = userGrades.length > 0
-                  ? (userGrades.reduce((acc, g) => acc + g.score, 0) / userGrades.length).toFixed(1)
-                  : 'N/A';
-
-                return (
-                  <div key={designer.id} className="rounded-[32px] border border-gray-100 shadow-sm overflow-hidden bg-surface flex flex-col">
-                    <div className="relative p-5 pb-12" style={{ background: theme.bg }}>
-                      <div
-                        className="w-14 h-14 rounded-full border-4 border-surface shadow-md flex items-center justify-center text-white font-black text-sm relative"
-                        style={{ background: theme.accent }}
-                      >
-                        {getInitials(designer.name)}
-                      </div>
-                    </div>
-
-                    <div className="relative -mt-7 mx-4 mb-4 bg-surface rounded-3xl shadow-md p-4 flex-1 flex flex-col gap-4">
-                      <div className="flex justify-between items-start gap-2">
-                        <div>
-                          <h4 className="font-black text-base leading-tight">{designer.name}</h4>
-                          <p className="text-xs text-gray-500 font-bold">{designer.pod || 'No Pod Assigned'} • {designer.email}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="text-xl font-black" style={{ color: theme.accent }}>{averageScore}</div>
-                          <div className="text-[9px] text-gray-400 font-black uppercase tracking-wide">Legacy avg (1–4)</div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => setPendingConfirm({ kind: 'promote', user: designer })}
-                        className="self-start text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-50 px-3 py-1 rounded-full hover:bg-sky hover:text-navy transition-colors"
-                      >
-                        Promote to Engineer
-                      </button>
-
-                      {lockedCategories.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-wide mb-1.5">Locked categories</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {lockedCategories.map(cat => {
-                              const unlocked = designer.unlockedCategories?.includes(cat.id) ?? false;
-                              return (
-                                <button
-                                  key={cat.id}
-                                  onClick={() => setUserUnlockedCategories(
-                                    designer.id,
-                                    unlocked
-                                      ? (designer.unlockedCategories ?? []).filter(id => id !== cat.id)
-                                      : [...(designer.unlockedCategories ?? []), cat.id],
-                                  )}
-                                  aria-pressed={unlocked}
-                                  title={unlocked ? `${designer.name} can see ${cat.name}. Click to lock again.` : `Unlock ${cat.name} for ${designer.name}`}
-                                  className={`text-[10px] font-bold uppercase tracking-wide px-3 py-1 rounded-full transition-colors ${
-                                    unlocked ? 'bg-[#3DDC97]/20 text-leaf hover:bg-[#3DDC97]/30' : 'bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy'
-                                  }`}
-                                >
-                                  {unlocked ? '🔓' : '🔒'} {cat.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {(() => {
-                        const enrollment = enrollments.find(e => e.id === designer.id);
-                        if (!enrollment) return <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">Not enrolled in the program</p>;
-                        const p = programProgress(programOutline, assignments, enrollment, designer.id, videoProgress, assessmentSubmissions);
-                        return <ProgressBar done={p.done} total={p.total} />;
-                      })()}
-
-                      <div>
-                        <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
-                          <span>Legacy course progress</span>
-                          <span>{submitted} submitted · {graded} graded of {total}</span>
-                        </div>
-                        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${gradedPercent}%`, background: theme.accent }}></div>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t flex gap-2 flex-wrap">
-                        {modules.sort((a, b) => a.order - b.order).map(mod => {
-                          const sub = userSubmissions.find(s => s.moduleId === mod.id);
-                          const grade = sub ? grades.find(g => g.submissionId === sub.id) : null;
-
-                          let badgeColor = 'bg-gray-100 text-gray-400';
-                          let scoreText = '-';
-                          if (sub?.status === 'graded') {
-                            badgeColor = 'bg-[#3DDC97]/20 text-leaf';
-                            scoreText = grade?.score.toString() || '?';
-                          } else if (sub?.status === 'submitted') {
-                            badgeColor = 'bg-[#2E9DF7]/20 text-navy';
-                            scoreText = 'Rev';
-                          }
-
-                          return (
-                            <div key={mod.id} className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center text-xs font-black ${badgeColor}`} title={mod.title}>
-                              {scoreText}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {roster.map(({ designer, standing }, i) => (
+                <DesignerCard key={designer.id} designer={designer} standing={standing} accent={CARD_THEMES[i % CARD_THEMES.length].accent}
+                  lockedCategories={lockedCategories} onPromote={() => setPendingConfirm({ kind: 'promote', user: designer })} />
+              ))}
             </div>
           </div>
         )}

@@ -13,7 +13,7 @@ import {
 import { db } from '../firebase';
 import {
   AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, Enrollment, Exercise,
-  Module, ModuleVideo, ProgramOutline, Publication, ReviewerSlot, User,
+  Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, User,
 } from '../types';
 import { convertSkillGrading } from './migrate';
 import {
@@ -92,6 +92,9 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     [assignedEnrollments, uid],
   );
   const reviewScopeKey = reviewScope.map(p => p.join(':')).sort().join('|');
+
+  // --- end-of-probation decisions (admins only) ---
+  const programOutcomes = useLive<ProgramOutcome>(ready && isAdmin ? 'outcomes' : null, () => [collection(db, 'programOutcomes')]);
 
   // --- publications ---
   const allPublications = useLive<Publication>(ready && isAdmin ? 'pub:all' : null, () => [collection(db, 'publications')]);
@@ -266,6 +269,13 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     await batch.commit();
   };
 
+  // Record (or clear, with null) the full-time offer decision.
+  const setProgramOutcome = async (traineeId: string, decision: ProgramOutcome['decision'] | null) => {
+    if (!isAdmin) return;
+    if (!decision) { await deleteDoc(doc(db, 'programOutcomes', traineeId)); return; }
+    await setDoc(doc(db, 'programOutcomes', traineeId), { id: traineeId, decision, decidedAt: new Date().toISOString(), decidedBy: uid } satisfies ProgramOutcome);
+  };
+
   const updateAssignment = async (assignmentId: string, updates: Partial<Assignment>) => {
     if (!isAdmin) return;
     await updateDoc(doc(db, 'assignments', assignmentId), updates);
@@ -296,7 +306,7 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
 
   return {
     exercises, assignments, programOutline, assessmentConfig: config, assessmentConfigSaved: configSaved,
-    enrollments, assessmentSubmissions: submissions, assessmentReviews: reviews, publications,
+    enrollments, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome,
     submitAssessmentVersion, saveReview, upsertEnrollment, setPublication, upsertExercise, deleteExercise,
     updateAssessmentConfig, setupAssessmentProgram, updateAssignment, convertToAssignmentGrading, saveOutline, saveAssignment, deleteAssignment,
   };
