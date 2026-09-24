@@ -6,6 +6,14 @@
   --font-display: "Nunito", "Baloo 2", "Quicksand", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Tailwind v4 defaults border color to currentColor; restore the soft gray
+   the design expects for plain border / border-t / border-b dividers. */
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
 @layer utilities {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;

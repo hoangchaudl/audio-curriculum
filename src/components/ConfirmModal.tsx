@@ -18,20 +18,20 @@ export const ConfirmModal: React.FC<{
   if (!open) return null;
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-      <div className="bg-white border-[3px] border-black rounded-2xl p-6 max-w-sm w-full">
-        <h3 className="text-lg font-black uppercase text-black mb-2">{title}</h3>
+      <div className="bg-white rounded-[32px] p-8 shadow-2xl border-4 border-white max-w-sm w-full">
+        <h3 className="text-lg font-black text-[#2E9DF7] mb-2">{title}</h3>
         <p className="text-sm text-gray-600 mb-6">{message}</p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 bg-white text-black font-black uppercase text-xs tracking-wide py-3 rounded-xl border-2 border-black hover:bg-gray-50 transition-colors"
+            className="flex-1 bg-gray-100 text-gray-700 font-bold text-sm py-3 rounded-2xl hover:bg-gray-200 transition-colors"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`flex-1 text-white font-black uppercase text-xs tracking-wide py-3 rounded-xl border-2 border-black transition-colors ${
-              danger ? 'bg-[#B23A2E] hover:bg-black' : 'bg-[#2E9DF7] hover:bg-black'
+            className={`flex-1 text-white font-bold text-sm py-3 rounded-2xl active:shadow-none active:translate-y-[2px] transition-all ${
+              danger ? 'bg-[#F4511E] shadow-[0_4px_0_#C53914]' : 'bg-[#2E9DF7] shadow-[0_4px_0_#1b85df]'
             }`}
           >
             {confirmLabel}

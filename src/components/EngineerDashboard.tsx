@@ -39,13 +39,13 @@ const SubmissionCard: React.FC<{
   onCriterionScore: (criterionId: string, score: 1 | 2 | 3 | 4) => void;
   onGrade: () => void;
 }> = ({ sub, student, grade, module, moduleLabel, score, feedback, criterionScores, onScoreChange, onFeedbackChange, onCriterionScore, onGrade }) => (
-  <div className="bg-white rounded-2xl p-6 border-[3px] border-black flex flex-col gap-4">
+  <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm flex flex-col gap-4">
     <div className="flex justify-between items-center gap-2 flex-wrap">
       <div className="flex items-center gap-3">
         {student?.avatarBase64 ? (
-          <img src={student.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-black object-cover" />
+          <img src={student.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full shadow-sm object-cover" />
         ) : (
-          <div className="w-10 h-10 rounded-full border-2 border-black bg-[#2E9DF7] flex items-center justify-center text-white font-black text-xs flex-shrink-0">
+          <div className="w-10 h-10 rounded-full shadow-sm bg-[#2E9DF7] flex items-center justify-center text-white font-black text-xs flex-shrink-0">
             {student?.name.substring(0, 2).toUpperCase()}
           </div>
         )}
@@ -61,19 +61,19 @@ const SubmissionCard: React.FC<{
           </span>
         )}
         {moduleLabel && (
-          <span className="bg-[#E0F2FE] text-[#1E40AF] border-2 border-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+          <span className="bg-[#E0F2FE] text-[#1E40AF] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
             {moduleLabel}
           </span>
         )}
         {sub.status === 'graded' ? (
-          <span className="bg-[#3DDC97]/30 text-[#2A8F62] border-2 border-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Graded</span>
+          <span className="bg-[#3DDC97]/20 text-[#2A8F62] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Graded</span>
         ) : (
-          <span className="bg-[#F4511E]/20 text-[#C53914] border-2 border-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Needs Review</span>
+          <span className="bg-[#F4511E]/20 text-[#C53914] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Needs Review</span>
         )}
       </div>
     </div>
 
-    <div className="bg-gray-100 p-4 rounded-xl">
+    <div className="bg-gray-50 p-4 rounded-2xl">
       <p className="text-xs text-gray-500 mb-1 font-bold">Homework Link:</p>
       <a href={sub.driveLink} target="_blank" rel="noreferrer" className="text-sm text-[#2E9DF7] font-medium hover:underline break-all">
         {sub.driveLink}
@@ -81,7 +81,7 @@ const SubmissionCard: React.FC<{
     </div>
 
     {sub.status === 'graded' && grade ? (
-      <div className="bg-[#E0F2FE] p-4 rounded-xl space-y-3">
+      <div className="bg-[#E0F2FE] p-4 rounded-2xl border border-[#2E9DF7]/20 space-y-3">
         <div className="flex justify-between">
           <span className="text-xs font-black text-[#1E40AF]">Score: {grade.score}/4</span>
         </div>
@@ -94,7 +94,7 @@ const SubmissionCard: React.FC<{
         <p className="text-sm text-[#1E40AF] italic">"{grade.feedback}"</p>
       </div>
     ) : module?.rubricCriteria && module.rubricCriteria.length > 0 ? (
-      <div className="border-t-2 border-black/10 pt-4 mt-2 space-y-4">
+      <div className="border-t pt-4 mt-2 space-y-4">
         <p className="text-xs font-black text-gray-500 uppercase tracking-wide">
           Grade each sub-skill — the overall score is the lowest one
         </p>
@@ -110,13 +110,13 @@ const SubmissionCard: React.FC<{
               placeholder="Provide constructive feedback..."
               value={feedback || ''}
               onChange={(e) => onFeedbackChange(e.target.value)}
-              className="w-full bg-gray-100 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] min-h-[80px]"
+              className="w-full bg-gray-50 rounded-2xl p-3 text-sm focus:ring-2 focus:ring-[#2E9DF7] min-h-[80px]"
             />
           </div>
           <button
             onClick={onGrade}
             disabled={!feedback || module.rubricCriteria.some(c => !criterionScores?.[c.id])}
-            className="bg-[#2E9DF7] text-white font-black uppercase text-xs tracking-wide px-6 py-4 rounded-xl border-2 border-black hover:bg-black transition-colors disabled:opacity-40 disabled:hover:bg-[#2E9DF7] flex flex-col items-center justify-center gap-1"
+            className="bg-[#2E9DF7] text-white font-black uppercase text-xs tracking-wide px-6 py-4 rounded-2xl transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 flex flex-col items-center justify-center gap-1 shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
           >
             Submit Grade
             {module.rubricCriteria.every(c => criterionScores?.[c.id]) && (
@@ -128,12 +128,12 @@ const SubmissionCard: React.FC<{
         </div>
       </div>
     ) : (
-      <div className="border-t-2 border-black/10 pt-4 mt-2 space-y-4">
+      <div className="border-t pt-4 mt-2 space-y-4">
         {/* Legacy plain-text rubric (modules without structured sub-skills)
             used to only be visible under the Module Tasks tab, so grading
             here meant either memorizing the bar or tab-switching mid-review. */}
         {module?.rubric && (
-          <div className="bg-gray-100 rounded-xl p-4">
+          <div className="bg-gray-50 rounded-2xl p-4">
             <p className="text-xs font-black text-gray-500 uppercase tracking-wide mb-1.5">Grading Rubric</p>
             <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{module.rubric}</p>
           </div>
@@ -143,7 +143,7 @@ const SubmissionCard: React.FC<{
           <select
             value={score || ''}
             onChange={(e) => onScoreChange(parseInt(e.target.value) as 1 | 2 | 3 | 4)}
-            className="w-full bg-gray-100 rounded-xl p-3 text-sm font-bold text-gray-700"
+            className="w-full bg-gray-50 rounded-2xl p-3 text-sm font-bold text-gray-700"
           >
             <option value="" disabled>Score (1-4)</option>
             <option value="1">1 - Needs Work</option>
@@ -157,13 +157,13 @@ const SubmissionCard: React.FC<{
             placeholder="Provide constructive feedback..."
             value={feedback || ''}
             onChange={(e) => onFeedbackChange(e.target.value)}
-            className="w-full bg-gray-100 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] min-h-[80px]"
+            className="w-full bg-gray-50 rounded-2xl p-3 text-sm focus:ring-2 focus:ring-[#2E9DF7] min-h-[80px]"
           />
         </div>
         <button
           onClick={onGrade}
           disabled={!score || !feedback}
-          className="bg-[#2E9DF7] text-white font-black uppercase text-xs tracking-wide px-6 py-4 rounded-xl border-2 border-black hover:bg-black transition-colors disabled:opacity-40 disabled:hover:bg-[#2E9DF7] h-full self-stretch flex items-center"
+          className="bg-[#2E9DF7] text-white font-black uppercase text-xs tracking-wide px-6 py-4 rounded-2xl transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 h-full self-stretch flex items-center shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
         >
           Submit Grade
         </button>
@@ -230,13 +230,13 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
   };
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
-      <header className="min-h-20 bg-white border-b-[3px] border-black flex items-center justify-between flex-wrap px-4 md:px-10 py-3 flex-shrink-0 gap-4">
+    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#FDFDFB]">
+      <header className="min-h-20 bg-white border-b flex items-center justify-between flex-wrap px-4 md:px-10 py-3 flex-shrink-0 gap-4">
         <div className="min-w-0">
-          <h2 className="text-2xl font-black text-black truncate">
+          <h2 className="text-2xl font-black text-[#2E9DF7] truncate">
             {tab === 'queue' ? 'Review Queue' : `Module ${mod ? (mod.label || mod.order.toString().padStart(2, '0')) : ''} Tasks`}
           </h2>
-          <p className="text-xs text-gray-500 font-bold">
+          <p className="text-xs text-gray-400 font-medium">
             {tab === 'queue'
               ? `${pendingSubmissions.length} pending across ${pendingModuleCount} module${pendingModuleCount === 1 ? '' : 's'}`
               : `Submissions: ${modSubmissions.length} • Pending Review: ${modSubmissions.filter(s => s.status === 'submitted').length}`}
@@ -245,21 +245,21 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
         <div className="flex gap-2 flex-shrink-0">
           <button
             onClick={() => setTab('queue')}
-            className={`relative px-5 py-2.5 rounded-full font-black uppercase text-xs tracking-wider border-2 border-black transition-colors ${
-              tab === 'queue' ? 'bg-[#2E9DF7] text-white' : 'bg-white text-black hover:bg-gray-50'
+            className={`relative px-5 py-2 rounded-full font-bold text-sm transition-all ${
+              tab === 'queue' ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
             }`}
           >
             Review Queue
             {pendingSubmissions.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-[#F4511E] text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
+              <span className="absolute -top-2 -right-2 bg-[#F4511E] text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                 {pendingSubmissions.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setTab('module')}
-            className={`px-5 py-2.5 rounded-full font-black uppercase text-xs tracking-wider border-2 border-black transition-colors ${
-              tab === 'module' ? 'bg-[#2E9DF7] text-white' : 'bg-white text-black hover:bg-gray-50'
+            className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
+              tab === 'module' ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
             }`}
           >
             Module Tasks
@@ -267,11 +267,11 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
         </div>
       </header>
 
-      <div className="flex-1 p-4 md:p-6 lg:p-10 flex flex-col gap-6 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 lg:p-10 flex flex-col gap-8 overflow-y-auto">
         {tab === 'queue' ? (
           pendingSubmissions.length === 0 ? (
-            <div className="bg-white rounded-2xl p-10 border-[3px] border-black text-center">
-              <p className="text-lg font-black text-black mb-1">You're all caught up 🎧</p>
+            <div className="bg-white rounded-[32px] p-10 border border-gray-100 shadow-sm text-center">
+              <p className="text-lg font-black text-[#2E9DF7] mb-1">You're all caught up 🎧</p>
               <p className="text-sm text-gray-500 font-medium">Nothing waiting on you across any module right now.</p>
             </div>
           ) : (
@@ -300,14 +300,14 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
           <div className="p-10">Module not found</div>
         ) : (
           <>
-            <div className="bg-white rounded-2xl p-8 border-[3px] border-black">
-              <h3 className="text-lg font-black text-black mb-4 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full border-2 border-black bg-[#E0F2FE] flex items-center justify-center text-sm">📘</span>
+            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+              <h3 className="text-lg font-black text-[#2E9DF7] mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-[#E0F2FE] flex items-center justify-center text-sm">📘</span>
                 Module Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {mod.objectives && (
-                  <div className="bg-gray-100 p-4 rounded-xl">
+                  <div className="bg-gray-50 p-4 rounded-2xl">
                     <h4 className="text-xs font-black text-gray-500 uppercase mb-2">Objectives</h4>
                     <ul className="list-disc pl-4 text-sm text-gray-700 space-y-1">
                       {mod.objectives.map((obj, i) => <li key={i}>{obj}</li>)}
@@ -315,7 +315,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                   </div>
                 )}
                 {mod.outcomes && (
-                  <div className="bg-gray-100 p-4 rounded-xl">
+                  <div className="bg-gray-50 p-4 rounded-2xl">
                     <h4 className="text-xs font-black text-gray-500 uppercase mb-2">Outcomes</h4>
                     <ul className="list-disc pl-4 text-sm text-gray-700 space-y-1">
                       {mod.outcomes.map((out, i) => <li key={i}>{out}</li>)}
@@ -323,13 +323,13 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                   </div>
                 )}
                 {mod.outline && (
-                  <div className="bg-gray-100 p-4 rounded-xl col-span-2">
+                  <div className="bg-gray-50 p-4 rounded-2xl col-span-2">
                     <h4 className="text-xs font-black text-gray-500 uppercase mb-3">Outline</h4>
                     <ol className="space-y-3">
                       {groupOutline(mod.outline).map((lesson, i) => (
                         <li key={i}>
                           <div className="flex items-center gap-3 text-sm text-gray-800">
-                            <span className="flex-shrink-0 w-6 h-6 bg-white border-2 border-black rounded-full flex items-center justify-center text-[10px] font-black text-[#1E40AF]">
+                            <span className="flex-shrink-0 w-6 h-6 bg-white shadow-sm rounded-full flex items-center justify-center text-[10px] font-black text-[#1E40AF]">
                               {i + 1}
                             </span>
                             <span className="font-bold">{lesson.title}</span>
@@ -347,7 +347,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                   </div>
                 )}
                 {(mod.rubricCriteria?.length || mod.rubric) && (
-                  <div className="bg-gray-100 p-4 rounded-xl col-span-2">
+                  <div className="bg-gray-50 p-4 rounded-2xl col-span-2">
                     <h4 className="text-xs font-black text-gray-500 uppercase mb-2">Grading Rubric</h4>
                     {mod.rubricCriteria && mod.rubricCriteria.length > 0 ? (
                       <RubricTable criteria={mod.rubricCriteria} note={mod.rubricNote} />
@@ -360,13 +360,13 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                   <p className="text-sm text-gray-500 italic col-span-2">No detailed module information provided.</p>
                 )}
                 {mod.additionalMaterials && mod.additionalMaterials.length > 0 && (
-                  <div className="bg-gray-100 p-4 rounded-xl col-span-2 mt-4">
-                    <h4 className="text-xs font-black text-[#2A8F62] uppercase mb-3 flex items-center gap-2">
+                  <div className="bg-gray-50 p-4 rounded-2xl col-span-2 mt-4">
+                    <h4 className="text-xs font-bold text-[#3DDC97] uppercase mb-3 flex items-center gap-2">
                       <span className="text-base">📚</span> Additional Materials
                     </h4>
                     <ul className="space-y-2">
                       {mod.additionalMaterials.map((material, idx) => (
-                        <li key={idx} className="flex flex-col p-3 bg-white rounded-xl">
+                        <li key={idx} className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100">
                           <div className="flex items-center gap-2">
                             <span className="text-sm">
                               {material.type === 'video' ? '🎥' : material.type === 'book' ? '📖' : '📄'}
@@ -395,9 +395,9 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-8 border-[3px] border-black">
-              <h3 className="text-lg font-black text-black mb-2 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full border-2 border-black bg-[#E0F2FE] flex items-center justify-center text-sm">📹</span>
+            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+              <h3 className="text-lg font-black text-[#2E9DF7] mb-2 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-[#E0F2FE] flex items-center justify-center text-sm">📹</span>
                 Video Task Tracker
               </h3>
               {videoTask?.title && (
@@ -411,13 +411,13 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                       value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
                       placeholder="Video URL (e.g. YouTube/Drive)"
-                      className="w-full bg-gray-100 rounded-xl p-4 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all"
+                      className="w-full bg-gray-50 rounded-2xl p-4 text-xs focus:ring-2 focus:ring-[#2E9DF7] transition-all"
                     />
                   </div>
                   <select
                     value={videoTask?.status || 'pending'}
                     onChange={(e) => handleSaveVideo(e.target.value as any)}
-                    className="bg-gray-100 rounded-xl p-4 text-xs font-bold text-gray-700"
+                    className="bg-gray-50 rounded-2xl p-4 text-xs font-bold text-gray-700"
                   >
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
@@ -426,7 +426,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                   <button
                     onClick={() => handleSaveVideo()}
                     disabled={!videoUrl.trim()}
-                    className="bg-[#2E9DF7] text-white font-black uppercase text-xs tracking-wide px-5 py-4 rounded-xl border-2 border-black hover:bg-black transition-colors disabled:opacity-40 disabled:hover:bg-[#2E9DF7]"
+                    className="bg-[#2E9DF7] text-white font-black uppercase text-xs tracking-wide px-5 py-4 rounded-2xl transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
                   >
                     Save Link
                   </button>
@@ -437,8 +437,8 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
             </div>
 
             <div className="space-y-6">
-              <h3 className="text-lg font-black text-black flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full border-2 border-black bg-[#FEE2E2] flex items-center justify-center text-sm">📝</span>
+              <h3 className="text-lg font-black text-[#F4511E] flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-[#FEE2E2] flex items-center justify-center text-sm text-[#F4511E]">📝</span>
                 Student Submissions
               </h3>
 

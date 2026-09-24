@@ -18,8 +18,8 @@ export const RubricTable: React.FC<{
       <p className="text-xs font-bold text-gray-500">{note}</p>
     )}
     {criteria.map((criterion, i) => (
-      <div key={criterion.id} className="border-2 border-black rounded-xl overflow-hidden bg-white">
-        <div className="bg-[#E0F2FE] px-4 py-2.5 border-b-2 border-black flex items-center justify-between gap-3 flex-wrap">
+      <div key={criterion.id} className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
+        <div className="bg-[#E0F2FE] px-4 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap">
           <span className="text-xs font-black uppercase tracking-wide text-[#1E40AF]">
             Sub-skill {i + 1}: {criterion.title}
           </span>
@@ -27,7 +27,7 @@ export const RubricTable: React.FC<{
             <span className="text-[10px] font-bold text-[#1E40AF]/70">{criterion.scoreLabel}</span>
           )}
         </div>
-        <div className="divide-y divide-black/10">
+        <div className="divide-y divide-gray-100">
           {criterion.levels.map((descriptor, li) => {
             const level = (li + 1) as 1 | 2 | 3 | 4;
             const isSelected = selected?.[criterion.id] === level;
@@ -39,12 +39,12 @@ export const RubricTable: React.FC<{
                   onSelect ? 'hover:bg-gray-50' : ''
                 }`}
               >
-                <span className={`flex-shrink-0 w-6 h-6 rounded-full border-2 border-black flex items-center justify-center text-[10px] font-black mt-0.5 ${
-                  isSelected ? (passing ? 'bg-[#3DDC97] text-black' : 'bg-[#F4511E] text-white') : 'bg-gray-100 text-gray-600'
+                <span className={`flex-shrink-0 w-6 h-6 rounded-full shadow-sm flex items-center justify-center text-[10px] font-black mt-0.5 ${
+                  isSelected ? (passing ? 'bg-[#3DDC97] text-white' : 'bg-[#F4511E] text-white') : 'bg-gray-100 text-gray-600'
                 }`}>
                   {level}
                 </span>
-                <span className={`text-sm leading-relaxed ${isSelected ? 'text-black font-medium' : 'text-gray-600'}`}>
+                <span className={`text-sm leading-relaxed ${isSelected ? 'text-gray-800 font-medium' : 'text-gray-600'}`}>
                   {descriptor}
                 </span>
               </div>
