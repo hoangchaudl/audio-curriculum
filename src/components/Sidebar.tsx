@@ -31,7 +31,17 @@ export const Sidebar: React.FC<{
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }> = ({ selectedModuleId, activePage, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
-  const { modules: allModules, categories, currentUser, submissions, logout, updateUserTheme, enrollments, exercises, assessmentSubmissions, programOutline, assignments } = useAppContext();
+  const { modules: allModules, categories, currentUser, submissions, logout, updateUserTheme, enrollments, exercises, assessmentSubmissions, programOutline, assignments, videoProgress } = useAppContext();
+  // Weeks the trainee folded away in the sidebar - a per-browser
+  // convenience, so localStorage is enough (falls back to all open).
+  const [foldedWeeks, setFoldedWeeks] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('foldedWeeks') || '[]'); } catch { return []; }
+  });
+  const toggleWeek = (id: string) => setFoldedWeeks(f => {
+    const next = f.includes(id) ? f.filter(x => x !== id) : [...f, id];
+    try { localStorage.setItem('foldedWeeks', JSON.stringify(next)); } catch { /* storage blocked */ }
+    return next;
+  });
   // Trainees (and admins previewing as one) navigate the program week by
   // week once an outline exists.
   const weekMode = effectiveRole === 'sound_designer' && !!programOutline?.weeks.length;
@@ -194,9 +204,24 @@ export const Sidebar: React.FC<{
           });
           if (!rows.length) return null;
           const weekNo = programOutline!.weeks.indexOf(week) + 1;
+          const isDone = (row: WeekRow) => row.kind === 'content'
+            ? videoProgress.some(v => v.moduleId === row.mod.id && v.userId === currentUser?.id)
+            : assignmentStatus(row.asg, currentUser?.id, assessmentSubmissions) === 'submitted';
+          const doneCount = rows.filter(isDone).length;
+          // The week holding the page you're on never folds away.
+          const hasSelected = rows.some(r => r.kind === 'content' ? selectedModuleId === r.mod.id : activePage === `assignment:${r.asg.id}`);
+          const weekOpen = isCollapsed || hasSelected || !foldedWeeks.includes(week.id);
           return (
             <div key={week.id} className="mb-6">
-              {!isCollapsed && <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">{week.title}</p>}
+              {!isCollapsed && (
+                <button onClick={() => toggleWeek(week.id)} aria-expanded={weekOpen}
+                  className="w-full flex items-center gap-1.5 text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2 hover:text-white">
+                  <span aria-hidden="true" className={`transition-transform ${weekOpen ? 'rotate-90' : ''}`}>›</span>
+                  <span className="text-left">{week.title}</span>
+                  <span className="ml-auto pr-2 text-white/60">{doneCount}/{rows.length}</span>
+                </button>
+              )}
+              {weekOpen && (
               <div className="space-y-2">
                 {rows.map((row, i) => {
                   const n = i + 1;
@@ -221,8 +246,9 @@ export const Sidebar: React.FC<{
                     <button key={row.key} onClick={open} aria-current={selected ? 'page' : undefined}
                       className={`w-full flex items-center justify-between gap-2 p-3 rounded-2xl text-left transition-all ${cls}`}>
                       <span className="flex items-center gap-3 min-w-0">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${selected ? 'bg-sky' : ''}`}>
-                          {n}
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
+                          row.kind === 'content' && isDone(row) ? 'bg-[#3DDC97] text-[#0B3D2A]' : selected ? 'bg-sky' : ''}`}>
+                          {row.kind === 'content' && isDone(row) ? '✓' : n}
                         </span>
                         <span className="leading-tight">
                           {row.kind === 'assignment' && <span aria-hidden="true">📝 </span>}{title}
@@ -242,6 +268,7 @@ export const Sidebar: React.FC<{
                   );
                 })}
               </div>
+              )}
             </div>
           );
         })}

@@ -60,7 +60,12 @@ const AssignmentForm: React.FC<{
 
       {a.stage === 'A' && (
         <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase text-gray-500">Graded for (one 1–5 score per line)</p>
+          <p className="text-[10px] font-black uppercase text-gray-500">Scores reviewers give (one 1–5 score per line)</p>
+          {lines.length > 0 && (
+            <div className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 text-[10px] font-bold uppercase text-gray-400 px-1">
+              <span>Counts toward module</span><span>What's scored</span><span>Weight in module</span><span className="w-6" />
+            </div>
+          )}
           {lines.map((l, i) => (
             <div key={l.id} className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 items-center">
               <select value={l.moduleId} onChange={e => setLine(i, { moduleId: e.target.value })} aria-label="Module" className={`${input} bg-surface`}>
@@ -76,7 +81,7 @@ const AssignmentForm: React.FC<{
           <button type="button" disabled={!epA.length} onClick={() => setLines(ls => [...ls, {
             id: uid('ex'), moduleId: epA[0].id, assignmentId: a.id, title: a.title || 'Part', order: ls.length + 1, weight: 0,
           }])} className={secondaryBtn}>+ Grading line</button>
-          <p className="text-[10px] text-gray-400">Weight = this line's share of its module. Check each module totals 100% under "Episode A structure".</p>
+          <p className="text-[10px] text-gray-400">Add a line per separate score (e.g. Workflow and Dialogue). Weight = this line's share of its module; one line alone = 100. Check each module totals 100% under "Episode A structure".</p>
         </div>
       )}
 
