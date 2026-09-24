@@ -3,7 +3,7 @@ import { AppState, User, Category, Module, ModuleVideo, Submission, Grade, Video
 import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
 import { initialData } from './data';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, where, Query } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, where, Query } from 'firebase/firestore';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -313,6 +313,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     seedIfEmpty('moduleVideos', initialData.moduleVideos).catch(err => console.error('Error seeding moduleVideos', err));
     seedIfEmpty('categories', initialData.categories).catch(err => console.error('Error seeding categories', err));
 
+    // Projects that already had an admin before the /config/bootstrap
+    // claim existed: record it now, which closes the "first signup becomes
+    // admin" path for everyone else (see signup() and firestore.rules).
+    const bootstrapRef = doc(db, 'config', 'bootstrap');
+    getDoc(bootstrapRef)
+      .then(snap => {
+        if (cancelled || snap.exists() || !currentUser) return;
+        return setDoc(bootstrapRef, { adminUid: currentUser.id, claimedAt: new Date().toISOString() });
+      })
+      .catch(err => console.error('Error recording admin bootstrap', err));
+
     return () => { cancelled = true; };
   }, [currentUser?.role]);
 
@@ -342,21 +353,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // createUserWithEmailAndPassword has signed the new user in, not before.
       const credential = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Bootstrap rule: if there were no users in the system yet, the very
-      // first signup becomes admin regardless of what they picked, so the
-      // team always has someone who can administer the platform. After that,
-      // role changes must go through an admin (enforced in firestore.rules).
-      const existing = await getDocs(collection(db, 'users'));
-      const effectiveRole: User['role'] = existing.empty ? 'admin' : role;
-
-      const newUser: User = {
+      // Bootstrap rule: the very first signup becomes admin, so the team
+      // always has someone who can administer the platform. firestore.rules
+      // only allows a self-created admin profile when it's written together
+      // with the one-time /config/bootstrap claim (which can never be
+      // created again) - everyone else can only sign up as a sound
+      // designer, and further role changes must go through an admin.
+      const makeUser = (userRole: User['role']): User => ({
         id: credential.user.uid,
         name,
         email,
-        role: effectiveRole,
-        pod,
+        role: userRole,
+        ...(pod ? { pod } : {}),
         createdAt: new Date().toISOString(),
-      };
+      });
+      const bootstrapRef = doc(db, 'config', 'bootstrap');
+      if (!(await getDoc(bootstrapRef)).exists()) {
+        const admin = makeUser('admin');
+        const batch = writeBatch(db);
+        batch.set(doc(db, 'users', admin.id), admin);
+        batch.set(bootstrapRef, { adminUid: admin.id, claimedAt: admin.createdAt });
+        try {
+          await batch.commit();
+          return true;
+        } catch {
+          // Someone else claimed bootstrap at the same moment - fall
+          // through and sign up as a regular designer instead.
+        }
+      }
+      const newUser = makeUser(role === 'admin' ? 'sound_designer' : role);
       await setDoc(doc(db, 'users', newUser.id), newUser);
       return true;
     } catch (err) {

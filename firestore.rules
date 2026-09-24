@@ -55,10 +55,18 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
 
+      // New accounts can only create themselves as a sound designer. The
+      // single exception is the very first admin: allowed only when the
+      // one-time /config/bootstrap claim is written in the same batch and
+      // names this user (see store.tsx signup()).
       allow create: if isSignedIn()
                     && request.auth.uid == userId
                     && request.resource.data.id == userId
-                    && !('unlockedCategories' in request.resource.data);
+                    && !('unlockedCategories' in request.resource.data)
+                    && (request.resource.data.role == 'sound_designer' ||
+                        (request.resource.data.role == 'admin' &&
+                         !exists(/databases/$(database)/documents/config/bootstrap) &&
+                         getAfter(/databases/$(database)/documents/config/bootstrap).data.adminUid == request.auth.uid));
 
       // Users can edit their own profile (name, avatar, theme...) but not
       // their role or which restricted categories they're allowed into.
@@ -70,6 +78,21 @@ service cloud.firestore {
                     );
 
       allow delete: if isAdmin();
+    }
+
+    // --- config/bootstrap (one-time first-admin claim) ---
+    // Created exactly once: either by the first-ever signup together with
+    // their own admin profile, or by an existing admin (older projects).
+    // Never updated or deleted, so the first-admin path stays closed.
+    match /config/bootstrap {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                    request.resource.data.adminUid == request.auth.uid && (
+                      isAdmin() ||
+                      (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+                    );
+      allow update, delete: if false;
     }
 
     // --- categories ---
