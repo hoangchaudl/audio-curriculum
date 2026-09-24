@@ -6,10 +6,10 @@ import { TraineeData } from './scoring';
 // current user is allowed to load (admins: everything; trainees: their own
 // data plus published reviews; reviewers: assigned work + own reviews).
 export const useTraineeData = (traineeId: string | undefined): TraineeData & { publication?: Publication } => {
-  const { assessmentConfig, modules, exercises, enrollments, assessmentSubmissions, assessmentReviews, publications } = useAppContext();
+  const { assessmentConfig, assignments, exercises, enrollments, assessmentSubmissions, assessmentReviews, publications } = useAppContext();
   return {
     config: assessmentConfig,
-    modules,
+    assignments,
     exercises,
     enrollment: enrollments.find(e => e.id === traineeId),
     submissions: assessmentSubmissions.filter(s => s.traineeId === traineeId),

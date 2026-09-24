@@ -13,10 +13,11 @@ import {
 import { db } from '../firebase';
 import {
   AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, Enrollment, Exercise,
-  ProgramOutline, Publication, ReviewerSlot, User,
+  Module, ModuleVideo, ProgramOutline, Publication, ReviewerSlot, User,
 } from '../types';
+import { convertSkillGrading } from './migrate';
 import {
-  DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_OUTLINE, EPISODE_A_CATEGORY, EPISODE_A_EXERCISES, EPISODE_A_MODULES,
+  DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE,
   STAGE_SLOTS, publicationKey,
   reviewId, submissionId,
 } from './config';
@@ -211,14 +212,10 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     if (!isAdmin) return;
     const batch = writeBatch(db);
     const missing = async (path: string, id: string) => !(await getDoc(doc(db, path, id))).exists();
-    if (await missing('categories', EPISODE_A_CATEGORY.id)) batch.set(doc(db, 'categories', EPISODE_A_CATEGORY.id), EPISODE_A_CATEGORY);
-    for (const m of EPISODE_A_MODULES) {
-      if (await missing('modules', m.id)) batch.set(doc(db, 'modules', m.id), { ...m, restricted: false });
-    }
     for (const a of DEFAULT_ASSIGNMENTS) {
       if (await missing('assignments', a.id)) batch.set(doc(db, 'assignments', a.id), a);
     }
-    for (const e of EPISODE_A_EXERCISES) {
+    for (const e of DEFAULT_CRITERIA) {
       const existing = exercises.find(x => x.id === e.id);
       if (!existing) {
         if (await missing('exercises', e.id)) batch.set(doc(db, 'exercises', e.id), e);
@@ -269,16 +266,39 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     await batch.commit();
   };
 
-  const setModuleWeight = async (moduleId: string, episodeAWeight: number) => {
+  const updateAssignment = async (assignmentId: string, updates: Partial<Assignment>) => {
     if (!isAdmin) return;
-    await updateDoc(doc(db, 'modules', moduleId), { episodeAWeight });
+    await updateDoc(doc(db, 'assignments', assignmentId), updates);
+  };
+
+  // One-time move off the old Episode A "skill" modules (see migrate.ts):
+  // writes the equivalent assignment weights and criterion shares, then
+  // deletes the skill modules, their videos, their outline rows and the
+  // Episode A category if nothing else is in it. One batch: all or nothing.
+  const convertToAssignmentGrading = async (modules: Module[], moduleVideos: ModuleVideo[]) => {
+    if (!isAdmin) return;
+    const c = convertSkillGrading(modules, assignments, exercises);
+    const gone = new Set(c.deleteModuleIds);
+    const batch = writeBatch(db);
+    c.assignments.forEach(a => batch.update(doc(db, 'assignments', a.id), { weight: a.weight }));
+    c.criteria.forEach(e => batch.update(doc(db, 'exercises', e.id), { weight: e.weight, order: e.order }));
+    c.deleteModuleIds.forEach(id => batch.delete(doc(db, 'modules', id)));
+    moduleVideos.filter(v => gone.has(v.moduleId)).forEach(v => batch.delete(doc(db, 'moduleVideos', v.id)));
+    if (programOutline) {
+      batch.set(doc(db, 'programOutline', 'current'), {
+        ...programOutline,
+        weeks: programOutline.weeks.map(w => ({ ...w, items: w.items.filter(i => !(i.kind === 'content' && gone.has(i.moduleId))) })),
+      });
+    }
+    if (!modules.some(m => m.category === 'episodeA' && !gone.has(m.id))) batch.delete(doc(db, 'categories', 'episodeA'));
+    await batch.commit();
   };
 
   return {
     exercises, assignments, programOutline, assessmentConfig: config, assessmentConfigSaved: configSaved,
     enrollments, assessmentSubmissions: submissions, assessmentReviews: reviews, publications,
     submitAssessmentVersion, saveReview, upsertEnrollment, setPublication, upsertExercise, deleteExercise,
-    updateAssessmentConfig, setupAssessmentProgram, setModuleWeight, saveOutline, saveAssignment, deleteAssignment,
+    updateAssessmentConfig, setupAssessmentProgram, updateAssignment, convertToAssignmentGrading, saveOutline, saveAssignment, deleteAssignment,
   };
 };
 

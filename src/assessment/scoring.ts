@@ -8,8 +8,8 @@
 // - Reviewer table cell weights already include the criterion weight and
 //   are applied once (never multiplied by a criterion weight again).
 import {
-  AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, CellWeight,
-  Enrollment, Exercise, Module, ReviewerSlot,
+  AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
+  Enrollment, Exercise, ReviewerSlot,
 } from '../types';
 import { CRITERIA, REVIEWER_SLOTS, allowedScoreKeys } from './config';
 
@@ -78,7 +78,7 @@ export const firstCompleteSubmission = (submissions: AssessmentSubmission[], sta
 
 export interface TraineeData {
   config: AssessmentConfig;
-  modules: Module[];
+  assignments: Assignment[];
   exercises: Exercise[];
   enrollment: Enrollment | undefined;
   submissions: AssessmentSubmission[]; // this trainee's
@@ -90,8 +90,8 @@ const findReview = (d: TraineeData, stage: AssessmentStage, target: string, slot
 
 // --- Episode A ---------------------------------------------------------
 
-export const exerciseOutcome = (d: TraineeData, exercise: Exercise, moduleTitle = ''): Outcome => {
-  const name = moduleTitle ? `${moduleTitle} › ${exercise.title}` : exercise.title;
+export const exerciseOutcome = (d: TraineeData, exercise: Exercise, parentTitle = ''): Outcome => {
+  const name = parentTitle ? `${parentTitle} › ${exercise.title}` : exercise.title;
   if (!d.enrollment) return awaiting('enrollment', [name]);
   if (!d.enrollment.reviewers.trainer) return awaiting('assignment', [`Trainer (${name})`]);
   const versions = exerciseSubmissions(d.submissions, exercise);
@@ -103,24 +103,27 @@ export const exerciseOutcome = (d: TraineeData, exercise: Exercise, moduleTitle 
   return scored(review.scores.exercise!);
 };
 
-export const moduleOutcome = (d: TraineeData, mod: Module): Outcome => {
-  const exercises = d.exercises.filter(e => e.moduleId === mod.id).sort((a, b) => a.order - b.order);
-  if (exercises.length === 0) return awaiting('assessment', [`${mod.title} (no exercises set up)`]);
-  const outcomes = exercises.map(e => exerciseOutcome(d, e, mod.title));
-  // A module is complete only once every one of its exercises is graded.
+export const episodeAAssignments = (assignments: Assignment[]) => assignments.filter(a => a.stage === 'A');
+
+export const assignmentCriteria = (exercises: Exercise[], assignmentId: string) =>
+  exercises.filter(e => e.assignmentId === assignmentId).sort((a, b) => a.order - b.order);
+
+// An Episode A assignment's score: its criteria weighted by their shares.
+// Complete only once every criterion is graded.
+export const assignmentOutcome = (d: TraineeData, a: Assignment): Outcome => {
+  const criteria = assignmentCriteria(d.exercises, a.id);
+  if (criteria.length === 0) return awaiting('assessment', [`${a.title} (no criteria set up)`]);
+  const outcomes = criteria.map(e => exerciseOutcome(d, e, a.title));
   if (outcomes.some(o => o.status === 'awaiting')) return mergeAwaiting(outcomes);
-  return scored(weightedAverage(exercises.map((e, i) => ({ weight: e.weight, value: (outcomes[i] as { value: number }).value }))));
+  return scored(weightedAverage(criteria.map((e, i) => ({ weight: e.weight, value: (outcomes[i] as { value: number }).value }))));
 };
 
-export const episodeAModules = (modules: Module[]) =>
-  modules.filter(m => m.program === 'episodeA').sort((a, b) => a.order - b.order);
-
 export const episodeAOutcome = (d: TraineeData): Outcome => {
-  const mods = episodeAModules(d.modules);
-  if (mods.length === 0) return awaiting('assessment', ['Episode A modules not set up']);
-  const outcomes = mods.map(m => moduleOutcome(d, m));
+  const asgs = episodeAAssignments(d.assignments);
+  if (asgs.length === 0) return awaiting('assessment', ['Episode A assignments not set up']);
+  const outcomes = asgs.map(a => assignmentOutcome(d, a));
   if (outcomes.some(o => o.status === 'awaiting')) return mergeAwaiting(outcomes);
-  return scored(weightedAverage(mods.map((m, i) => ({ weight: m.episodeAWeight ?? 0, value: (outcomes[i] as { value: number }).value }))));
+  return scored(weightedAverage(asgs.map((a, i) => ({ weight: a.weight ?? 0, value: (outcomes[i] as { value: number }).value }))));
 };
 
 // --- Episode B / Pod Trial (reviewer-table stages) ---------------------
@@ -199,7 +202,7 @@ export const finalResult = (d: TraineeData): FinalResult => {
   ]);
   // The benchmark is judged on the score as displayed (2 decimals), so the
   // label always matches the number people see - e.g. equal 33.33/33.33/
-  // 33.34 exercise weights can compute 3.4999 for what shows as 3.50.
+  // 33.34 criterion weights can compute 3.4999 for what shows as 3.50.
   return { episodeA, episodeB, pod, podEpisodes, final: scored(value), meetsBenchmark: roundScore(value) >= d.config.passThreshold - 1e-9 };
 };
 
@@ -210,26 +213,12 @@ const is100 = (n: number) => Math.abs(n - 100) < 0.01;
 
 export interface WeightIssue { scope: string; total: number }
 
-// Every weight group that should total 100% but doesn't.
-export const weightIssues = (config: AssessmentConfig, modules: Module[], exercises: Exercise[]): WeightIssue[] => {
-  const groups: WeightIssue[] = [
-    { scope: 'Final grade stages', total: sum(Object.values(config.stageWeights)) },
-    { scope: 'Episode B reviewer table', total: sum(config.episodeBCells.map(c => c.weight)) },
-    { scope: 'Pod Trial reviewer table', total: sum(config.podCells.map(c => c.weight)) },
-  ];
-  const mods = episodeAModules(modules);
-  if (mods.length) groups.push({ scope: 'Episode A modules', total: sum(mods.map(m => m.episodeAWeight ?? 0)) });
-  for (const m of mods) {
-    const ex = exercises.filter(e => e.moduleId === m.id);
-    if (ex.length) groups.push({ scope: `${m.title} exercises`, total: sum(ex.map(e => e.weight)) });
-  }
-  return groups.filter(g => !is100(g.total));
-};
-
-// Position of an Episode A skill (1-based, by order) - shown instead of the
-// free-text module label so numbering can't skip or repeat.
-export const skillNumber = (modules: Module[], moduleId: string) =>
-  episodeAModules(modules).findIndex(m => m.id === moduleId) + 1;
+// Grade-formula weight groups (stages, reviewer tables) not totalling 100%.
+export const weightIssues = (config: AssessmentConfig): WeightIssue[] => [
+  { scope: 'Final grade stages', total: sum(Object.values(config.stageWeights)) },
+  { scope: 'Episode B reviewer table', total: sum(config.episodeBCells.map(c => c.weight)) },
+  { scope: 'Pod Trial reviewer table', total: sum(config.podCells.map(c => c.weight)) },
+].filter(g => !is100(g.total));
 
 // n shares of 100 with 2 decimals; the last one absorbs the rounding
 // (3 -> 33.33 / 33.33 / 33.34).
@@ -241,27 +230,26 @@ export const splitEvenly = (n: number): number[] => {
 
 // Everything in the grading setup that would give wrong or stuck results,
 // in plain words for the admin banner.
-export const gradingProblems = (config: AssessmentConfig, modules: Module[], exercises: Exercise[]): string[] => {
+export const gradingProblems = (config: AssessmentConfig, assignments: Assignment[], exercises: Exercise[]): string[] => {
   const out: string[] = [];
   const pct = (n: number) => `${Math.round(n * 100) / 100}%`;
-  const mods = episodeAModules(modules);
-  mods.forEach((m, i) => {
-    const name = m.title.trim() ? `"${m.title.trim()}"` : `Skill ${i + 1}`;
-    if (!m.title.trim()) out.push(`Skill ${i + 1} has no name.`);
-    const ex = exercises.filter(e => e.moduleId === m.id);
-    if (!ex.length) {
-      out.push(`${name} has no scores, so no trainee can finish Episode A. Add a score to it, or delete the skill.`);
-      return;
+  const asgs = episodeAAssignments(assignments);
+  for (const a of asgs) {
+    const name = `"${a.title}"`;
+    const criteria = assignmentCriteria(exercises, a.id);
+    if (!criteria.length) {
+      out.push(`${name} has no criteria, so no trainee can finish Episode A. Add at least one criterion to it.`);
+      continue;
     }
-    const total = sum(ex.map(e => e.weight));
-    if (!is100(total)) out.push(`${name}: score shares add up to ${pct(total)} instead of 100%.`);
-    if (ex.some(e => !e.title.trim())) out.push(`${name} has a score with no name, so reviewers can't tell what it's for.`);
-  });
-  if (mods.length) {
-    const total = sum(mods.map(m => m.episodeAWeight ?? 0));
-    if (!is100(total)) out.push(`Episode A skill weights add up to ${pct(total)} instead of 100%.`);
+    const total = sum(criteria.map(e => e.weight));
+    if (!is100(total)) out.push(`${name}: criteria shares add up to ${pct(total)} instead of 100%.`);
+    if (criteria.some(e => !e.title.trim())) out.push(`${name} has a criterion with no name, so reviewers can't tell what it's for.`);
   }
-  for (const g of weightIssues(config, [], [])) out.push(`${g.scope} add up to ${pct(g.total)} instead of 100%.`);
+  if (asgs.length) {
+    const total = sum(asgs.map(a => a.weight ?? 0));
+    if (!is100(total)) out.push(`Episode A assignment weights add up to ${pct(total)} instead of 100%.`);
+  }
+  for (const g of weightIssues(config)) out.push(`${g.scope} add up to ${pct(g.total)} instead of 100%.`);
   return out;
 };
 

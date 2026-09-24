@@ -5,11 +5,10 @@ import { Assignment, Module, Role } from '../types';
 type WeekRow = { key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment };
 import { countUnseenGrades, isGradeSeen } from '../notifications';
 import { canSeeModule, sortCategories } from '../access';
-import { skillNumber } from '../assessment/scoring';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
-import { assignmentApplies, assignmentStatus, dueLabel } from '../assessment/outline';
+import { assignmentApplies, assignmentStatus, dueLabel, sortByDay } from '../assessment/outline';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -66,10 +65,10 @@ export const Sidebar: React.FC<{
   // designer without unlocks couldn't see so the preview is realistic.
   const modules = allModules.filter(m => canSeeModule(m, categories, currentUser, effectiveRole));
   const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
-  // In week mode, modules already placed in a week (and the Episode A
-  // grading modules) aren't repeated in the category sections below.
+  // In week mode, modules already placed in a week aren't repeated in the
+  // category sections below.
   const placed = new Set(weekMode ? programOutline!.weeks.flatMap(w => w.items.flatMap(i => (i.kind === 'content' ? [i.moduleId] : []))) : []);
-  const listed = (m: { id: string; program?: string }) => !weekMode || (!placed.has(m.id) && m.program !== 'episodeA');
+  const listed = (m: { id: string }) => !weekMode || !placed.has(m.id);
   const sections = [
     ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id && listed(m)).sort(byOrder) })),
     // Modules whose category was removed still need to be reachable.
@@ -192,7 +191,7 @@ export const Sidebar: React.FC<{
         )}
 
         {weekMode && programOutline!.weeks.map(week => {
-          const rows = week.items.flatMap<WeekRow>(it => {
+          const rows = sortByDay(week.items, assignments).flatMap<WeekRow>(it => {
             if (it.kind === 'content') {
               const mod = modules.find(m => m.id === it.moduleId);
               return mod ? [{ key: it.id, kind: 'content' as const, mod }] : [];
@@ -301,19 +300,7 @@ export const Sidebar: React.FC<{
                   // to be meaningless in this view.
                   const neutralBadge = isSelected ? 'bg-gray-100 text-gray-500' : 'bg-black/10 text-white/90';
                   let statusBadge: React.ReactNode;
-                  if (mod.program === 'episodeA') {
-                    // Assessment modules track exercises, not the legacy
-                    // single homework submission.
-                    const ex = exercises.filter(e => e.moduleId === mod.id);
-                    const done = ex.filter(e => assessmentSubmissions.some(s => s.traineeId === currentUser?.id && s.stage === 'A' && s.target === e.id)).length;
-                    statusBadge = effectiveRole === 'sound_designer' && ex.length > 0 ? (
-                      <span className={`${done === ex.length ? 'bg-[#3DDC97] text-[#0B3D2A]' : done ? 'bg-[#2E9DF7]/20 text-navy' : neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>
-                        {done === ex.length ? '✓ Submitted' : `${done}/${ex.length} done`}
-                      </span>
-                    ) : (
-                      <span className={`${neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>{ex.length} ex.</span>
-                    );
-                  } else if (effectiveRole === 'audio_engineer') {
+                  if (effectiveRole === 'audio_engineer') {
                     const pendingCount = submissions.filter(s => s.moduleId === mod.id && s.status === 'submitted').length;
                     statusBadge = pendingCount > 0 ? (
                       <span className="bg-[#F4511E]/20 text-ember px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{pendingCount} Pending</span>
@@ -339,7 +326,7 @@ export const Sidebar: React.FC<{
                     statusBadge = <span className={`${neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Not Started</span>;
                   }
 
-                  const label = mod.program === 'episodeA' ? String(skillNumber(allModules, mod.id)) : mod.label || mod.order.toString().padStart(2, '0');
+                  const label = mod.label || mod.order.toString().padStart(2, '0');
                   // Three states: selected = bright white card, completed =
                   // dimmed, default = standard sidebar item.
                   const stateClass = isSelected
