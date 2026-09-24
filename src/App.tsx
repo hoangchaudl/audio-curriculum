@@ -14,6 +14,10 @@ import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
 import { getNextActionableModule } from './progress';
 import { useApplyTheme, useResolvedTheme } from './theme';
+import { ProgramOverview } from './components/assessment/ProgramOverview';
+import { ProgramModuleView } from './components/assessment/ProgramModuleView';
+import { EpisodeView } from './components/assessment/EpisodeView';
+import { ReviewerQueue } from './components/assessment/ReviewerQueue';
 
 // Modules are addressable via the URL hash (#/module/<id>) so each one has
 // a shareable, bookmarkable link and the browser back/forward buttons work.
@@ -22,11 +26,26 @@ const getModuleIdFromHash = (): string => {
   return match ? decodeURIComponent(match[1]) : '';
 };
 
+type View = 'module' | 'profile' | 'program' | 'review' | 'episode';
+type EpisodeStage = 'B' | 'P1' | 'P2';
+
+// Non-module pages of the assessment program, also addressable by hash so
+// they're linkable and back/forward works: #/program, #/review, #/episode/B.
+const getPageFromHash = (): { view: View; stage?: EpisodeStage } | null => {
+  const h = window.location.hash;
+  if (h === '#/program') return { view: 'program' };
+  if (h === '#/review') return { view: 'review' };
+  const m = h.match(/^#\/episode\/(B|P1|P2)$/);
+  return m ? { view: 'episode', stage: m[1] as EpisodeStage } : null;
+};
+
 const AppContent = () => {
-  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded } = useAppContext();
+  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded, enrollments } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   useApplyTheme(useResolvedTheme(currentUser));
-  const [view, setView] = useState<'module' | 'profile'>('module');
+  const initialPage = useRef(getPageFromHash());
+  const [view, setView] = useState<View>(initialPage.current?.view ?? 'module');
+  const [episodeStage, setEpisodeStage] = useState<EpisodeStage>(initialPage.current?.stage ?? 'B');
 
   // hasSession-but-no-currentUser is a normal, brief gap on every sign-in
   // (Firebase Auth resolves before the /users/{uid} listener's first
@@ -71,6 +90,22 @@ const AppContent = () => {
       : sorted[0]?.id;
     if (nextId) setSelectedModuleId(nextId);
   }, [currentUser, modules, submissions, submissionsLoaded]);
+
+  // Assessment landing page, once per login, only when the URL didn't
+  // already name a page: enrolled trainees start on My Program and
+  // reviewer-only accounts on their queue.
+  const landingAppliedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentUser || landingAppliedForUser.current === currentUser.id) return;
+    if (window.location.hash.startsWith('#/module/') || getPageFromHash()) { landingAppliedForUser.current = currentUser.id; return; }
+    if (currentUser.role === 'reviewer') {
+      landingAppliedForUser.current = currentUser.id;
+      window.location.hash = '#/review';
+    } else if (currentUser.role === 'sound_designer' && enrollments.some(e => e.id === currentUser.id)) {
+      landingAppliedForUser.current = currentUser.id;
+      window.location.hash = '#/program';
+    }
+  }, [currentUser, enrollments]);
 
   // Keep the URL hash in sync with the selected module so every module has
   // its own link. Assigning location.hash pushes a history entry, which is
@@ -118,6 +153,12 @@ const AppContent = () => {
   // above and this listener don't loop.
   useEffect(() => {
     const handleHashChange = () => {
+      const page = getPageFromHash();
+      if (page) {
+        setView(page.view);
+        if (page.stage) setEpisodeStage(page.stage);
+        return;
+      }
       const id = getModuleIdFromHash();
       if (!id) return;
       setSelectedModuleId(id);
@@ -188,6 +229,16 @@ const AppContent = () => {
     if (view === 'profile') {
       return <ProfileView />;
     }
+    if (view === 'program') return <ProgramOverview />;
+    if (view === 'episode') return <EpisodeView key={episodeStage} stage={episodeStage} />;
+    if (view === 'review') return <ReviewerQueue />;
+
+    // Episode A modules use the exercise-based view for everyone except
+    // admins (who manage them from the dashboard).
+    const selected = modules.find(m => m.id === selectedModuleId);
+    if (selected?.program === 'episodeA' && effectiveRole !== 'admin') {
+      return <ProgramModuleView moduleId={selectedModuleId} />;
+    }
 
     // selectedModuleId is briefly '' on first render while the "next
     // actionable module" effect above resolves - show a loading state
@@ -215,11 +266,7 @@ const AppContent = () => {
     // Assessment-only accounts (producers, key sound designers). Their
     // reviewer queue arrives with the assessment screens.
     if (effectiveRole === 'reviewer') {
-      return (
-        <div className="flex-1 flex items-center justify-center p-10 text-center">
-          <p className="text-sm font-bold text-gray-500 max-w-sm">Your reviewer queue will appear here once the assessment program is live.</p>
-        </div>
-      );
+      return selected ? <ModuleView moduleId={selectedModuleId} /> : <ReviewerQueue />;
     }
     return null;
   };
@@ -227,7 +274,8 @@ const AppContent = () => {
   return (
     <div className="flex h-screen w-full bg-page text-ink font-sans overflow-hidden">
       <Sidebar
-        selectedModuleId={selectedModuleId}
+        selectedModuleId={view === 'module' ? selectedModuleId : ''}
+        activePage={view === 'episode' ? `episode:${episodeStage}` : view}
         setSelectedModuleId={(id) => {
           setSelectedModuleId(id);
           setView('module');

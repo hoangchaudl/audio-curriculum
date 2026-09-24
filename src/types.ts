@@ -177,6 +177,9 @@ export interface AssessmentConfig {
   passThreshold: number;
   episodeBCells: CellWeight[];
   podCells: CellWeight[];
+  // Admin-authored briefs, schedules and milestones for the non-module
+  // stages (Episode B final test, Pod Trial).
+  stageContent?: { episodeB?: ContentBlock[]; pod?: ContentBlock[] };
 }
 
 // One per trainee; doc id = trainee uid. Reviewer slots hold real account
