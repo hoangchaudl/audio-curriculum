@@ -85,28 +85,28 @@ export const ProfileView: React.FC = () => {
   };
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F5FAFF]">
-      <header className="min-h-20 bg-white border-b-[3px] border-black flex items-center gap-4 px-4 md:px-10 py-3 flex-shrink-0">
+    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#FDFDFB]">
+      <header className="min-h-20 bg-white border-b flex items-center gap-4 px-4 md:px-10 py-3 flex-shrink-0">
         <button
           onClick={() => window.dispatchEvent(new CustomEvent('open-module'))}
-          className="flex-shrink-0 w-9 h-9 flex items-center justify-center border-2 border-black rounded-lg bg-white hover:bg-gray-50 transition-colors"
+          className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-[#E0F2FE] text-[#2E9DF7] hover:bg-[#2E9DF7]/20 transition-colors"
           title="Back to course"
           aria-label="Back to course"
         >
           ←
         </button>
         <div>
-          <h2 className="text-2xl font-black text-black">My Profile</h2>
-          <p className="text-xs text-gray-500 font-bold">Manage your personal information</p>
+          <h2 className="text-2xl font-black text-[#2E9DF7]">My Profile</h2>
+          <p className="text-xs text-gray-400 font-medium">Manage your personal information</p>
         </div>
       </header>
 
       <div className="flex-1 p-4 md:p-10 overflow-y-auto flex justify-center">
         <div className="w-full max-w-2xl">
-          <div className="bg-white rounded-2xl p-6 md:p-10 border-[3px] border-black flex flex-col items-center">
+          <div className="bg-white rounded-[40px] p-6 md:p-10 shadow-sm border-2 border-gray-50 flex flex-col items-center">
 
             <div className="relative mb-4 group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <div className="w-32 h-32 rounded-full overflow-hidden border-[3px] border-black flex items-center justify-center bg-[#E0F2FE]">
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#2E9DF7] shadow-lg flex items-center justify-center bg-[#E0F2FE]">
                 {currentUser.avatarBase64 ? (
                   <img src={currentUser.avatarBase64} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
@@ -116,7 +116,7 @@ export const ProfileView: React.FC = () => {
               <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <span className="text-white text-xs font-black uppercase tracking-wider">Change</span>
               </div>
-              <div className="absolute bottom-0 right-0 w-10 h-10 bg-[#F4511E] border-2 border-black rounded-full flex items-center justify-center pointer-events-none">
+              <div className="absolute bottom-0 right-0 w-10 h-10 bg-[#F4511E] border-4 border-white shadow-sm rounded-full flex items-center justify-center pointer-events-none">
                 <span className="text-white text-lg">📷</span>
               </div>
             </div>
@@ -129,7 +129,7 @@ export const ProfileView: React.FC = () => {
               onChange={handleFileChange}
             />
             {avatarError && (
-              <p className="text-xs font-bold text-[#B23A2E] mb-4 text-center">{avatarError}</p>
+              <p className="text-xs font-bold text-[#C53914] mb-4 text-center">{avatarError}</p>
             )}
 
             {editingName ? (
@@ -143,64 +143,64 @@ export const ProfileView: React.FC = () => {
                     if (e.key === 'Escape') setEditingName(false);
                   }}
                   autoFocus
-                  className="text-xl font-black text-black text-center bg-gray-50 border-2 border-black rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-[#2E9DF7] transition-all"
+                  className="text-xl font-black text-[#2D2D2D] text-center bg-gray-50 rounded-2xl px-3 py-1.5 focus:ring-2 focus:ring-[#2E9DF7] transition-all"
                 />
                 <button
                   onClick={saveName}
                   disabled={!nameInput.trim()}
-                  className="text-xs font-black uppercase text-white bg-[#2E9DF7] border-2 border-black px-3 py-1.5 rounded-full hover:bg-black transition-colors disabled:bg-gray-200 disabled:text-gray-400"
+                  className="text-xs font-black uppercase text-white bg-[#2E9DF7] px-3 py-1.5 rounded-full transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
                 >
                   Save
                 </button>
                 <button
                   onClick={() => setEditingName(false)}
-                  className="text-xs font-black uppercase text-gray-600 bg-white border-2 border-black px-3 py-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                  className="text-xs font-bold uppercase text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors"
                 >
                   Cancel
                 </button>
               </div>
             ) : (
               <button onClick={startEditingName} className="group/name flex items-center gap-2 mb-1" title="Edit name">
-                <h3 className="text-2xl font-black text-black">{currentUser.name}</h3>
+                <h3 className="text-2xl font-black text-[#2D2D2D]">{currentUser.name}</h3>
                 <span className="text-xs text-gray-400 opacity-0 group-hover/name:opacity-100 transition-opacity">✏️</span>
               </button>
             )}
 
             <div className="flex items-center gap-2 mb-8 mt-1">
-              <span className="bg-[#E0F2FE] text-[#1E40AF] border-2 border-black px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+              <span className="bg-[#E0F2FE] text-[#1E40AF] px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
                 {currentUser.role.replace('_', ' ')}
               </span>
               {currentUser.pod && (
-                <span className="bg-gray-100 text-gray-600 border-2 border-black px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+                <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
                   Pod: {currentUser.pod}
                 </span>
               )}
             </div>
 
             <div className="w-full space-y-4">
-               <div className="bg-gray-50 border-2 border-black p-4 rounded-xl">
-                  <p className="text-xs text-gray-500 font-black uppercase mb-1">Email</p>
+               <div className="bg-gray-50 p-4 rounded-2xl">
+                  <p className="text-xs text-gray-500 font-bold uppercase mb-1">Email</p>
                   <p className="text-sm font-bold text-gray-800">{currentUser.email}</p>
                </div>
-               <div className="bg-gray-50 border-2 border-black p-4 rounded-xl">
-                  <p className="text-xs text-gray-500 font-black uppercase mb-1">Member Since</p>
+               <div className="bg-gray-50 p-4 rounded-2xl">
+                  <p className="text-xs text-gray-500 font-bold uppercase mb-1">Member Since</p>
                   <p className="text-sm font-bold text-gray-800">{new Date(currentUser.createdAt).toLocaleDateString()}</p>
                </div>
-               <div className="bg-gray-50 border-2 border-black p-4 rounded-xl">
-                  <p className="text-xs text-gray-500 font-black uppercase mb-2">Password</p>
+               <div className="bg-gray-50 p-4 rounded-2xl">
+                  <p className="text-xs text-gray-500 font-bold uppercase mb-2">Password</p>
                   {passwordResetState === 'sent' ? (
                     <p className="text-sm font-bold text-[#2A8F62]">✓ Reset link sent to {currentUser.email} - check your inbox.</p>
                   ) : (
                     <button
                       onClick={handleSendPasswordReset}
                       disabled={passwordResetState === 'sending'}
-                      className="text-xs font-black uppercase text-white bg-[#2E9DF7] border-2 border-black px-4 py-2 rounded-full hover:bg-black transition-colors disabled:bg-gray-300 disabled:text-gray-500"
+                      className="text-xs font-black uppercase text-white bg-[#2E9DF7] px-4 py-2 rounded-full transition-all disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
                     >
                       {passwordResetState === 'sending' ? 'Sending...' : 'Send Password Reset Email'}
                     </button>
                   )}
                   {passwordResetState === 'error' && (
-                    <p className="text-xs font-bold text-[#B23A2E] mt-2">Something went wrong. Please try again.</p>
+                    <p className="text-xs font-bold text-[#C53914] mt-2">Something went wrong. Please try again.</p>
                   )}
                </div>
             </div>

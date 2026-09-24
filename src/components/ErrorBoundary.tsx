@@ -22,13 +22,13 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.error) {
       return (
-        <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#F5FAFF] px-6 text-center">
+        <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#FDFDFB] px-6 text-center">
           <p className="text-sm font-bold text-gray-600 max-w-sm">
             Something went wrong displaying this page.
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="text-xs font-black uppercase tracking-wide text-white bg-[#2E9DF7] border-2 border-black px-5 py-2.5 rounded-full hover:bg-black transition-colors"
+            className="text-xs font-bold uppercase tracking-wide text-white bg-[#2E9DF7] px-6 py-3 rounded-2xl transition-all shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
           >
             Reload the app
           </button>

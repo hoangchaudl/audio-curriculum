@@ -142,7 +142,7 @@ const AppContent = () => {
   // login page for already-signed-in users on every refresh.
   if (authLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#F5FAFF] text-gray-400 font-bold text-sm">
+      <div className="flex h-screen w-full items-center justify-center bg-[#FDFDFB] text-gray-400 font-bold text-sm">
         Loading...
       </div>
     );
@@ -158,19 +158,19 @@ const AppContent = () => {
   if (hasSession && !currentUser) {
     if (!authError && !profileLoadTimedOut) {
       return (
-        <div className="flex h-screen w-full items-center justify-center bg-[#F5FAFF] text-gray-400 font-bold text-sm">
+        <div className="flex h-screen w-full items-center justify-center bg-[#FDFDFB] text-gray-400 font-bold text-sm">
           Loading...
         </div>
       );
     }
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#F5FAFF] px-6 text-center">
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#FDFDFB] px-6 text-center">
         <p className="text-sm font-bold text-gray-600 max-w-sm">
           {authError || "You're signed in, but we couldn't load your profile yet."}
         </p>
         <button
           onClick={logout}
-          className="text-xs font-black uppercase tracking-wide text-white bg-[#2E9DF7] border-2 border-black px-5 py-2.5 rounded-full hover:bg-black transition-colors"
+          className="text-xs font-bold uppercase tracking-wide text-white bg-[#2E9DF7] px-6 py-3 rounded-2xl transition-all shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
         >
           Sign out and try again
         </button>
@@ -214,7 +214,7 @@ const AppContent = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#F5FAFF] text-[#2D2D2D] font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-[#FDFDFB] text-[#2D2D2D] font-sans overflow-hidden">
       <Sidebar
         selectedModuleId={selectedModuleId}
         setSelectedModuleId={(id) => {
@@ -233,26 +233,26 @@ const AppContent = () => {
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="lg:hidden flex items-center gap-3 h-14 px-4 bg-white border-b-[3px] border-black flex-shrink-0">
+        <div className="lg:hidden flex items-center gap-3 h-14 px-4 bg-white border-b flex-shrink-0">
           <button
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Open menu"
-            className="w-9 h-9 flex-shrink-0 flex items-center justify-center border-2 border-black rounded-lg bg-white hover:bg-gray-50 transition-colors"
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-[#E0F2FE] text-[#2E9DF7] hover:bg-[#2E9DF7]/20 transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
-          <span className="font-black text-sm uppercase tracking-tight text-black truncate">Story Co Audio Academy</span>
+          <span className="font-black text-sm uppercase tracking-tight text-[#2E9DF7] truncate">Story Co Audio Academy</span>
         </div>
         {isRealAdmin && previewRole && (
-          <div className="bg-[#F4511E] border-b-[3px] border-black text-white text-xs font-bold px-6 py-2 flex items-center justify-between flex-shrink-0">
+          <div className="bg-[#F4511E] text-white text-xs font-bold px-6 py-2 shadow-md z-10 flex items-center justify-between flex-shrink-0">
             <span>
               👁 Previewing as {previewRole.replace('_', ' ')} - you're still signed in as admin, this is view-only for checking the experience.
             </span>
             <button
               onClick={() => setPreviewRole(null)}
-              className="bg-white/20 hover:bg-white/30 border-2 border-black px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide"
+              className="bg-white text-[#F4511E] hover:bg-white/90 px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide shadow-sm"
             >
               Return to Admin View
             </button>

@@ -59,7 +59,10 @@ export const Sidebar: React.FC<{
           aria-hidden="true"
         />
       )}
-      <aside className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-[#2E9DF7] border-r-[3px] border-black flex flex-col p-4 overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-[#2E9DF7] flex flex-col p-4 shadow-xl overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      {/* Decorative "Doraemon" Ring/Collar Detail at bottom */}
+      <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#F4511E] rounded-full opacity-20 pointer-events-none"></div>
+
       <div className={`flex items-center gap-3 mb-8 z-10 ${isCollapsed ? 'flex-col' : ''}`}>
         <button
           onClick={() => {
@@ -71,32 +74,32 @@ export const Sidebar: React.FC<{
             if (firstUnseen) setSelectedModuleId(firstUnseen.id);
           }}
           title={unseenGradeCount > 0 ? `${unseenGradeCount} new grade${unseenGradeCount === 1 ? '' : 's'} - click to open` : undefined}
-          className="relative w-10 h-10 bg-white border-[3px] border-black rounded-full flex items-center justify-center flex-shrink-0"
+          className="relative w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center flex-shrink-0"
         >
-          <div className="w-5 h-5 bg-[#2E9DF7] rounded-full"></div>
+          <div className="w-6 h-6 bg-[#2E9DF7] rounded-full"></div>
           {unseenGradeCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-black">
+            <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
               {unseenGradeCount}
             </span>
           )}
         </button>
         {!isCollapsed && (
           <h1 className="flex flex-col leading-none">
-            <span className="flex items-center text-white font-black text-base tracking-tight uppercase">
+            <span className="flex items-center text-white font-black text-lg tracking-tight uppercase">
               STORY
               <svg viewBox="0 0 24 24" className="w-4 h-4 -mx-0.5 flex-shrink-0 text-[#3DDC97]" fill="currentColor" aria-hidden="true">
                 <path d="M7 2v11h3v9l7-12h-4l4-8z" />
               </svg>
               CO
             </span>
-            <span className="text-white/70 text-[9px] font-black uppercase tracking-[0.2em] mt-0.5">Audio Academy</span>
+            <span className="text-[#E0F2FE] text-[9px] font-extrabold uppercase tracking-[0.2em] mt-0.5">Audio Academy</span>
           </h1>
         )}
         {isRealAdmin && (
           <button
             onClick={onToggleCollapse}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={`${isCollapsed ? '' : 'ml-auto'} hidden lg:flex w-7 h-7 flex-shrink-0 bg-white border-2 border-black rounded-full items-center justify-center text-black font-black text-xs hover:bg-gray-100 transition-colors`}
+            className={`${isCollapsed ? '' : 'ml-auto'} hidden lg:flex w-7 h-7 flex-shrink-0 bg-white/20 rounded-full items-center justify-center text-white font-black text-xs hover:bg-white/30 transition-colors`}
           >
             {collapsed ? '»' : '«'}
           </button>
@@ -104,7 +107,7 @@ export const Sidebar: React.FC<{
         <button
           onClick={onCloseMobile}
           title="Close menu"
-          className="ml-auto lg:hidden w-7 h-7 flex-shrink-0 bg-white border-2 border-black rounded-full flex items-center justify-center text-black font-black text-xs hover:bg-gray-100 transition-colors"
+          className="ml-auto lg:hidden w-7 h-7 flex-shrink-0 bg-white/20 rounded-full flex items-center justify-center text-white font-black text-xs hover:bg-white/30 transition-colors"
         >
           ✕
         </button>
@@ -114,7 +117,7 @@ export const Sidebar: React.FC<{
         {['Onboarding', 'Intermediate', 'Advanced'].map(category => (
           <div key={category} className="mb-6">
             {!isCollapsed && (
-              <p className="text-white/80 text-[10px] uppercase font-black tracking-widest mb-3 pl-2">{category}</p>
+              <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">{category}</p>
             )}
             <div className="space-y-2">
               {modules
@@ -139,27 +142,27 @@ export const Sidebar: React.FC<{
                   if (effectiveRole === 'audio_engineer') {
                     const pendingCount = submissions.filter(s => s.moduleId === mod.id && s.status === 'submitted').length;
                     statusBadge = pendingCount > 0 ? (
-                      <span className="bg-[#F4511E] text-white border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{pendingCount} Pending</span>
+                      <span className="bg-[#F4511E]/20 text-[#C53914] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{pendingCount} Pending</span>
                     ) : (
-                      <span className="bg-black/20 text-white/90 border-2 border-black/40 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Clear</span>
+                      <span className={`${isSelected ? 'bg-white text-gray-500' : 'bg-black/10 text-white/90'} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Clear</span>
                     );
                   } else if (effectiveRole === 'admin') {
                     const totalCount = submissions.filter(s => s.moduleId === mod.id).length;
                     statusBadge = (
-                      <span className="bg-white/20 text-white border-2 border-white/40 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{totalCount} Submitted</span>
+                      <span className={`${isSelected ? 'bg-[#2E9DF7]/20 text-[#1E40AF]' : 'bg-white/20 text-white'} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>{totalCount} Submitted</span>
                     );
                   } else if (sub?.status === 'graded') {
                     const unseen = currentUser ? !isGradeSeen(currentUser.id, mod.id) : false;
                     statusBadge = (
-                      <span className="inline-flex items-center gap-1 bg-[#3DDC97]/30 text-[#0f3d28] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 bg-[#3DDC97]/20 text-[#2A8F62] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">
                         {unseen && <span className="w-1.5 h-1.5 rounded-full bg-[#F4511E]" title="New feedback" />}
                         Graded
                       </span>
                     );
                   } else if (sub?.status === 'submitted') {
-                    statusBadge = <span className="bg-white text-[#1E40AF] border-2 border-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Submitted</span>;
+                    statusBadge = <span className="bg-[#2E9DF7]/20 text-[#1E40AF] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Submitted</span>;
                   } else {
-                    statusBadge = <span className="bg-black/20 text-white/90 border-2 border-black/40 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Not Started</span>;
+                    statusBadge = <span className={`${isSelected ? 'bg-white text-gray-500' : 'bg-black/10 text-white/90'} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Not Started</span>;
                   }
 
                   const label = mod.label || mod.order.toString().padStart(2, '0');
@@ -170,10 +173,10 @@ export const Sidebar: React.FC<{
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
                         title={mod.title}
-                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl border-[3px] font-black text-sm transition-colors ${
+                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl border-2 font-black text-sm transition-colors ${
                           isSelected
-                            ? 'bg-white border-black text-black'
-                            : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
+                            ? 'bg-[#E0F2FE] border-white text-[#1E40AF] shadow-inner'
+                            : 'bg-white/10 border-transparent text-white hover:bg-white/20'
                         }`}
                       >
                         {label}
@@ -186,10 +189,10 @@ export const Sidebar: React.FC<{
                       <button
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
-                        className="w-full flex items-center justify-between p-3 bg-white border-[3px] border-black rounded-2xl text-black font-black"
+                        className="w-full flex items-center justify-between p-3 bg-[#E0F2FE] border-2 border-white rounded-2xl text-[#1E40AF] font-bold shadow-inner"
                       >
                         <span className="flex items-center gap-3 text-left">
-                          <span className="bg-[#2E9DF7] text-white border-2 border-black w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0">
+                          <span className="bg-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0">
                             {label}
                           </span>
                           <span className="leading-tight">{mod.title}</span>
@@ -204,7 +207,7 @@ export const Sidebar: React.FC<{
                       <button
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
-                        className="w-full flex items-center justify-between p-3 bg-white/95 border-2 border-black/50 rounded-2xl text-[#1E40AF] font-bold hover:border-black transition-colors"
+                        className="w-full flex items-center justify-between p-3 bg-white rounded-2xl text-[#2E9DF7] font-bold shadow-sm hover:shadow-md transition-shadow"
                       >
                         <span className="flex items-center gap-3 text-left">
                           <span className="w-6 text-center flex-shrink-0">{label}</span>
@@ -219,7 +222,7 @@ export const Sidebar: React.FC<{
                     <button
                       key={mod.id}
                       onClick={() => setSelectedModuleId(mod.id)}
-                      className="w-full flex items-center justify-between p-3 text-white/80 font-bold hover:bg-white/10 rounded-2xl transition-colors"
+                      className="w-full flex items-center justify-between p-3 text-white/70 font-semibold hover:bg-white/10 rounded-2xl transition-colors"
                     >
                       <span className="flex items-center gap-3 text-left">
                         <span className="w-6 text-center flex-shrink-0">{label}</span>
@@ -237,30 +240,30 @@ export const Sidebar: React.FC<{
       <div className="mt-auto pt-4 z-10">
         <div
           ref={menuRef}
-          className={`bg-white border-2 border-black rounded-2xl flex items-center relative cursor-pointer ${isCollapsed ? 'p-2 justify-center' : 'p-3 justify-between'}`}
+          className={`bg-[#1E40AF]/20 border border-white/10 rounded-3xl flex items-center relative cursor-pointer hover:bg-[#1E40AF]/30 transition-colors ${isCollapsed ? 'p-2 justify-center' : 'p-4 justify-between'}`}
           onClick={() => setMenuOpen(o => !o)}
         >
           <div className={`flex items-center gap-3 truncate ${isCollapsed ? 'gap-0' : ''}`}>
             {currentUser?.avatarBase64 ? (
-              <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-black object-cover flex-shrink-0" />
+              <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover flex-shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-[#F4511E] border-2 border-black flex items-center justify-center text-white font-black flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#F4511E] border-2 border-white shadow-sm flex items-center justify-center text-white font-black flex-shrink-0">
                 {currentUser?.name.substring(0, 2).toUpperCase()}
               </div>
             )}
             {!isCollapsed && (
               <div className="truncate">
-                <p className="text-xs text-gray-500 font-bold capitalize">
+                <p className="text-xs text-white/70 font-medium capitalize">
                   {(previewRole ?? currentUser?.role)?.replace('_', ' ')}
                   {previewRole && <span className="ml-1 opacity-70">(preview)</span>}
                 </p>
-                <p className="text-sm text-black font-black truncate">{currentUser?.name}</p>
+                <p className="text-sm text-white font-bold truncate">{currentUser?.name}</p>
               </div>
             )}
           </div>
 
           {menuOpen && (
-            <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-white p-2 rounded-2xl border-[3px] border-black shadow-xl z-50">
+            <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-white p-2 rounded-2xl shadow-xl z-50">
                <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-black text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
 
                {/* Admin-only: preview other dashboards without changing your
