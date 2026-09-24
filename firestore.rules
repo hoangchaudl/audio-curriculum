@@ -166,11 +166,12 @@ service cloud.firestore {
     // Anchors homework deadlines (see ModuleView) - only the designer
     // themselves ever needs to write their own completion record. It isn't
     // currently used for grading, but reads are left open to any signed-in
-    // user for simplicity.
+    // user for simplicity. Also the trainee's own "Mark as done" toggle on
+    // program content pages, so they may delete (un-mark) their own record.
     match /videoProgress/{progressId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     // ===== Assessment program (1-5 scale) =====

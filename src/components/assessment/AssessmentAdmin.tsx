@@ -189,7 +189,7 @@ const ExerciseEditor: React.FC<{ exercise: Exercise; hasSubmissions: boolean }> 
 };
 
 const StructureTab: React.FC = () => {
-  const { modules, exercises, assessmentSubmissions, upsertExercise, setModuleWeight } = useAppContext();
+  const { modules, exercises, assessmentSubmissions, upsertExercise, setModuleWeight, updateModule } = useAppContext();
   const mods = episodeAModules(modules);
   if (!mods.length) return <p className={`${card} text-sm text-gray-500`}>Set up the assessment program first (button above).</p>;
   return (
@@ -200,7 +200,15 @@ const StructureTab: React.FC = () => {
         return (
           <div key={m.id} className={card}>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <h4 className="font-black text-gray-800">{m.label}. {m.title}</h4>
+              {/* Renames the module itself (same as Curriculum Management), so
+                  the name shown in "Counts toward module" changes everywhere. */}
+              <label className="flex items-center gap-1 flex-1 min-w-[200px] font-black text-gray-800">
+                {m.label}.
+                <input defaultValue={m.title} key={m.title} aria-label="Module name"
+                  onBlur={e => e.target.value.trim() && e.target.value.trim() !== m.title && updateModule(m.id, { title: e.target.value.trim() })}
+                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                  className={`${input} flex-1 font-black`} />
+              </label>
               <label className="flex items-center gap-2 text-xs font-bold text-gray-500">Weight in Episode A
                 <input type="number" min={0} step="0.5" defaultValue={m.episodeAWeight ?? 0} key={m.episodeAWeight}
                   onBlur={e => Number(e.target.value) !== m.episodeAWeight && setModuleWeight(m.id, Number(e.target.value))} className={`${input} w-20`} />%

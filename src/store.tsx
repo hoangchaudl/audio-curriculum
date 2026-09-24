@@ -35,6 +35,7 @@ interface AppContextType extends AppState, AssessmentApi {
   submitHomework: (moduleId: string, driveLink: string) => void;
   deleteSubmission: (moduleId: string) => void;
   markVideoWatched: (moduleId: string) => void;
+  unmarkVideoWatched: (moduleId: string) => void;
   gradeHomework: (submissionId: string, score: 1 | 2 | 3 | 4, feedback: string, criterionScores?: Grade['criterionScores']) => void;
   createVideoTask: (engineerId: string, moduleId: string, title: string) => void;
   updateVideoTask: (taskId: string, status: VideoTask['status'], url?: string) => void;
@@ -496,6 +497,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Trainee's "Mark as done" toggle on program content pages (the same
+  // record a finished video writes) - un-marking deletes it.
+  const unmarkVideoWatched = async (moduleId: string) => {
+    if (!currentUser) return;
+    try {
+      await deleteDoc(doc(db, 'videoProgress', `${moduleId}_${currentUser.id}`));
+    } catch (error) {
+      console.error('Error un-marking video watched', error);
+    }
+  };
+
   // Fixed: admins should also be able to grade homework, not only
   // audio_engineers. Previously this silently no-op'd for admins, which made
   // it look like grading was broken when a director tried it. Deterministic
@@ -730,6 +742,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         submitHomework,
         deleteSubmission,
         markVideoWatched,
+        unmarkVideoWatched,
         gradeHomework,
         createVideoTask,
         updateVideoTask,

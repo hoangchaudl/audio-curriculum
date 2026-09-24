@@ -87,6 +87,19 @@ describe('category lock (curriculum)', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('videoProgress (mark as done)', () => {
+  beforeEach(() => seed(baseUsers));
+
+  it('trainees mark and un-mark only their own items', async () => {
+    const rec = { id: 'm1_designer', moduleId: 'm1', userId: 'designer', watchedAt: '2026-01-01' };
+    await assertSucceeds(setDoc(doc(as('designer'), 'videoProgress/m1_designer'), rec));
+    await assertFails(deleteDoc(doc(as('unlocked'), 'videoProgress/m1_designer')));
+    await assertFails(setDoc(doc(as('unlocked'), 'videoProgress/m1_x'), { ...rec, userId: 'designer' }));
+    await assertSucceeds(deleteDoc(doc(as('designer'), 'videoProgress/m1_designer')));
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe('signup roles and first-admin bootstrap', () => {
   beforeEach(() => seed(baseUsers));
 
