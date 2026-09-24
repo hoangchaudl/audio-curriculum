@@ -66,14 +66,13 @@ export const Sidebar: React.FC<{
   // designer without unlocks couldn't see so the preview is realistic.
   const modules = allModules.filter(m => canSeeModule(m, categories, currentUser, effectiveRole));
   const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
-  // In week mode, modules already placed in a week aren't repeated in the
-  // category sections below.
-  const placed = new Set(weekMode ? programOutline!.weeks.flatMap(w => w.items.flatMap(i => (i.kind === 'content' ? [i.moduleId] : []))) : []);
-  const listed = (m: { id: string }) => !weekMode || !placed.has(m.id);
-  const sections = [
-    ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id && listed(m)).sort(byOrder) })),
+  // With a weekly outline, trainees see only the weeks: a lesson reaches
+  // them by being placed in a week (Program outline lists the ones that
+  // aren't). Category sections are for everyone else.
+  const sections = weekMode ? [] : [
+    ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id).sort(byOrder) })),
     // Modules whose category was removed still need to be reachable.
-    { key: '__none', title: 'Other', mods: modules.filter(m => !categories.some(c => c.id === m.category) && listed(m)).sort(byOrder) },
+    { key: '__none', title: 'Other', mods: modules.filter(m => !categories.some(c => c.id === m.category)).sort(byOrder) },
   ].filter(sec => sec.mods.length > 0);
   const isDark = useResolvedTheme(currentUser) === 'dark';
   const [menuOpen, setMenuOpen] = useState(false);

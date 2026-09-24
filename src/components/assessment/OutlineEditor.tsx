@@ -326,6 +326,15 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
         The program is 4 weeks. Inside each week, group content into <b>sections</b> (e.g. "StoryCo General Onboarding") and use ▲▼ to order
         sections and the items in them - trainees see exactly this in their sidebar. Assignments and milestones also have a due day. Grading lives on each assignment (click Edit).
       </p>
+      {(() => {
+        const unplaced = modules.filter(m => !placedModules.has(m.id)).sort((a, b) => a.title.localeCompare(b.title));
+        return unplaced.length > 0 && (
+          <div className="bg-sky rounded-2xl px-4 py-3 text-xs text-navy">
+            <b>Not in any week, so trainees don't see them ({unplaced.length}):</b> {unplaced.map(m => m.title).join(' · ')}.
+            <span className="block mt-0.5 opacity-80">Use <b>+ Add here → Content</b> in a week to show one, or leave it out on purpose.</span>
+          </div>
+        );
+      })()}
       {outline.weeks.map((week, wi) => {
         const groups = weekGroups(week, assignments);
         const sections = week.sections ?? [];
