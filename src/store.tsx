@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo } from '
 import { AppState, User, Category, Module, ModuleVideo, Submission, Grade, VideoTask, VideoProgress } from './types';
 import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
 import { initialData } from './data';
+import { AssessmentApi, useAssessment } from './assessment/useAssessment';
 import { db, auth } from './firebase';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, where, Query } from 'firebase/firestore';
 import {
@@ -12,7 +13,7 @@ import {
   signOut,
 } from 'firebase/auth';
 
-interface AppContextType extends AppState {
+interface AppContextType extends AppState, AssessmentApi {
   // True whenever Firebase Auth reports a real signed-in session - even if
   // that user's /users/{uid} profile document hasn't loaded (or doesn't
   // exist) yet. Used to tell "not signed in" apart from "signed in, but
@@ -705,10 +706,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // New 1-5 assessment program (separate collections; legacy
+  // submissions/grades above are untouched).
+  const assessment = useAssessment(authUid, currentUser);
+
   return (
     <AppContext.Provider
       value={{
         ...state,
+        ...assessment,
         modules: visibleModules,
         moduleVideos: visibleModuleVideos,
         currentUser,

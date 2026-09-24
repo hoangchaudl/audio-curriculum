@@ -212,6 +212,15 @@ const AppContent = () => {
     if (effectiveRole === 'admin') {
       return <AdminDashboard focusModuleId={selectedModuleId} focusNonce={moduleNavNonce} />;
     }
+    // Assessment-only accounts (producers, key sound designers). Their
+    // reviewer queue arrives with the assessment screens.
+    if (effectiveRole === 'reviewer') {
+      return (
+        <div className="flex-1 flex items-center justify-center p-10 text-center">
+          <p className="text-sm font-bold text-gray-500 max-w-sm">Your reviewer queue will appear here once the assessment program is live.</p>
+        </div>
+      );
+    }
     return null;
   };
 

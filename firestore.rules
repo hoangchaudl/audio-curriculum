@@ -173,6 +173,155 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ===== Assessment program (1-5 scale) =====
+    // Legacy `submissions`/`grades` above are untouched; the new program
+    // uses the collections below. See src/assessment/ for the data shapes.
+
+    function enrollmentOf(traineeId) {
+      return get(/databases/$(database)/documents/enrollments/$(traineeId)).data;
+    }
+
+    // True when the caller is the account an admin assigned to this slot
+    // for this trainee (never inferred from names or emails).
+    function isSlotHolder(traineeId, slot) {
+      return isSignedIn() && enrollmentOf(traineeId).reviewers.get(slot, '') == request.auth.uid;
+    }
+
+    // Episode A: trainer only. Episode B: trainer + audio engineer.
+    // Pod Trial: all four slots.
+    function allowedSlot(stage, slot) {
+      return (stage == 'A' && slot == 'trainer') ||
+             (stage == 'B' && slot in ['trainer', 'engineer']) ||
+             ((stage == 'P1' || stage == 'P2') && slot in ['trainer', 'engineer', 'keySoundDesigner', 'producer']);
+    }
+
+    function isStageReviewer(traineeId, stage) {
+      return (allowedSlot(stage, 'trainer') && isSlotHolder(traineeId, 'trainer')) ||
+             (allowedSlot(stage, 'engineer') && isSlotHolder(traineeId, 'engineer')) ||
+             (allowedSlot(stage, 'keySoundDesigner') && isSlotHolder(traineeId, 'keySoundDesigner')) ||
+             (allowedSlot(stage, 'producer') && isSlotHolder(traineeId, 'producer'));
+    }
+
+    // Score keys each slot may write. The producer never scores technical
+    // criteria (workflow, dialogue).
+    function allowedKeys(stage, slot) {
+      return stage == 'A' ? ['exercise']
+           : ((stage == 'P1' || stage == 'P2') && slot == 'producer') ? ['sfx', 'music']
+           : ['workflow', 'dialogue', 'sfx', 'music'];
+    }
+
+    function validScore(v) {
+      return v is int && v >= 1 && v <= 5;
+    }
+
+    function scoresValid(scores, stage, slot) {
+      return scores is map &&
+             scores.keys().hasOnly(allowedKeys(stage, slot)) &&
+             (!('exercise' in scores) || validScore(scores.exercise)) &&
+             (!('workflow' in scores) || validScore(scores.workflow)) &&
+             (!('dialogue' in scores) || validScore(scores.dialogue)) &&
+             (!('sfx' in scores) || validScore(scores.sfx)) &&
+             (!('music' in scores) || validScore(scores.music));
+    }
+
+    function publicationKey(stage) {
+      return stage == 'A' ? 'episodeA' : (stage == 'B' ? 'episodeB' : 'pod');
+    }
+
+    function isPublished(traineeId, stage) {
+      return exists(/databases/$(database)/documents/publications/$(traineeId)) &&
+             get(/databases/$(database)/documents/publications/$(traineeId)).data.get(publicationKey(stage), false) == true;
+    }
+
+    // Program structure and weights: readable by everyone signed in so
+    // trainees see their rubric; only admins change them.
+    match /assessmentConfig/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /exercises/{exerciseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // One per trainee (doc id = trainee uid). Admins enroll trainees and
+    // assign reviewer accounts; trainees can't change their own.
+    match /enrollments/{traineeId} {
+      allow read: if isAdmin() ||
+                  (isSignedIn() && (request.auth.uid == traineeId || request.auth.uid in resource.data.reviewerUids));
+      allow write: if isAdmin();
+    }
+
+    // Append-only submission versions. A trainee creates their own (only
+    // once enrolled); nobody - not even an admin - can edit or delete one.
+    // The deterministic id makes a second write to the same version an
+    // update, which is denied, so history can't be overwritten.
+    match /assessmentSubmissions/{submissionId} {
+      allow read: if isAdmin() ||
+                  (isSignedIn() && (resource.data.traineeId == request.auth.uid ||
+                                    isStageReviewer(resource.data.traineeId, resource.data.stage)));
+      allow create: if isSignedIn() && request.resource.data.traineeId == request.auth.uid &&
+                    exists(/databases/$(database)/documents/enrollments/$(request.auth.uid)) &&
+                    request.resource.data.keys().hasOnly(['id', 'traineeId', 'stage', 'target', 'version', 'links', 'note', 'isComplete', 'submittedAt']) &&
+                    request.resource.data.id == submissionId &&
+                    request.resource.data.stage in ['A', 'B', 'P1', 'P2'] &&
+                    request.resource.data.version is int && request.resource.data.version >= 1 &&
+                    submissionId == request.resource.data.traineeId + '__' + request.resource.data.stage + '__' +
+                                    request.resource.data.target + '__v' + string(request.resource.data.version) &&
+                    ((request.resource.data.stage == 'A' && exists(/databases/$(database)/documents/exercises/$(request.resource.data.target))) ||
+                     (request.resource.data.stage != 'A' && request.resource.data.target == 'episode')) &&
+                    (request.resource.data.stage != 'P2' || enrollmentOf(request.auth.uid).podEpisodesRequired == 2) &&
+                    request.resource.data.links is list && request.resource.data.links.size() >= 1 && request.resource.data.links.size() <= 10 &&
+                    request.resource.data.isComplete is bool;
+      allow update, delete: if false;
+    }
+
+    // One review per (trainee, stage, target, reviewer slot). Only the
+    // assigned slot holder writes it, only with that slot's criteria, only
+    // against one of the trainee's own submissions for that target, and
+    // only until the coordinator publishes the stage. Trainees read their
+    // reviews once published; reviewers read only their own.
+    match /reviews/{reviewId} {
+      allow read: if isAdmin() ||
+                  (isSignedIn() && resource.data.reviewerUid == request.auth.uid) ||
+                  (isSignedIn() && resource.data.traineeId == request.auth.uid &&
+                   isPublished(request.auth.uid, resource.data.stage));
+      allow create, update: if isSignedIn() && reviewWriteOk(reviewId, request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function reviewWriteOk(reviewId, d) {
+      return d.keys().hasOnly(['id', 'traineeId', 'stage', 'target', 'reviewerSlot', 'reviewerUid', 'submissionId', 'scores', 'feedback', 'status', 'updatedAt']) &&
+             d.id == reviewId &&
+             reviewId == d.traineeId + '__' + d.stage + '__' + d.target + '__' + d.reviewerSlot &&
+             d.reviewerUid == request.auth.uid &&
+             allowedSlot(d.stage, d.reviewerSlot) &&
+             isSlotHolder(d.traineeId, d.reviewerSlot) &&
+             d.status in ['draft', 'submitted'] &&
+             scoresValid(d.scores, d.stage, d.reviewerSlot) &&
+             (d.status == 'draft' || d.scores.keys().hasAll(allowedKeys(d.stage, d.reviewerSlot))) &&
+             submissionMatches(d) &&
+             !isPublished(d.traineeId, d.stage);
+    }
+
+    // Episode B/Pod reviews must point at a version the trainee marked
+    // complete (the app picks the first complete one for Episode B).
+    function submissionMatches(d) {
+      let s = get(/databases/$(database)/documents/assessmentSubmissions/$(d.submissionId)).data;
+      return s.traineeId == d.traineeId && s.stage == d.stage && s.target == d.target &&
+             (d.stage == 'A' || s.isComplete == true);
+    }
+
+    // Publication state per trainee (doc id = trainee uid). Only admins
+    // (coordinators) publish; the trainee and their reviewers can read it.
+    match /publications/{traineeId} {
+      allow read: if isAdmin() ||
+                  (isSignedIn() && (request.auth.uid == traineeId ||
+                                    request.auth.uid in enrollmentOf(traineeId).reviewerUids));
+      allow write: if isAdmin();
+    }
+
     // Deny everything else by default (no catch-all open rule).
   }
 }

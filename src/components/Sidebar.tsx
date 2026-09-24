@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
   sound_designer: 'Sound Designer',
   audio_engineer: 'Audio Engineer',
+  reviewer: 'Reviewer',
 };
 
 export const Sidebar: React.FC<{
