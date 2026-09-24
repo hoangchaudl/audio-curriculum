@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { Outcome, assignmentCriteria, assignmentOutcome, episodeAAssignments, finalResult } from '../../assessment/scoring';
+import { lessonPace, PACE_CHECK_DAY } from '../../assessment/standing';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, card, dateFor, formatDate, sectionTitle } from './ui';
 import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextSteps, programProgress, weekLabel } from '../../assessment/outline';
 
@@ -99,10 +100,24 @@ export const ProgramOverview: React.FC = () => {
         <div className="max-w-5xl mx-auto space-y-6">
           {(() => {
             const { overdue, next } = nextSteps(programOutline, assignments, modules, data.enrollment, currentUser?.id, videoProgress, data.submissions);
+            const pace = lessonPace(programOutline, assignments, data.enrollment?.startDate, currentUser?.id, videoProgress);
             const when = (d?: Date) => (d ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '');
             const daysLeft = (d?: Date) => (d ? Math.ceil((d.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null);
             return (
               <section className="space-y-3">
+                {pace.length > 0 && (
+                  <div className="bg-[#F4511E]/10 border-2 border-[#F4511E]/30 rounded-[32px] p-5 space-y-1">
+                    <p className="text-xs font-black uppercase text-ember">📖 Behind on lessons</p>
+                    {pace.map(p => (
+                      <p key={p.week} className="text-sm font-bold text-gray-800">
+                        {p.current
+                          ? `Week ${p.week}: ${p.done} of ${p.total} lessons done. Try to finish at least half of this week's lessons by Day ${PACE_CHECK_DAY} so you're ready for the assignment.`
+                          : `Week ${p.week} still has ${p.total - p.done} of ${p.total} lessons to finish - catch up so they don't pile up.`}
+                      </p>
+                    ))}
+                    <p className="text-[11px] text-gray-500">Your coordinator can see this too - reach out if you're stuck.</p>
+                  </div>
+                )}
                 {overdue.length > 0 && (
                   <div className="bg-rose rounded-[32px] p-5 space-y-2">
                     <p className="text-xs font-black uppercase text-ember">⚠ Overdue - submit as soon as you can</p>

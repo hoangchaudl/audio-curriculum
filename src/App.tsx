@@ -6,6 +6,7 @@
 import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { WaitingView } from './components/WaitingView';
+import { AdminHeader } from './components/AdminHeader';
 import { ProfileView } from './components/ProfileView';
 import { AuthView } from './components/AuthView';
 import { AppProvider, useAppContext } from './store';
@@ -230,7 +231,7 @@ const AppContent = () => {
     // Admins manage lessons from the dashboard; everyone else reads a lesson
     // as a program content page (submissions happen on assignment pages).
     if (effectiveRole === 'admin') {
-      return <AdminDashboard focusModuleId={selectedModuleId} focusNonce={moduleNavNonce} />;
+      return <AdminDashboard focusModuleId={selectedModuleId} focusNonce={moduleNavNonce} onPreview={setPreviewRole} />;
     }
     if (modules.some(m => m.id === selectedModuleId)) return <ContentPageView moduleId={selectedModuleId} />;
     // Nothing selected: a trainee's home is My Program; reviewers' and
@@ -239,6 +240,19 @@ const AppContent = () => {
     if (effectiveRole === 'reviewer' || effectiveRole === 'audio_engineer') return <ReviewerQueue />;
     return null;
   };
+
+  // Admins (not previewing) get no sidebar - the dashboard header carries
+  // the brand and account menu; other pages get a slim bar back to it.
+  const adminShell = isRealAdmin && !previewRole;
+  if (adminShell) {
+    const onDashboard = view === 'module';
+    return (
+      <div className="flex flex-col h-screen w-full bg-page text-ink font-sans overflow-hidden">
+        {!onDashboard && <AdminHeader onPreview={setPreviewRole} onBack={() => { setView('module'); window.location.hash = ''; }} />}
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>{renderContent()}</Suspense>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full bg-page text-ink font-sans overflow-hidden">

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
-import { Module, Resource, User } from '../types';
+import { Module, Resource, Role } from '../types';
+import { AdminHeader } from './AdminHeader';
+import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ConfirmModal } from './ConfirmModal';
@@ -60,7 +62,9 @@ const CARD_THEMES = [
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number }> = ({ focusModuleId, focusNonce }) => {
+export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number; onPreview: (role: Role) => void }> = ({ focusModuleId, focusNonce, onPreview }) => {
+  const hasReviews = useHasReviewAssignments();
+  const reviewTodo = useReviewTodoCount();
   const {
     users, categories, modules, moduleVideos, enrollments, programOutline, programOutcomes, assessmentConfig,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo,
@@ -75,7 +79,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const ctx = useAppContext();
   const roster = designers.map(designer => ({
     designer,
-    standing: enrollments.some(e => e.id === designer.id) ? traineeStanding(traineeDataFrom(ctx, designer.id), programOutline) : null,
+    standing: enrollments.some(e => e.id === designer.id) ? traineeStanding(traineeDataFrom(ctx, designer.id), programOutline, ctx.videoProgress) : null,
   })).sort((a, b) => STATUS_ORDER.indexOf(a.standing?.status ?? 'not_enrolled') - STATUS_ORDER.indexOf(b.standing?.status ?? 'not_enrolled') || a.designer.name.localeCompare(b.designer.name));
   const behind = roster.filter(r => r.standing?.status === 'behind');
   const awaitingDecision = roster.filter(r => (r.standing?.status === 'passed' || r.standing?.status === 'not_passed') && !programOutcomes.some(o => o.id === r.designer.id));
@@ -115,14 +119,9 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const [videoClip, setVideoClip] = useState<{ start?: number; end?: number }>({});
 
   // Replaces the native confirm()/alert() popups previously used for
-  // destructive/role actions (delete module, promote/demote) with the
-  // app's own branded modal, rendered once at the bottom of this component.
-  const [pendingConfirm, setPendingConfirm] = useState<
-    | { kind: 'delete-module'; mod: Module }
-    | { kind: 'promote'; user: User }
-    | { kind: 'demote'; user: User }
-    | null
-  >(null);
+  // destructive actions (delete a lesson) with the app's own branded
+  // modal, rendered once at the bottom of this component.
+  const [pendingConfirm, setPendingConfirm] = useState<{ kind: 'delete-module'; mod: Module } | null>(null);
 
   const handleEditClick = (mod: any) => {
     setEditingModule(mod.id);
@@ -239,19 +238,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
-      <header className="border-b bg-surface px-4 md:px-10 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-2xl font-black text-[#2E9DF7]">Director Dashboard</h2>
-            <p className="text-xs text-gray-400 font-medium">Curriculum, designers, and engineers at a glance.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="bg-sky text-navy text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap">
-              {designers.length} Designers / {engineers.length} Engineers / {modules.length} Modules
-            </span>
-          </div>
-        </div>
-      </header>
+      <AdminHeader onPreview={onPreview}>
+        {hasReviews && (
+          <button onClick={() => { window.location.hash = '#/review'; }} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+            ✅ Review Queue{reviewTodo ? ` (${reviewTodo})` : ''}
+          </button>
+        )}
+        <span className="bg-sky text-navy text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap hidden md:inline">
+          {designers.length} Designers · {engineers.length} Engineers · {modules.length} Lessons
+        </span>
+      </AdminHeader>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
         {/* Alerts for coordinators, on every tab: who's falling behind, and
@@ -342,7 +338,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {roster.map(({ designer, standing }, i) => (
                 <DesignerCard key={designer.id} designer={designer} standing={standing} accent={CARD_THEMES[i % CARD_THEMES.length].accent}
-                  lockedCategories={lockedCategories} onPromote={() => setPendingConfirm({ kind: 'promote', user: designer })} />
+                  lockedCategories={lockedCategories} />
               ))}
             </div>
           </div>
@@ -672,26 +668,12 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
 
       <ConfirmModal
         open={pendingConfirm !== null}
-        title={
-          pendingConfirm?.kind === 'delete-module' ? `Delete "${pendingConfirm.mod.title}"?` :
-          pendingConfirm?.kind === 'promote' ? `Promote ${pendingConfirm.user.name}?` :
-          pendingConfirm?.kind === 'demote' ? `Move ${pendingConfirm.user.name} back to Sound Designer?` : ''
-        }
-        message={
-          pendingConfirm?.kind === 'delete-module'
-            ? "This removes the lesson and its video for everyone. Take it out of the weekly outline too if it's placed there. Assignment submissions and scores aren't affected."
-            : pendingConfirm?.kind === 'promote'
-            ? `${pendingConfirm.user.name} will see the full roster and can be assigned as a trainee's Audio Engineer reviewer.`
-            : pendingConfirm?.kind === 'demote'
-            ? `${pendingConfirm.user.name} will lose access to the roster and grading tools.`
-            : ''
-        }
-        confirmLabel={pendingConfirm?.kind === 'delete-module' ? 'Delete' : pendingConfirm?.kind === 'promote' ? 'Promote' : 'Move'}
-        danger={pendingConfirm?.kind === 'delete-module'}
+        title={pendingConfirm ? `Delete "${pendingConfirm.mod.title}"?` : ''}
+        message="This removes the lesson and its video for everyone. Take it out of the weekly outline too if it's placed there. Assignment submissions and scores aren't affected."
+        confirmLabel="Delete"
+        danger
         onConfirm={() => {
-          if (pendingConfirm?.kind === 'delete-module') saveWith(deleteModule(pendingConfirm.mod.id));
-          else if (pendingConfirm?.kind === 'promote') updateUserRole(pendingConfirm.user.id, 'audio_engineer');
-          else if (pendingConfirm?.kind === 'demote') updateUserRole(pendingConfirm.user.id, 'sound_designer');
+          if (pendingConfirm) saveWith(deleteModule(pendingConfirm.mod.id));
           setPendingConfirm(null);
         }}
         onCancel={() => setPendingConfirm(null)}
