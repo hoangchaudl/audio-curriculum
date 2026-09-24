@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Category, User } from '../types';
-import { computeProgress } from '../progress';
 import { traineeDataFrom } from '../assessment/traineeData';
 import { Standing, StandingStatus, behindReasons, traineeStanding } from '../assessment/standing';
 import { programProgress } from '../assessment/outline';
@@ -26,8 +25,7 @@ const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w
 
 // One sound designer in the admin roster, on the 1-5 probation program:
 // week, progress, stage scores, final result vs the benchmark, what's
-// overdue, and the full-time offer decision. Legacy 1-4 homework is
-// folded away at the bottom.
+// overdue, and the full-time offer decision.
 export const DesignerCard: React.FC<{
   designer: User;
   standing: Standing | null; // null = not enrolled
@@ -37,7 +35,7 @@ export const DesignerCard: React.FC<{
 }> = ({ designer, standing, accent, lockedCategories, onPromote }) => {
   const ctx = useAppContext();
   const { assessmentConfig: config, programOutline, assignments, videoProgress, assessmentSubmissions, programOutcomes, setProgramOutcome,
-    modules, submissions, grades, setUserUnlockedCategories } = ctx;
+    setUserUnlockedCategories } = ctx;
   const [confirm, setConfirm] = useState<'offered' | 'not_offered' | null>(null);
   const data = traineeDataFrom(ctx, designer.id);
   const outcome = programOutcomes.find(o => o.id === designer.id);
@@ -53,11 +51,6 @@ export const DesignerCard: React.FC<{
   const progress = data.enrollment ? programProgress(programOutline, assignments, data.enrollment, designer.id, videoProgress, assessmentSubmissions) : null;
   const reasons = standing ? behindReasons(standing, config.passThreshold) : [];
 
-  // Legacy 1-4 homework (kept for reference).
-  const own = submissions.filter(s => s.userId === designer.id);
-  const legacy = computeProgress(designer.id, submissions, modules.length);
-  const legacyGrades = grades.filter(g => own.some(s => s.id === g.submissionId));
-  const legacyAvg = legacyGrades.length ? (legacyGrades.reduce((a, g) => a + g.score, 0) / legacyGrades.length).toFixed(1) : null;
 
   const weekLine = !standing ? null
     : standing.status === 'upcoming' ? `Starts ${formatDate(new Date(`${data.enrollment!.startDate}T00:00:00`))}`
@@ -154,20 +147,7 @@ export const DesignerCard: React.FC<{
         </div>
       )}
 
-      <details className="text-xs">
-        <summary className="cursor-pointer font-bold text-gray-400 hover:text-gray-600">
-          Legacy 1–4 homework · {legacy.graded} of {legacy.total} graded{legacyAvg ? ` · avg ${legacyAvg}` : ''}
-        </summary>
-        <div className="flex gap-1.5 flex-wrap mt-2">
-          {[...modules].sort((a, b) => a.order - b.order).map(mod => {
-            const sub = own.find(s => s.moduleId === mod.id);
-            const grade = sub ? grades.find(g => g.submissionId === sub.id) : null;
-            const cls = sub?.status === 'graded' ? 'bg-[#3DDC97]/20 text-leaf' : sub?.status === 'submitted' ? 'bg-[#2E9DF7]/20 text-navy' : 'bg-gray-100 text-gray-400';
-            return <span key={mod.id} title={mod.title} className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black ${cls}`}>{sub?.status === 'graded' ? grade?.score ?? '?' : sub?.status === 'submitted' ? 'Rev' : '–'}</span>;
-          })}
-        </div>
-        <button onClick={onPromote} className="mt-2 text-[10px] font-bold uppercase text-gray-400 hover:text-navy">Promote to Audio Engineer</button>
-      </details>
+      <button onClick={onPromote} className="self-start text-[10px] font-bold uppercase text-gray-400 hover:text-navy">Promote to Audio Engineer</button>
 
       <ConfirmModal
         open={confirm !== null}

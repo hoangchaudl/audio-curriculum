@@ -236,9 +236,9 @@ export const Sidebar: React.FC<{
                     if (row.kind === 'content') setSelectedModuleId(row.mod.id);
                     else { window.location.hash = `#/assignment/${row.asg.id}`; onCloseMobile(); }
                   };
-                  // Assignments stand out (orange card) so trainees see graded work coming.
+                  // Assignments get an orange edge and label so trainees see graded work coming.
                   const cls = selected ? 'theme-light bg-surface text-navy font-bold shadow-md'
-                    : row.kind === 'assignment' ? 'bg-[#F4511E] text-white font-bold shadow-md hover:bg-[#E0441A]'
+                    : row.kind === 'assignment' ? 'bg-white/10 text-white font-bold border-l-4 border-[#F4511E] hover:bg-white/15'
                     : 'text-white/80 font-semibold hover:bg-white/10';
                   if (isCollapsed) {
                     return (
@@ -263,7 +263,7 @@ export const Sidebar: React.FC<{
                         </span>
                         <span className="leading-tight">
                           {row.kind === 'assignment' && (
-                            <span className={`block text-[9px] font-black uppercase tracking-widest ${selected ? 'text-ember' : 'text-white/85'}`}>📝 Assignment</span>
+                            <span className={`block text-[9px] font-black uppercase tracking-widest ${selected ? 'text-ember' : 'text-[#FFB59C]'}`}>📝 Assignment</span>
                           )}
                           {title}
                           {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : row.kind === 'assignment' ? 'text-white' : 'text-white/60'}`}>Due {due}</span>}
