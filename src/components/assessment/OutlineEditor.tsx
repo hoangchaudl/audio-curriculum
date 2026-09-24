@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { DEFAULT_WEEK_GOALS } from '../../assessment/config';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
 import { splitEvenly } from '../../assessment/scoring';
@@ -328,6 +329,14 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
         The program is 4 weeks. Inside each week, group content into <b>sections</b> (e.g. "StoryCo General Onboarding") and use ▲▼ to order
         sections and the items in them - trainees see exactly this in their sidebar. Assignments and milestones also have a due day. Grading lives on each assignment (click Edit).
       </p>
+      {outline.weeks.slice(0, DEFAULT_WEEK_GOALS.length).some(w => !w.goal) && (
+        <div className="bg-[#3DDC97]/15 rounded-2xl px-4 py-3 text-xs text-gray-700 flex flex-wrap items-center justify-between gap-2">
+          <span>Some weeks have no goal yet. Fill the empty ones with the program's standard weekly goals (you can edit them after).</span>
+          <button onClick={() => save(outline.weeks.map((w, i) => (!w.goal && DEFAULT_WEEK_GOALS[i] ? { ...w, goal: DEFAULT_WEEK_GOALS[i] } : w)))} className={secondaryBtn}>
+            Fill in standard weekly goals
+          </button>
+        </div>
+      )}
       {(() => {
         const unplaced = modules.filter(m => !placedModules.has(m.id)).sort((a, b) => a.title.localeCompare(b.title));
         return unplaced.length > 0 && (
@@ -365,6 +374,13 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
                 </button>
               )}
             </div>
+
+            <label className="block mb-4">
+              <span className="text-[10px] font-black uppercase text-gray-400">🎯 Goal for this week (shown to trainees on My Program)</span>
+              <textarea defaultValue={week.goal ?? ''} key={week.goal ?? ''} placeholder="What should trainees be able to do by the end of this week?" aria-label={`${weekLabel(wi)} goal`}
+                onBlur={e => { const v = e.target.value.trim(); if (v !== (week.goal ?? '')) editWeek(week.id, w => { const { goal: _, ...rest } = w; return v ? { ...rest, goal: v } : rest; }); }}
+                className={`${input} mt-1 h-16`} />
+            </label>
 
             <div className="space-y-4">
               {groups.slice(0, -1).map(({ section, items }, si) => (
