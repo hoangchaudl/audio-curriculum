@@ -5,6 +5,7 @@ import { countUnseenGrades, isGradeSeen } from '../notifications';
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
+import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -15,6 +16,8 @@ const ROLE_LABELS: Record<Role, string> = {
 
 export const Sidebar: React.FC<{
   selectedModuleId: string;
+  // Current non-module page ('program', 'review', 'episode:B', ...).
+  activePage?: string;
   setSelectedModuleId: (id: string) => void;
   isRealAdmin: boolean;
   effectiveRole: Role | undefined;
@@ -24,8 +27,20 @@ export const Sidebar: React.FC<{
   onToggleCollapse: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
-}> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
-  const { modules: allModules, categories, currentUser, submissions, logout, updateUserTheme } = useAppContext();
+}> = ({ selectedModuleId, activePage, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
+  const { modules: allModules, categories, currentUser, submissions, logout, updateUserTheme, enrollments, exercises, assessmentSubmissions } = useAppContext();
+  const ownEnrollment = enrollments.find(e => e.id === currentUser?.id);
+  const hasReviews = useHasReviewAssignments();
+  const reviewTodo = useReviewTodoCount();
+  const programLinks = [
+    ...(ownEnrollment ? [
+      { page: 'program', hash: '#/program', label: 'My Program', icon: '📋' },
+      { page: 'episode:B', hash: '#/episode/B', label: 'Episode B – Final Test', icon: '🎬' },
+      { page: 'episode:P1', hash: '#/episode/P1', label: ownEnrollment.podEpisodesRequired === 2 ? 'Pod Trial – Episode 1' : 'Pod Trial', icon: '🎧' },
+      ...(ownEnrollment.podEpisodesRequired === 2 ? [{ page: 'episode:P2', hash: '#/episode/P2', label: 'Pod Trial – Episode 2', icon: '🎧' }] : []),
+    ] : []),
+    ...(hasReviews ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: '✅' }] : []),
+  ];
   // Admins load every module; when previewing as a designer, hide what a
   // designer without unlocks couldn't see so the preview is realistic.
   const modules = allModules.filter(m => canSeeModule(m, categories, currentUser, effectiveRole));
@@ -126,6 +141,31 @@ export const Sidebar: React.FC<{
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 z-10 scrollbar-hide pb-4">
+        {programLinks.length > 0 && (
+          <div className="mb-6">
+            {!isCollapsed && <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">Assessment</p>}
+            <div className="space-y-2">
+              {programLinks.map(link => {
+                const active = activePage === link.page;
+                return (
+                  <button
+                    key={link.page}
+                    onClick={() => { window.location.hash = link.hash; onCloseMobile(); }}
+                    title={link.label}
+                    aria-current={active ? 'page' : undefined}
+                    className={`${isCollapsed ? 'w-14 h-14 mx-auto justify-center' : 'w-full p-3 gap-3'} flex items-center rounded-2xl transition-all ${
+                      active ? 'theme-light bg-surface text-navy font-bold shadow-md' : 'text-white/80 font-semibold hover:bg-white/10'
+                    }`}
+                  >
+                    <span aria-hidden="true" className="w-6 text-center flex-shrink-0">{link.icon}</span>
+                    {!isCollapsed && <span className="leading-tight text-left">{link.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {sections.map(({ key, title, mods }) => (
           <div key={key} className="mb-6">
             {!isCollapsed && (
@@ -153,7 +193,19 @@ export const Sidebar: React.FC<{
                   // to be meaningless in this view.
                   const neutralBadge = isSelected ? 'bg-gray-100 text-gray-500' : 'bg-black/10 text-white/90';
                   let statusBadge: React.ReactNode;
-                  if (effectiveRole === 'audio_engineer') {
+                  if (mod.program === 'episodeA') {
+                    // Assessment modules track exercises, not the legacy
+                    // single homework submission.
+                    const ex = exercises.filter(e => e.moduleId === mod.id);
+                    const done = ex.filter(e => assessmentSubmissions.some(s => s.traineeId === currentUser?.id && s.stage === 'A' && s.target === e.id)).length;
+                    statusBadge = effectiveRole === 'sound_designer' && ex.length > 0 ? (
+                      <span className={`${done === ex.length ? 'bg-[#3DDC97] text-[#0B3D2A]' : done ? 'bg-[#2E9DF7]/20 text-navy' : neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>
+                        {done === ex.length ? '✓ Submitted' : `${done}/${ex.length} done`}
+                      </span>
+                    ) : (
+                      <span className={`${neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>{ex.length} ex.</span>
+                    );
+                  } else if (effectiveRole === 'audio_engineer') {
                     const pendingCount = submissions.filter(s => s.moduleId === mod.id && s.status === 'submitted').length;
                     statusBadge = pendingCount > 0 ? (
                       <span className="bg-[#F4511E]/20 text-ember px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{pendingCount} Pending</span>

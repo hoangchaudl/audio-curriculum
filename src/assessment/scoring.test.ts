@@ -295,6 +295,27 @@ describe('Final grade', () => {
     expect(finalResult(build(2)).meetsBenchmark).toBe(false);
   });
 
+  it('judges the benchmark on the displayed 2-decimal score (33.33% weights)', () => {
+    // SFX exercises weighted 33.33/33.33/33.34 scored 5/4/3 compute 3.9999, shown as 4.00.
+    const scores: Record<string, AssessmentScore> = { epA_m3_ex1: 5, epA_m3_ex2: 4, epA_m3_ex3: 3 };
+    const d = data(gradedEpisodeA(id => scores[id] ?? 4));
+    const sfx = moduleOutcome(d, EPISODE_A_MODULES[2]);
+    expect(sfx.status === 'scored' && sfx.value).toBeLessThan(4);
+    expect(outcomeLabel(sfx)).toBe('4.00');
+    // A final that computes just under the benchmark but displays at it passes.
+    const sb = sub('B', 'episode', 1), sp = sub('P1', 'episode', 1);
+    const epA = gradedEpisodeA(id => scores[id] ?? 4); // Episode A = 3.99997
+    const r = finalResult(data({
+      config: { ...CONFIG, passThreshold: 3.2 },
+      submissions: [...epA.submissions, sb, sp],
+      reviews: [...epA.reviews, ...fullTableReviews('B', 3, sb.id, ['trainer', 'engineer']), ...fullTableReviews('P1', 3, sp.id, ALL_SLOTS)],
+    }));
+    // 0.2*3.99997 + 0.4*3 + 0.4*3 = 3.199994 → displayed 3.20 → meets a 3.20 benchmark
+    expect(r.final.status === 'scored' && r.final.value).toBeLessThan(3.2);
+    expect(outcomeLabel(r.final)).toBe('3.20');
+    expect(r.meetsBenchmark).toBe(true);
+  });
+
   it('stays awaiting while any stage is missing', () => {
     const d = complete(5, 5, 5);
     const withoutPod = { ...d, reviews: d.reviews.filter(r => r.stage !== 'P1') };

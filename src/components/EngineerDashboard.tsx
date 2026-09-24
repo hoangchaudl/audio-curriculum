@@ -145,7 +145,7 @@ const SubmissionCard: React.FC<{
             onChange={(e) => onScoreChange(parseInt(e.target.value) as 1 | 2 | 3 | 4)}
             className="w-full bg-gray-50 rounded-2xl p-3 text-sm font-bold text-gray-700"
           >
-            <option value="" disabled>Score (1-4)</option>
+            <option value="" disabled>Legacy score (1–4)</option>
             <option value="1">1 - Needs Work</option>
             <option value="2">2 - Fair</option>
             <option value="3">3 - Good</option>

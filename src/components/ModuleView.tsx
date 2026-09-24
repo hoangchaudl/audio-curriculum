@@ -5,6 +5,7 @@ import { RubricTable } from './RubricTable';
 import { ConfirmModal } from './ConfirmModal';
 import { computeProgress } from '../progress';
 import { markGradeSeen } from '../notifications';
+import { ContentBlocks } from './assessment/ContentBlocks';
 
 const SCORE_LABELS: Record<number, string> = { 1: 'Needs Work', 2: 'Fair', 3: 'Good', 4: 'Excellent' };
 
@@ -248,11 +249,9 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                 </a>
               )}
             </div>
-          ) : (
-            <div className="aspect-video bg-gray-100 rounded-[40px] shadow-sm border-2 border-dashed border-gray-300 relative overflow-hidden flex items-center justify-center">
-               <p className="text-gray-400 font-bold">Video coming soon</p>
-            </div>
-          )}
+          ) : null /* A module never requires a video - render nothing rather than a placeholder. */}
+
+          <ContentBlocks blocks={mod.contentBlocks} />
 
           {/* Module Description */}
           <div className="bg-surface rounded-[32px] p-8 border border-gray-100 shadow-sm">
@@ -383,7 +382,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               style={{ background: grade.score >= 3 ? '#3DDC97' : grade.score === 2 ? '#FFD84D' : '#F4511E' }}
             >
               <div className="flex items-center justify-between gap-3 mb-1">
-                <span className={`text-[10px] font-black uppercase tracking-widest ${grade.score === 1 ? 'text-white/80' : 'text-gray-600'}`}>Your Grade</span>
+                <span className={`text-[10px] font-black uppercase tracking-widest ${grade.score === 1 ? 'text-white/80' : 'text-gray-600'}`}>Your Grade · Legacy (1–4)</span>
                 <span className={`text-3xl font-black ${grade.score === 1 ? 'text-white' : 'text-gray-800'}`}>{grade.score}<span className="text-base">/4</span></span>
               </div>
               <p className={`text-xs font-black uppercase tracking-wide mb-3 ${grade.score === 1 ? 'text-white' : 'text-gray-700'}`}>{SCORE_LABELS[grade.score]}</p>
