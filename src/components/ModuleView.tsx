@@ -190,17 +190,17 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
   const isOverdue = !!deadline && sub?.status !== 'graded' && deadline.getTime() < Date.now();
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#FDFDFB]">
+    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       {/* Top Navbar */}
-      <header className="min-h-20 bg-white border-b flex items-center justify-between gap-4 px-4 md:px-10 py-3 flex-shrink-0">
+      <header className="min-h-20 bg-surface border-b flex items-center justify-between gap-4 px-4 md:px-10 py-3 flex-shrink-0">
         <div className="min-w-0">
           <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">Module {mod.label || mod.order.toString().padStart(2, '0')}: {mod.title}</h2>
           <p className="text-xs text-gray-400 font-medium flex items-center gap-2 mt-1">
             Status:{' '}
             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-              sub?.status === 'graded' ? 'bg-[#3DDC97]/20 text-[#2A8F62]' :
-              sub?.status === 'submitted' ? 'bg-[#2E9DF7]/20 text-[#1E40AF]' :
-              sub?.status === 'in_progress' ? 'bg-[#F4511E]/20 text-[#C53914]' :
+              sub?.status === 'graded' ? 'bg-[#3DDC97]/20 text-leaf' :
+              sub?.status === 'submitted' ? 'bg-[#2E9DF7]/20 text-navy' :
+              sub?.status === 'in_progress' ? 'bg-[#F4511E]/20 text-ember' :
               'bg-gray-100 text-gray-500'
             }`}>
               {sub ? sub.status.replace('_', ' ') : 'Not Started'}
@@ -255,7 +255,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
           )}
 
           {/* Module Description */}
-          <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+          <div className="bg-surface rounded-[32px] p-8 border border-gray-100 shadow-sm">
             <h4 className="text-sm font-black uppercase text-[#2E9DF7] mb-3 tracking-widest">About this Module</h4>
             <p className="text-gray-600 leading-relaxed whitespace-pre-wrap mb-6">
               {mod.description}
@@ -293,7 +293,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                   {groupOutline(mod.outline).map((lesson, i) => (
                     <li key={i}>
                       <div className="flex items-center gap-3 text-sm text-gray-800">
-                        <span className="flex-shrink-0 w-6 h-6 bg-[#E0F2FE] rounded-full flex items-center justify-center text-[10px] font-black text-[#1E40AF]">
+                        <span className="flex-shrink-0 w-6 h-6 bg-sky rounded-full flex items-center justify-center text-[10px] font-black text-navy">
                           {i + 1}
                         </span>
                         <span className="font-bold">{lesson.title}</span>
@@ -316,7 +316,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               bar they're graded against; once graded, their achieved level
               per sub-skill is highlighted in place. */}
           {mod.rubricCriteria && mod.rubricCriteria.length > 0 && (
-            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+            <div className="bg-surface rounded-[32px] p-8 border border-gray-100 shadow-sm">
               <h4 className="text-sm font-black uppercase text-[#2E9DF7] mb-1 tracking-widest flex items-center gap-2">
                 <span className="text-xl">🎯</span> How You'll Be Graded
               </h4>
@@ -337,7 +337,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
 
           {/* Additional Materials */}
           {mod.additionalMaterials && mod.additionalMaterials.length > 0 && (
-            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+            <div className="bg-surface rounded-[32px] p-8 border border-gray-100 shadow-sm">
               <h4 className="text-sm font-black uppercase text-[#3DDC97] mb-4 tracking-widest flex items-center gap-2">
                 <span className="text-xl">📚</span> Additional Materials
               </h4>
@@ -379,7 +379,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               always reading as a congratulations. */}
           {grade && (
             <div
-              className="rounded-[40px] p-6 shadow-xl border-4 border-white"
+              className="theme-light rounded-[40px] p-6 shadow-xl border-4 border-surface"
               style={{ background: grade.score >= 3 ? '#3DDC97' : grade.score === 2 ? '#FFD84D' : '#F4511E' }}
             >
               <div className="flex items-center justify-between gap-3 mb-1">
@@ -388,7 +388,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               </div>
               <p className={`text-xs font-black uppercase tracking-wide mb-3 ${grade.score === 1 ? 'text-white' : 'text-gray-700'}`}>{SCORE_LABELS[grade.score]}</p>
               {grade.feedback && (
-                <div className="bg-white rounded-2xl p-4">
+                <div className="bg-surface rounded-2xl p-4">
                   <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Engineer Feedback</p>
                   <p className="text-sm text-gray-800 font-medium leading-relaxed">"{grade.feedback}"</p>
                 </div>
@@ -397,8 +397,8 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
           )}
 
           {/* Progress */}
-          <div className="bg-[#F5F9FF] border-4 border-white rounded-[40px] p-6 shadow-xl relative">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border-4 border-[#F5F9FF] rounded-full px-4 py-1.5 shadow-sm">
+          <div className="bg-pocket border-4 border-surface rounded-[40px] p-6 shadow-xl relative">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface border-4 border-pocket rounded-full px-4 py-1.5 shadow-sm">
               <span className="text-[10px] font-black text-[#2E9DF7] tracking-tighter uppercase whitespace-nowrap">Gadget Pocket</span>
             </div>
 
@@ -409,9 +409,9 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                   {/* Explicit both-numbers phrasing - this used to disagree
                       with what the admin roster showed for the same person
                       (graded/total here, submissions/total there). */}
-                  <span className="text-[#2A8F62] text-right">{submitted} submitted · {gradedCount} graded of {totalModules}</span>
+                  <span className="text-leaf text-right">{submitted} submitted · {gradedCount} graded of {totalModules}</span>
                 </div>
-                <div className="w-full h-3 bg-white rounded-full overflow-hidden">
+                <div className="w-full h-3 bg-surface rounded-full overflow-hidden">
                   <div className="h-full bg-[#3DDC97] rounded-full transition-all duration-1000" style={{ width: `${gradedPercent}%` }}></div>
                 </div>
               </div>
@@ -424,7 +424,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                   </div>
                   <div className="flex gap-1.5">
                     {[1, 2, 3, 4].map(seg => (
-                      <div key={seg} className="flex-1 h-3 rounded-full bg-white"></div>
+                      <div key={seg} className="flex-1 h-3 rounded-full bg-surface"></div>
                     ))}
                   </div>
                 </div>
@@ -434,24 +434,24 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
 
           {/* Homework Materials */}
           {mod.homeworkLink && (
-            <div className="bg-[#E0F2FE] rounded-[40px] p-6 shadow-sm border-2 border-white relative overflow-hidden">
+            <div className="bg-sky rounded-[40px] p-6 shadow-sm border-2 border-surface relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-[#2E9DF7] rounded-full opacity-10 translate-x-8 -translate-y-8 pointer-events-none"></div>
-              <h4 className="text-sm font-black mb-3 uppercase text-[#1E40AF] flex items-center gap-2">
+              <h4 className="text-sm font-black mb-3 uppercase text-navy flex items-center gap-2">
                 <span className="text-xl">📁</span> Assignment Materials
               </h4>
-              <p className="text-[11px] text-[#1E40AF]/80 mb-4 font-medium leading-relaxed">
+              <p className="text-[11px] text-navy/80 mb-4 font-medium leading-relaxed">
                 {mod.homeworkDescription || 'Download the files needed for this module\'s homework.'}
               </p>
               {deadline && sub?.status !== 'graded' && (
                 <div className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide mb-2 ${
-                  isOverdue ? 'bg-[#F4511E] text-white shadow-sm' : 'bg-white text-[#1E40AF] shadow-sm'
+                  isOverdue ? 'bg-[#F4511E] text-white shadow-sm' : 'bg-surface text-navy shadow-sm'
                 }`}>
                   <span>{isOverdue ? '⚠️' : '⏰'}</span>
                   {isOverdue ? 'Overdue — was due ' : 'Due '}
                   {deadline.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               )}
-              <p className="text-[10px] text-[#1E40AF]/70 font-bold leading-relaxed mb-4">
+              <p className="text-[10px] text-navy/70 font-bold leading-relaxed mb-4">
                 {deadline
                   ? 'Deadline: 7 days after you finish watching the module video above.'
                   : isTrackableVideo
@@ -464,7 +464,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                 href={mod.homeworkLink}
                 target="_blank"
                 rel="noreferrer"
-                className="block w-full bg-white text-[#2E9DF7] text-center font-bold py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-xs border border-[#2E9DF7]/20"
+                className="block w-full bg-surface text-[#2E9DF7] text-center font-bold py-3 rounded-2xl shadow-sm hover:shadow-md transition-shadow text-xs border border-[#2E9DF7]/20"
               >
                 Open Google Drive
               </a>
@@ -472,7 +472,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
           )}
 
           {/* Submission Card */}
-          <div className="bg-white rounded-[40px] p-6 shadow-lg border-2 border-gray-50">
+          <div className="bg-surface rounded-[40px] p-6 shadow-lg border-2 border-gray-50">
             <h4 className="text-sm font-black text-center mb-4 uppercase text-[#F4511E]">Submit Homework</h4>
             <p className="text-[11px] text-gray-400 text-center mb-6">Paste your Google Drive link with the .WAV bounce of the exercise.</p>
 
@@ -480,7 +480,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
               // A graded submission is done - a disabled "Graded" button
               // still reads as clickable and its label reads like an
               // action, not a state. This is a status, so it isn't a button.
-              <div className="w-full bg-[#3DDC97]/20 text-[#2A8F62] font-black uppercase text-xs tracking-wide py-4 rounded-2xl text-center flex items-center justify-center gap-2">
+              <div className="w-full bg-[#3DDC97]/20 text-leaf font-black uppercase text-xs tracking-wide py-4 rounded-2xl text-center flex items-center justify-center gap-2">
                 <span>✓</span> Graded
               </div>
             ) : (
@@ -490,9 +490,9 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                   value={linkInput}
                   onChange={(e) => setLinkInput(e.target.value)}
                   placeholder="https://drive.google.com/share/..."
-                  className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-xs mb-1 focus:ring-2 focus:ring-[#2E9DF7] transition-all ${showLinkError ? 'border-[#C53914]' : 'border-transparent'}`}
+                  className={`w-full bg-gray-50 border-2 rounded-2xl p-4 text-xs mb-1 focus:ring-2 focus:ring-[#2E9DF7] transition-all ${showLinkError ? 'border-ember' : 'border-transparent'}`}
                 />
-                <p className={`text-[10px] font-bold mb-3 ${showLinkError ? 'text-[#C53914]' : 'text-transparent'}`}>
+                <p className={`text-[10px] font-bold mb-3 ${showLinkError ? 'text-ember' : 'text-transparent'}`}>
                   Enter a full link starting with https://
                 </p>
 
@@ -505,7 +505,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                 </button>
 
                 {justSubmitted && (
-                  <p className="text-xs font-bold text-[#2A8F62] text-center mt-3">✓ Sent to your engineer</p>
+                  <p className="text-xs font-bold text-leaf text-center mt-3">✓ Sent to your engineer</p>
                 )}
               </>
             )}
@@ -522,7 +522,7 @@ export const ModuleView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
                   {sub.status !== 'graded' && (
                     <button
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="flex-shrink-0 text-[10px] font-black uppercase tracking-wide text-[#C53914] bg-[#FEE2E2] px-2.5 py-1.5 rounded-full hover:bg-[#F4511E] hover:text-white transition-colors"
+                      className="flex-shrink-0 text-[10px] font-black uppercase tracking-wide text-ember bg-rose px-2.5 py-1.5 rounded-full hover:bg-[#F4511E] hover:text-white transition-colors"
                     >
                       Delete
                     </button>

@@ -18,13 +18,13 @@ export const RubricTable: React.FC<{
       <p className="text-xs font-bold text-gray-500">{note}</p>
     )}
     {criteria.map((criterion, i) => (
-      <div key={criterion.id} className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
-        <div className="bg-[#E0F2FE] px-4 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap">
-          <span className="text-xs font-black uppercase tracking-wide text-[#1E40AF]">
+      <div key={criterion.id} className="rounded-2xl overflow-hidden bg-surface border border-gray-100 shadow-sm">
+        <div className="bg-sky px-4 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs font-black uppercase tracking-wide text-navy">
             Sub-skill {i + 1}: {criterion.title}
           </span>
           {criterion.scoreLabel && (
-            <span className="text-[10px] font-bold text-[#1E40AF]/70">{criterion.scoreLabel}</span>
+            <span className="text-[10px] font-bold text-navy/70">{criterion.scoreLabel}</span>
           )}
         </div>
         <div className="divide-y divide-gray-100">

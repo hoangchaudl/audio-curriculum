@@ -3,9 +3,10 @@ import { useAppContext } from '../store';
 import { Module, Resource, RubricCriterion, User } from '../types';
 import { computeProgress } from '../progress';
 import { ConfirmModal } from './ConfirmModal';
+import { CategoryManager } from './CategoryManager';
+import { sortCategories } from '../access';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
-const CATEGORIES = ['Onboarding', 'Intermediate', 'Advanced'] as const;
 
 // What a module needs before a designer/engineer actually gets value out of
 // it - the lesson text, what it's teaching, what it's teaching toward, and
@@ -88,18 +89,20 @@ const rowsToMaterials = (rows: MaterialRow[]): Resource[] =>
 
 // Cycles through the three brand colors only (blue / orange / green).
 const CARD_THEMES = [
-  { bg: '#E0F2FE', accent: '#2E9DF7' },
-  { bg: '#FFF4ED', accent: '#F4511E' },
-  { bg: '#E6FAF1', accent: '#3DDC97' },
+  { bg: 'var(--color-sky)', accent: '#2E9DF7' },
+  { bg: 'var(--color-peach)', accent: '#F4511E' },
+  { bg: 'var(--color-mint)', accent: '#3DDC97' },
 ];
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
 export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number }> = ({ focusModuleId, focusNonce }) => {
   const {
-    users, modules, moduleVideos, submissions, grades, videoTasks,
+    users, categories, modules, moduleVideos, submissions, grades, videoTasks,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo, createVideoTask,
+    setUserUnlockedCategories,
   } = useAppContext();
+  const lockedCategories = sortCategories(categories).filter(c => c.restricted);
   const [activeTab, setActiveTab] = useState<'designers' | 'engineers' | 'modules'>('modules');
 
   // Per-engineer draft for the "assign a video task" form on the Engineers
@@ -262,15 +265,15 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   };
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#FDFDFB]">
-      <header className="border-b bg-white px-4 md:px-10 py-4 flex-shrink-0">
+    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
+      <header className="border-b bg-surface px-4 md:px-10 py-4 flex-shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-2xl font-black text-[#2E9DF7]">Director Dashboard</h2>
             <p className="text-xs text-gray-400 font-medium">Curriculum, designers, and engineers at a glance.</p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="bg-[#E0F2FE] text-[#1E40AF] text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap">
+            <span className="bg-sky text-navy text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap">
               {designers.length} Designers / {engineers.length} Engineers / {modules.length} Modules
             </span>
           </div>
@@ -285,7 +288,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'modules'
                 ? 'bg-[#3DDC97] text-white shadow-md'
-                : 'bg-white text-gray-500 hover:bg-gray-50'
+                : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
             Curriculum
@@ -295,7 +298,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'designers'
                 ? 'bg-[#2E9DF7] text-white shadow-md'
-                : 'bg-white text-gray-500 hover:bg-gray-50'
+                : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
             Sound Designers
@@ -305,7 +308,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'engineers'
                 ? 'bg-[#F4511E] text-white shadow-md'
-                : 'bg-white text-gray-500 hover:bg-gray-50'
+                : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
             Audio Engineers
@@ -318,7 +321,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
                 📋 Designer Progress Overview
               </h3>
-              <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-[#2A8F62]">
+              <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-leaf">
                 <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
               </span>
             </div>
@@ -326,14 +329,14 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             {/* The per-module chips below (a score, "Rev", or "-") only had
                 their meaning in a hover tooltip - this is the legend for
                 anyone not hovering every single one. */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 bg-white rounded-xl px-4 py-2.5 text-[10px] font-bold text-gray-600">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 bg-surface rounded-xl px-4 py-2.5 text-[10px] font-bold text-gray-600">
               <span className="font-black uppercase tracking-wide text-gray-400">Module chip key:</span>
               <span className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded bg-[#3DDC97]/20 text-[#2A8F62] flex items-center justify-center font-black text-[9px]">4</span>
+                <span className="w-5 h-5 rounded bg-[#3DDC97]/20 text-leaf flex items-center justify-center font-black text-[9px]">4</span>
                 Graded (number = score)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded bg-[#2E9DF7]/20 text-[#1E40AF] flex items-center justify-center font-black text-[9px]">Rev</span>
+                <span className="w-5 h-5 rounded bg-[#2E9DF7]/20 text-navy flex items-center justify-center font-black text-[9px]">Rev</span>
                 Submitted, awaiting review
               </span>
               <span className="flex items-center gap-1.5">
@@ -359,17 +362,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                   : 'N/A';
 
                 return (
-                  <div key={designer.id} className="rounded-[32px] border border-gray-100 shadow-sm overflow-hidden bg-white flex flex-col">
+                  <div key={designer.id} className="rounded-[32px] border border-gray-100 shadow-sm overflow-hidden bg-surface flex flex-col">
                     <div className="relative p-5 pb-12" style={{ background: theme.bg }}>
                       <div
-                        className="w-14 h-14 rounded-full border-4 border-white shadow-md flex items-center justify-center text-white font-black text-sm relative"
+                        className="w-14 h-14 rounded-full border-4 border-surface shadow-md flex items-center justify-center text-white font-black text-sm relative"
                         style={{ background: theme.accent }}
                       >
                         {getInitials(designer.name)}
                       </div>
                     </div>
 
-                    <div className="relative -mt-7 mx-4 mb-4 bg-white rounded-3xl shadow-md p-4 flex-1 flex flex-col gap-4">
+                    <div className="relative -mt-7 mx-4 mb-4 bg-surface rounded-3xl shadow-md p-4 flex-1 flex flex-col gap-4">
                       <div className="flex justify-between items-start gap-2">
                         <div>
                           <h4 className="font-black text-base leading-tight">{designer.name}</h4>
@@ -383,10 +386,39 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
 
                       <button
                         onClick={() => setPendingConfirm({ kind: 'promote', user: designer })}
-                        className="self-start text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-50 px-3 py-1 rounded-full hover:bg-[#E0F2FE] hover:text-[#1E40AF] transition-colors"
+                        className="self-start text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-50 px-3 py-1 rounded-full hover:bg-sky hover:text-navy transition-colors"
                       >
                         Promote to Engineer
                       </button>
+
+                      {lockedCategories.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-wide mb-1.5">Locked categories</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {lockedCategories.map(cat => {
+                              const unlocked = designer.unlockedCategories?.includes(cat.id) ?? false;
+                              return (
+                                <button
+                                  key={cat.id}
+                                  onClick={() => setUserUnlockedCategories(
+                                    designer.id,
+                                    unlocked
+                                      ? (designer.unlockedCategories ?? []).filter(id => id !== cat.id)
+                                      : [...(designer.unlockedCategories ?? []), cat.id],
+                                  )}
+                                  aria-pressed={unlocked}
+                                  title={unlocked ? `${designer.name} can see ${cat.name}. Click to lock again.` : `Unlock ${cat.name} for ${designer.name}`}
+                                  className={`text-[10px] font-bold uppercase tracking-wide px-3 py-1 rounded-full transition-colors ${
+                                    unlocked ? 'bg-[#3DDC97]/20 text-leaf hover:bg-[#3DDC97]/30' : 'bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy'
+                                  }`}
+                                >
+                                  {unlocked ? '🔓' : '🔒'} {cat.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
@@ -406,10 +438,10 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           let badgeColor = 'bg-gray-100 text-gray-400';
                           let scoreText = '-';
                           if (sub?.status === 'graded') {
-                            badgeColor = 'bg-[#3DDC97]/20 text-[#2A8F62]';
+                            badgeColor = 'bg-[#3DDC97]/20 text-leaf';
                             scoreText = grade?.score.toString() || '?';
                           } else if (sub?.status === 'submitted') {
-                            badgeColor = 'bg-[#2E9DF7]/20 text-[#1E40AF]';
+                            badgeColor = 'bg-[#2E9DF7]/20 text-navy';
                             scoreText = 'Rev';
                           }
 
@@ -434,7 +466,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
                 🎬 Engineer Video Tasks
               </h3>
-              <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-[#2A8F62]">
+              <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-leaf">
                 <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
               </span>
             </div>
@@ -446,17 +478,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 const totalCount = assignedTasks.length;
 
                 return (
-                  <div key={engineer.id} className="rounded-[32px] border border-gray-100 shadow-sm overflow-hidden bg-white flex flex-col">
+                  <div key={engineer.id} className="rounded-[32px] border border-gray-100 shadow-sm overflow-hidden bg-surface flex flex-col">
                     <div className="relative p-5 pb-12" style={{ background: theme.bg }}>
                       <div
-                        className="w-14 h-14 rounded-full border-4 border-white shadow-md flex items-center justify-center text-white font-black text-sm relative"
+                        className="w-14 h-14 rounded-full border-4 border-surface shadow-md flex items-center justify-center text-white font-black text-sm relative"
                         style={{ background: theme.accent }}
                       >
                         {getInitials(engineer.name)}
                       </div>
                     </div>
 
-                    <div className="relative -mt-7 mx-4 mb-4 bg-white rounded-3xl shadow-md p-4 flex-1 flex flex-col gap-4">
+                    <div className="relative -mt-7 mx-4 mb-4 bg-surface rounded-3xl shadow-md p-4 flex-1 flex flex-col gap-4">
                       <div className="flex justify-between items-center gap-2">
                         <div>
                           <h4 className="font-black text-base leading-tight">{engineer.name}</h4>
@@ -470,7 +502,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
 
                       <button
                         onClick={() => setPendingConfirm({ kind: 'demote', user: engineer })}
-                        className="self-start text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-50 px-3 py-1 rounded-full hover:bg-[#E0F2FE] hover:text-[#1E40AF] transition-colors"
+                        className="self-start text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-50 px-3 py-1 rounded-full hover:bg-sky hover:text-navy transition-colors"
                       >
                         Move to Designer
                       </button>
@@ -488,8 +520,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                               )}
                             </div>
                             <div className="flex-shrink-0">
-                              {task.status === 'completed' && <span className="bg-[#3DDC97]/20 text-[#2A8F62] px-2.5 py-1 rounded-full text-[10px] font-black uppercase">Completed</span>}
-                              {task.status === 'in_progress' && <span className="bg-[#2E9DF7]/20 text-[#1E40AF] px-2.5 py-1 rounded-full text-[10px] font-black uppercase">In Progress</span>}
+                              {task.status === 'completed' && <span className="bg-[#3DDC97]/20 text-leaf px-2.5 py-1 rounded-full text-[10px] font-black uppercase">Completed</span>}
+                              {task.status === 'in_progress' && <span className="bg-[#2E9DF7]/20 text-navy px-2.5 py-1 rounded-full text-[10px] font-black uppercase">In Progress</span>}
                               {task.status === 'pending' && <span className="bg-gray-200 text-gray-600 px-2.5 py-1 rounded-full text-[10px] font-black uppercase">Pending</span>}
                             </div>
                           </div>
@@ -541,10 +573,10 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 📚 Curriculum Management
               </h3>
               <div className="flex items-center gap-3">
-                <span className="bg-[#E0F2FE] text-[#1E40AF] text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
+                <span className="bg-sky text-navy text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
                   {modules.filter(m => getMissingContentFields(m).length === 0).length} / {modules.length} Complete
                 </span>
-                <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-[#2A8F62]">
+                <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-leaf">
                   <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
                 </span>
                 <button
@@ -555,23 +587,27 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 </button>
               </div>
             </div>
+            <CategoryManager />
             <div className="grid gap-6">
               {modules.sort((a, b) => a.order - b.order).map((mod, i) => {
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
                 const missingFields = getMissingContentFields(mod);
                 return (
-                <div key={mod.id} className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm">
+                <div key={mod.id} className="bg-surface rounded-[32px] p-6 border border-gray-100 shadow-sm">
                   {editingModule === mod.id ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
                           <select
-                            value={editForm.category || 'Onboarding'}
+                            value={editForm.category || sortCategories(categories)[0]?.id || ''}
                             onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                             className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
                           >
-                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            {sortCategories(categories).map(c => <option key={c.id} value={c.id}>{c.name}{c.restricted ? ' (locked)' : ''}</option>)}
+                            {editForm.category && !categories.some(c => c.id === editForm.category) && (
+                              <option value={editForm.category}>{editForm.category} (deleted)</option>
+                            )}
                           </select>
                         </div>
                         <div>
@@ -644,7 +680,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           <p className="text-xs font-black text-gray-500 uppercase">Grading Rubric (sub-skills)</p>
                           <button
                             onClick={addCriterion}
-                            className="bg-[#E0F2FE] text-[#2E9DF7] font-bold uppercase text-[10px] tracking-wide px-3 py-1.5 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors"
+                            className="bg-sky text-[#2E9DF7] font-bold uppercase text-[10px] tracking-wide px-3 py-1.5 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors"
                           >
                             + Add Sub-skill
                           </button>
@@ -668,32 +704,32 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                                 value={criterion.title}
                                 onChange={(e) => patchCriterion(ci, { title: e.target.value })}
                                 placeholder="Title, e.g. DX chain order"
-                                className="flex-1 bg-white rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-[#3DDC97] transition-all"
+                                className="flex-1 bg-surface rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-[#3DDC97] transition-all"
                               />
                               <input
                                 type="text"
                                 value={criterion.scoreLabel || ''}
                                 onChange={(e) => patchCriterion(ci, { scoreLabel: e.target.value })}
                                 placeholder="Column label, e.g. What it looks like on playback"
-                                className="flex-1 bg-white rounded-xl p-2.5 text-xs font-medium focus:ring-2 focus:ring-[#3DDC97] transition-all"
+                                className="flex-1 bg-surface rounded-xl p-2.5 text-xs font-medium focus:ring-2 focus:ring-[#3DDC97] transition-all"
                               />
                               <button
                                 onClick={() => removeCriterion(ci)}
-                                className="flex-shrink-0 text-[10px] font-bold uppercase text-[#C53914] bg-[#FEE2E2] px-2.5 py-2 rounded-full hover:bg-[#F4511E] hover:text-white transition-colors"
+                                className="flex-shrink-0 text-[10px] font-bold uppercase text-ember bg-rose px-2.5 py-2 rounded-full hover:bg-[#F4511E] hover:text-white transition-colors"
                               >
                                 ✕
                               </button>
                             </div>
                             {criterion.levels.map((level, li) => (
                               <div key={li} className="flex gap-2 items-start">
-                                <span className="flex-shrink-0 w-6 h-6 bg-white border-2 border-white shadow-sm rounded-full flex items-center justify-center text-[10px] font-black text-gray-600 mt-1.5">
+                                <span className="flex-shrink-0 w-6 h-6 bg-surface border-2 border-surface shadow-sm rounded-full flex items-center justify-center text-[10px] font-black text-gray-600 mt-1.5">
                                   {li + 1}
                                 </span>
                                 <textarea
                                   value={level}
                                   onChange={(e) => setCriterionLevel(ci, li, e.target.value)}
                                   placeholder={`What a score of ${li + 1} looks like...`}
-                                  className="flex-1 bg-white rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all h-14"
+                                  className="flex-1 bg-surface rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all h-14"
                                 />
                               </div>
                             ))}
@@ -705,17 +741,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             value={rubricPaste}
                             onChange={(e) => { setRubricPaste(e.target.value); setRubricParseError(null); }}
                             placeholder={'Paste from Notion, e.g.:\nRubric (1 = Just Starting · 4 = Strong · 3+ = pass)\nSub-skill 1: DX chain order\nScore\tWhat it looks like in the session\n1\tPlugins in no deliberate order...\n2\t...'}
-                            className={`w-full bg-gray-50 border-2 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24 ${rubricParseError ? 'border-[#C53914]' : ''}`}
+                            className={`w-full bg-gray-50 border-2 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24 ${rubricParseError ? 'border-ember' : ''}`}
                           />
                           <button
                             onClick={handleImportRubric}
                             disabled={!rubricPaste.trim()}
-                            className="mt-2 bg-[#E0F2FE] text-[#1E40AF] font-bold uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors disabled:bg-gray-100 disabled:text-gray-400"
+                            className="mt-2 bg-sky text-navy font-bold uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors disabled:bg-gray-100 disabled:text-gray-400"
                           >
                             Parse & Fill Sub-skills
                           </button>
                           {rubricParseError ? (
-                            <p className="text-[10px] text-[#C53914] font-bold mt-1">{rubricParseError}</p>
+                            <p className="text-[10px] text-ember font-bold mt-1">{rubricParseError}</p>
                           ) : (
                             <p className="text-[10px] text-gray-400 mt-1">Replaces the sub-skills above with what's parsed from the pasted text. Nothing is saved until you hit Save Changes.</p>
                           )}
@@ -775,7 +811,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                               <button
                                 onClick={() => removeMaterial(idx)}
                                 title="Remove material"
-                                className="bg-[#FEE2E2] text-[#C53914] hover:bg-[#F4511E] hover:text-white font-bold px-3 rounded-xl transition-colors"
+                                className="bg-rose text-ember hover:bg-[#F4511E] hover:text-white font-bold px-3 rounded-xl transition-colors"
                               >
                                 ✕
                               </button>
@@ -783,7 +819,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           ))}
                           <button
                             onClick={addMaterial}
-                            className="bg-white border-2 border-dashed border-gray-200 text-gray-500 hover:border-[#2E9DF7] hover:text-[#2E9DF7] font-bold py-2 px-4 rounded-xl transition-colors text-sm"
+                            className="bg-surface border-2 border-dashed border-gray-200 text-gray-500 hover:border-[#2E9DF7] hover:text-[#2E9DF7] font-bold py-2 px-4 rounded-xl transition-colors text-sm"
                           >
                             + Add Material
                           </button>
@@ -848,12 +884,12 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           <div className="flex items-center gap-2 flex-wrap mb-1.5">
                             <h4 className="font-black text-lg leading-tight">{mod.title}</h4>
                             {missingFields.length === 0 ? (
-                              <span className="bg-[#3DDC97]/20 text-[#2A8F62] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0">
+                              <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0">
                                 ✓ Complete
                               </span>
                             ) : (
                               <span
-                                className="bg-[#F4511E]/20 text-[#C53914] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0"
+                                className="bg-[#F4511E]/20 text-ember px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0"
                                 title={`Missing: ${missingFields.join(', ')}`}
                               >
                                 Missing {missingFields.join(', ')}
@@ -874,7 +910,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => requestEditChange(() => handleEditClick(mod))}
-                          className="bg-white border-2 border-[#E0F2FE] text-[#2E9DF7] hover:bg-[#E0F2FE] font-bold py-2 px-4 rounded-xl transition-colors"
+                          className="bg-surface border-2 border-sky text-[#2E9DF7] hover:bg-sky font-bold py-2 px-4 rounded-xl transition-colors"
                         >
                           Edit
                         </button>
@@ -885,7 +921,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             confirm modal below. */}
                         <button
                           onClick={() => handleDeleteModule(mod)}
-                          className="flex-shrink-0 text-gray-400 font-bold text-sm px-3 py-2 rounded-xl hover:text-[#C53914] hover:bg-[#FEE2E2] transition-colors ml-1"
+                          className="flex-shrink-0 text-gray-400 font-bold text-sm px-3 py-2 rounded-xl hover:text-ember hover:bg-rose transition-colors ml-1"
                         >
                           Delete
                         </button>
@@ -899,7 +935,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           </div>
         )}
 
-        <div className="bg-white text-gray-400 text-[11px] font-bold uppercase tracking-wide px-6 py-3 rounded-full flex flex-wrap gap-x-8 gap-y-1 justify-center shadow-sm border border-gray-100">
+        <div className="bg-surface text-gray-400 text-[11px] font-bold uppercase tracking-wide px-6 py-3 rounded-full flex flex-wrap gap-x-8 gap-y-1 justify-center shadow-sm border border-gray-100">
           <span>{designers.length} designers tracked</span>
           <span>{engineers.length} engineers tracked</span>
           <span>{submissions.length} submissions received</span>

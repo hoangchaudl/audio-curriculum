@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { AppState, User, Module, ModuleVideo, Submission, Grade, VideoTask, VideoProgress } from './types';
+import { AppState, User, Category, Module, ModuleVideo, Submission, Grade, VideoTask, VideoProgress } from './types';
+import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
 import { initialData } from './data';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, where, Query } from 'firebase/firestore';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -44,6 +45,12 @@ interface AppContextType extends AppState {
   deleteModule: (moduleId: string) => void;
   upsertModuleVideo: (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title'>) => void;
   deleteModuleVideo: (moduleId: string) => void;
+  updateUserTheme: (theme: 'light' | 'dark') => void;
+  setUserUnlockedCategories: (userId: string, categoryIds: string[]) => void;
+  createCategory: (name: string) => void;
+  updateCategory: (categoryId: string, updates: Partial<Pick<Category, 'name' | 'restricted'>>) => void;
+  moveCategory: (categoryId: string, direction: -1 | 1) => void;
+  deleteCategory: (categoryId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -82,6 +89,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // seed, so it starts empty and is filled in entirely by Firestore listeners.
   const [state, setState] = useState<Omit<AppState, 'currentUser'>>(() => ({
     users: [],
+    categories: initialData.categories,
     modules: initialData.modules,
     moduleVideos: initialData.moduleVideos,
     submissions: [],
@@ -93,6 +101,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [submissionsLoaded, setSubmissionsLoaded] = useState(false);
+  // True once modules/categories actually came from Firestore (not the local
+  // seed fallback) - the admin reconcile below must never write seed data
+  // back over real documents.
+  const [curriculumFromFirestore, setCurriculumFromFirestore] = useState({ modules: false, videos: false, categories: false });
 
   const clearAuthError = () => setAuthError(null);
 
@@ -116,7 +128,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!fbUser) {
         // Signed out: nothing to read, and no session to read it with. Keep
         // showing the local curriculum fallback rather than blanking it.
-        setState(s => ({ ...s, users: [], submissions: [], grades: [], videoTasks: [], videoProgress: [] }));
+        setState(s => ({
+          ...s, users: [], submissions: [], grades: [], videoTasks: [], videoProgress: [],
+          categories: initialData.categories, modules: initialData.modules, moduleVideos: initialData.moduleVideos,
+        }));
+        setCurriculumFromFirestore({ modules: false, videos: false, categories: false });
         setAuthLoading(false);
         setSubmissionsLoaded(false);
         return;
@@ -138,22 +154,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAuthLoading(false);
       }, onError('users')));
 
-      // Modules/moduleVideos: an empty snapshot means nobody has seeded the
-      // curriculum into Firestore yet - keep showing the local fallback
-      // instead of blanking the sidebar until that happens.
-      unsubscribers.push(onSnapshot(collection(db, 'modules'), (snapshot) => {
+      // Categories: same "empty means not seeded yet, keep the local
+      // fallback" behavior as the curriculum listeners below.
+      unsubscribers.push(onSnapshot(collection(db, 'categories'), (snapshot) => {
         if (snapshot.empty) return;
-        const modules: Module[] = [];
-        snapshot.forEach(d => modules.push(d.data() as Module));
-        setState(s => ({ ...s, modules }));
-      }, onError('modules')));
-
-      unsubscribers.push(onSnapshot(collection(db, 'moduleVideos'), (snapshot) => {
-        if (snapshot.empty) return;
-        const moduleVideos: ModuleVideo[] = [];
-        snapshot.forEach(d => moduleVideos.push(d.data() as ModuleVideo));
-        setState(s => ({ ...s, moduleVideos }));
-      }, onError('moduleVideos')));
+        const categories: Category[] = [];
+        snapshot.forEach(d => categories.push(d.data() as Category));
+        setState(s => ({ ...s, categories }));
+        setCurriculumFromFirestore(f => ({ ...f, categories: true }));
+      }, onError('categories')));
 
       unsubscribers.push(onSnapshot(collection(db, 'submissions'), (snapshot) => {
         const submissions: Submission[] = [];
@@ -192,6 +201,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return state.users.find(u => u.id === authUid) ?? null;
   }, [authUid, state.users]);
 
+  // Modules and their videos are read per role, because firestore.rules
+  // won't let a sound designer read a restricted category's documents
+  // (rules aren't filters - an unrestricted collection listener would be
+  // rejected outright). Designers therefore listen to "unrestricted" plus
+  // one query per category an admin unlocked for them; engineers/admins
+  // listen to everything. Re-subscribes whenever the role or unlock list
+  // changes, so an admin's unlock/lock takes effect live.
+  const role = currentUser?.role;
+  const unlockedKey = (currentUser?.unlockedCategories ?? []).join('|');
+  useEffect(() => {
+    if (!authUid || !role) return;
+    const unlocked = unlockedKey ? unlockedKey.split('|') : [];
+
+    const listen = <T extends { id: string }>(
+      name: 'modules' | 'moduleVideos',
+      apply: (rows: T[] | null) => void,
+    ) => {
+      const base = collection(db, name);
+      const sources: Query[] = seesAllCategories(role)
+        ? [base]
+        : [query(base, where('restricted', '==', false)), ...unlocked.map(id => query(base, where('category', '==', id)))];
+      const results = sources.map(() => new Map<string, T>());
+      return sources.map((q, i) => onSnapshot(q, (snapshot) => {
+        results[i] = new Map(snapshot.docs.map(d => [d.id, d.data() as T]));
+        const merged = new Map<string, T>();
+        results.forEach(m => m.forEach((v, k) => merged.set(k, v)));
+        // Nothing in Firestore yet (not seeded, or not yet backfilled with
+        // `restricted` - see the admin reconcile below): keep the local
+        // fallback rather than blanking the curriculum.
+        apply(merged.size ? [...merged.values()] : null);
+      }, (error) => console.error(`Error syncing ${name} from Firestore:`, error)));
+    };
+
+    const unsubs = [
+      ...listen<Module>('modules', rows => {
+        setState(s => ({ ...s, modules: rows ?? initialData.modules }));
+        setCurriculumFromFirestore(f => ({ ...f, modules: !!rows }));
+      }),
+      ...listen<ModuleVideo>('moduleVideos', rows => {
+        setState(s => ({ ...s, moduleVideos: rows ?? initialData.moduleVideos }));
+        setCurriculumFromFirestore(f => ({ ...f, videos: !!rows }));
+      }),
+    ];
+    return () => unsubs.forEach(u => u());
+  }, [authUid, role, unlockedKey]);
+
+  // Defense in depth on top of firestore.rules: also hides locked content
+  // that only exists locally (the seed fallback shown before Firestore
+  // responds), so a designer never sees it even for a moment.
+  const visibleModules = useMemo(
+    () => state.modules.filter(m => canSeeModule(m, state.categories, currentUser)),
+    [state.modules, state.categories, currentUser],
+  );
+  const visibleModuleVideos = useMemo(
+    () => state.moduleVideos.filter(v => visibleModules.some(m => m.id === v.moduleId)),
+    [state.moduleVideos, visibleModules],
+  );
+
+  // Admin-only: keeps each module's (and its video's) denormalized
+  // `category`/`restricted` fields in step with its category, which is what
+  // firestore.rules actually checks. Covers the one-time backfill of
+  // documents created before categories existed, locking/unlocking a
+  // category, and moving a module to another category. Idempotent - only
+  // writes documents that are actually out of date.
+  useEffect(() => {
+    if (role !== 'admin') return;
+    if (!curriculumFromFirestore.modules || !curriculumFromFirestore.categories) return;
+    const batch = writeBatch(db);
+    let writes = 0;
+    state.modules.forEach(m => {
+      const restricted = isRestrictedCategory(state.categories, m.category);
+      if (m.restricted !== restricted) {
+        batch.update(doc(db, 'modules', m.id), { restricted });
+        writes++;
+      }
+    });
+    if (curriculumFromFirestore.videos) {
+      state.moduleVideos.forEach(v => {
+        const mod = state.modules.find(m => m.id === v.moduleId);
+        const category = mod?.category ?? '';
+        const restricted = isRestrictedCategory(state.categories, mod?.category);
+        if (v.restricted !== restricted || (v.category ?? '') !== category) {
+          batch.update(doc(db, 'moduleVideos', v.id), { restricted, category });
+          writes++;
+        }
+      });
+    }
+    if (writes) batch.commit().catch(err => console.error('Error syncing category locks', err));
+  }, [role, curriculumFromFirestore, state.modules, state.moduleVideos, state.categories]);
+
   // One-time curriculum bootstrap: the very first admin to sign in after
   // this collection is empty writes the local module/moduleVideo seed data
   // into Firestore (mirrors the "first signup becomes admin" bootstrap in
@@ -212,6 +311,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     seedIfEmpty('modules', initialData.modules).catch(err => console.error('Error seeding modules', err));
     seedIfEmpty('moduleVideos', initialData.moduleVideos).catch(err => console.error('Error seeding moduleVideos', err));
+    seedIfEmpty('categories', initialData.categories).catch(err => console.error('Error seeding categories', err));
+
+    // Projects that already had an admin before the /config/bootstrap
+    // claim existed: record it now, which closes the "first signup becomes
+    // admin" path for everyone else (see signup() and firestore.rules).
+    const bootstrapRef = doc(db, 'config', 'bootstrap');
+    getDoc(bootstrapRef)
+      .then(snap => {
+        if (cancelled || snap.exists() || !currentUser) return;
+        return setDoc(bootstrapRef, { adminUid: currentUser.id, claimedAt: new Date().toISOString() });
+      })
+      .catch(err => console.error('Error recording admin bootstrap', err));
 
     return () => { cancelled = true; };
   }, [currentUser?.role]);
@@ -242,21 +353,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // createUserWithEmailAndPassword has signed the new user in, not before.
       const credential = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Bootstrap rule: if there were no users in the system yet, the very
-      // first signup becomes admin regardless of what they picked, so the
-      // team always has someone who can administer the platform. After that,
-      // role changes must go through an admin (enforced in firestore.rules).
-      const existing = await getDocs(collection(db, 'users'));
-      const effectiveRole: User['role'] = existing.empty ? 'admin' : role;
-
-      const newUser: User = {
+      // Bootstrap rule: the very first signup becomes admin, so the team
+      // always has someone who can administer the platform. firestore.rules
+      // only allows a self-created admin profile when it's written together
+      // with the one-time /config/bootstrap claim (which can never be
+      // created again) - everyone else can only sign up as a sound
+      // designer, and further role changes must go through an admin.
+      const makeUser = (userRole: User['role']): User => ({
         id: credential.user.uid,
         name,
         email,
-        role: effectiveRole,
-        pod,
+        role: userRole,
+        ...(pod ? { pod } : {}),
         createdAt: new Date().toISOString(),
-      };
+      });
+      const bootstrapRef = doc(db, 'config', 'bootstrap');
+      if (!(await getDoc(bootstrapRef)).exists()) {
+        const admin = makeUser('admin');
+        const batch = writeBatch(db);
+        batch.set(doc(db, 'users', admin.id), admin);
+        batch.set(bootstrapRef, { adminUid: admin.id, claimedAt: admin.createdAt });
+        try {
+          await batch.commit();
+          return true;
+        } catch {
+          // Someone else claimed bootstrap at the same moment - fall
+          // through and sign up as a regular designer instead.
+        }
+      }
+      const newUser = makeUser(role === 'admin' ? 'sound_designer' : role);
       await setDoc(doc(db, 'users', newUser.id), newUser);
       return true;
     } catch (err) {
@@ -461,7 +586,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newModule: Module = {
       id,
       order: nextOrder,
-      category: 'Onboarding',
+      category: [...state.categories].sort((a, b) => a.order - b.order)[0]?.id ?? 'Onboarding',
       title: 'New Module',
       description: '',
     };
@@ -489,7 +614,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser || currentUser.role !== 'admin') return;
     const existing = state.moduleVideos.find(v => v.moduleId === moduleId);
     const videoId = existing?.id || `mv_${moduleId}`;
-    const video: ModuleVideo = { id: videoId, moduleId, ...updates };
+    const category = state.modules.find(m => m.id === moduleId)?.category ?? '';
+    const video: ModuleVideo = { id: videoId, moduleId, ...updates, category, restricted: isRestrictedCategory(state.categories, category) };
     try {
       await setDoc(doc(db, 'moduleVideos', videoId), video);
     } catch (error) {
@@ -508,10 +634,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateUserTheme = async (theme: 'light' | 'dark') => {
+    if (!currentUser) return;
+    try {
+      await setDoc(doc(db, 'users', currentUser.id), { theme }, { merge: true });
+    } catch (error) {
+      console.error('Error saving theme', error);
+    }
+  };
+
+  // Admin-only (also enforced in firestore.rules): which restricted
+  // categories a given user may see.
+  const setUserUnlockedCategories = async (userId: string, categoryIds: string[]) => {
+    if (currentUser?.role !== 'admin') return;
+    try {
+      await setDoc(doc(db, 'users', userId), { unlockedCategories: categoryIds }, { merge: true });
+    } catch (error) {
+      console.error('Error updating unlocked categories', error);
+    }
+  };
+
+  const createCategory = async (name: string) => {
+    if (currentUser?.role !== 'admin' || !name.trim()) return;
+    const id = `cat_${Date.now()}`;
+    const order = state.categories.length ? Math.max(...state.categories.map(c => c.order)) + 1 : 1;
+    try {
+      await setDoc(doc(db, 'categories', id), { id, name: name.trim(), order, restricted: false } satisfies Category);
+    } catch (error) {
+      console.error('Error creating category', error);
+    }
+  };
+
+  // Locking/unlocking only flips the category here; the admin reconcile
+  // effect above then updates every module/video in it.
+  const updateCategory = async (categoryId: string, updates: Partial<Pick<Category, 'name' | 'restricted'>>) => {
+    if (currentUser?.role !== 'admin') return;
+    try {
+      await updateDoc(doc(db, 'categories', categoryId), updates);
+    } catch (error) {
+      console.error('Error updating category', error);
+    }
+  };
+
+  // Swaps order with the neighbouring category in the given direction.
+  const moveCategory = async (categoryId: string, direction: -1 | 1) => {
+    if (currentUser?.role !== 'admin') return;
+    const sorted = [...state.categories].sort((a, b) => a.order - b.order);
+    const i = sorted.findIndex(c => c.id === categoryId);
+    const other = sorted[i + direction];
+    if (i < 0 || !other) return;
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'categories', categoryId), { order: other.order });
+    batch.update(doc(db, 'categories', other.id), { order: sorted[i].order });
+    try {
+      await batch.commit();
+    } catch (error) {
+      console.error('Error reordering categories', error);
+    }
+  };
+
+  // Refuses to delete a category that still has modules, so nothing ends
+  // up orphaned (the UI disables the button in that case too).
+  const deleteCategory = async (categoryId: string) => {
+    if (currentUser?.role !== 'admin') return;
+    if (state.modules.some(m => m.category === categoryId)) return;
+    try {
+      await deleteDoc(doc(db, 'categories', categoryId));
+    } catch (error) {
+      console.error('Error deleting category', error);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
         ...state,
+        modules: visibleModules,
+        moduleVideos: visibleModuleVideos,
         currentUser,
         hasSession: authUid !== null,
         authLoading,
@@ -536,6 +735,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteModule,
         upsertModuleVideo,
         deleteModuleVideo,
+        updateUserTheme,
+        setUserUnlockedCategories,
+        createCategory,
+        updateCategory,
+        moveCategory,
+        deleteCategory,
       }}
     >
       {children}

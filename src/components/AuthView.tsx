@@ -77,38 +77,38 @@ export const AuthView: React.FC = () => {
   const displayError = authError || error;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-[#FDFDFB] p-6 h-screen w-full relative overflow-hidden">
+    <div className="flex-1 flex flex-col items-center justify-center bg-page p-6 h-screen w-full relative overflow-hidden">
       {/* Doraemon-inspired decorative elements */}
       <div className="absolute top-[-100px] left-[-100px] w-96 h-96 bg-[#2E9DF7] rounded-full opacity-10 pointer-events-none"></div>
       <div className="absolute bottom-[-150px] right-[-50px] w-[500px] h-[500px] bg-[#F4511E] rounded-full opacity-10 pointer-events-none"></div>
 
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-10">
-          <div className="w-20 h-20 mx-auto bg-white shadow-xl border-4 border-[#FDFDFB] rounded-full flex items-center justify-center mb-6 relative">
+          <div className="w-20 h-20 mx-auto bg-surface shadow-xl border-4 border-page rounded-full flex items-center justify-center mb-6 relative">
             <div className="w-12 h-12 bg-[#2E9DF7] rounded-full"></div>
-            <div className="absolute -bottom-2 w-8 h-8 bg-[#F4511E] border-4 border-white rounded-full flex items-center justify-center">
+            <div className="absolute -bottom-2 w-8 h-8 bg-[#F4511E] border-4 border-surface rounded-full flex items-center justify-center">
               <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden="true">
                 <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
               </svg>
             </div>
           </div>
           <h1 className="flex flex-col items-center leading-none">
-            <img src="/storyco-wordmark.png" alt="StoryCo" className="h-9 w-auto" />
+            <img src="/storyco-wordmark.png" alt="StoryCo" className="h-9 w-auto dark:invert dark:hue-rotate-180" />
             <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">Audio Training Program</span>
           </h1>
         </div>
 
-        <div className="bg-white rounded-[40px] p-8 shadow-2xl border-4 border-white">
+        <div className="bg-surface rounded-[40px] p-8 shadow-2xl border-4 border-surface">
           {mode !== 'reset' && (
             <div className="flex gap-4 mb-8">
               <button
-                className={`flex-1 font-bold py-3 rounded-2xl transition-all ${mode === 'signin' ? 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:translate-y-[2px] active:shadow-none' : 'bg-[#E0F2FE] text-[#1E40AF] hover:bg-[#2E9DF7]/20'}`}
+                className={`flex-1 font-bold py-3 rounded-2xl transition-all ${mode === 'signin' ? 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:translate-y-[2px] active:shadow-none' : 'bg-sky text-navy hover:bg-[#2E9DF7]/20'}`}
                 onClick={() => switchMode('signin')}
               >
                 Sign In
               </button>
               <button
-                className={`flex-1 font-bold py-3 rounded-2xl transition-all ${mode === 'signup' ? 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:translate-y-[2px] active:shadow-none' : 'bg-[#E0F2FE] text-[#1E40AF] hover:bg-[#2E9DF7]/20'}`}
+                className={`flex-1 font-bold py-3 rounded-2xl transition-all ${mode === 'signup' ? 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:translate-y-[2px] active:shadow-none' : 'bg-sky text-navy hover:bg-[#2E9DF7]/20'}`}
                 onClick={() => switchMode('signup')}
               >
                 Sign Up
@@ -128,7 +128,7 @@ export const AuthView: React.FC = () => {
           )}
 
           {displayError && (
-            <div className="bg-[#FEE2E2] text-[#C53914] px-4 py-3 rounded-2xl text-xs font-bold mb-6 flex items-center gap-2">
+            <div className="bg-rose text-ember px-4 py-3 rounded-2xl text-xs font-bold mb-6 flex items-center gap-2">
               <span className="text-lg">⚠️</span> {displayError}
             </div>
           )}
@@ -136,7 +136,7 @@ export const AuthView: React.FC = () => {
           {mode === 'reset' && resetSent ? (
             <button
               onClick={() => switchMode('signin')}
-              className="w-full bg-[#E0F2FE] text-[#1E40AF] font-bold py-4 rounded-2xl hover:bg-[#2E9DF7]/20 transition-colors text-sm uppercase tracking-wider"
+              className="w-full bg-sky text-navy font-bold py-4 rounded-2xl hover:bg-[#2E9DF7]/20 transition-colors text-sm uppercase tracking-wider"
             >
               Back to Sign In
             </button>

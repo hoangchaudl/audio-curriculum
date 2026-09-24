@@ -18,7 +18,7 @@ export const ConfirmModal: React.FC<{
   if (!open) return null;
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-      <div className="bg-white rounded-[32px] p-8 shadow-2xl border-4 border-white max-w-sm w-full">
+      <div className="bg-surface rounded-[32px] p-8 shadow-2xl border-4 border-surface max-w-sm w-full">
         <h3 className="text-lg font-black text-[#2E9DF7] mb-2">{title}</h3>
         <p className="text-sm text-gray-600 mb-6">{message}</p>
         <div className="flex gap-3">

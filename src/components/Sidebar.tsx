@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
 import { Role } from '../types';
 import { countUnseenGrades, isGradeSeen } from '../notifications';
+import { canSeeModule, sortCategories } from '../access';
+import { useResolvedTheme } from '../theme';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -21,7 +23,17 @@ export const Sidebar: React.FC<{
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }> = ({ selectedModuleId, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
-  const { modules, currentUser, submissions, logout } = useAppContext();
+  const { modules: allModules, categories, currentUser, submissions, logout, updateUserTheme } = useAppContext();
+  // Admins load every module; when previewing as a designer, hide what a
+  // designer without unlocks couldn't see so the preview is realistic.
+  const modules = allModules.filter(m => canSeeModule(m, categories, currentUser, effectiveRole));
+  const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
+  const sections = [
+    ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id).sort(byOrder) })),
+    // Modules whose category was removed still need to be reachable.
+    { key: '__none', title: 'Other', mods: modules.filter(m => !categories.some(c => c.id === m.category)).sort(byOrder) },
+  ].filter(sec => sec.mods.length > 0);
+  const isDark = useResolvedTheme(currentUser) === 'dark';
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +71,7 @@ export const Sidebar: React.FC<{
           aria-hidden="true"
         />
       )}
-      <aside className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-[#2E9DF7] flex flex-col p-4 shadow-xl overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-rail flex flex-col p-4 shadow-xl overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       {/* Decorative "Doraemon" Ring/Collar Detail at bottom */}
       <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#F4511E] rounded-full opacity-20 pointer-events-none"></div>
 
@@ -78,14 +90,14 @@ export const Sidebar: React.FC<{
         >
           <img src="/favicon.png" alt="StoryCo" className="w-10 h-auto rounded-md shadow-md" />
           {unseenGradeCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+            <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-surface shadow-sm">
               {unseenGradeCount}
             </span>
           )}
         </button>
         {!isCollapsed && (
           <h1 className="flex flex-col leading-none">
-            <img src="/storyco-wordmark.png" alt="StoryCo" className="h-4 w-auto self-start" />
+            <img src="/storyco-wordmark.png" alt="StoryCo" className="h-4 w-auto self-start dark:invert dark:hue-rotate-180" />
             <span className="text-[#E0F2FE] text-[9px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
           </h1>
         )}
@@ -95,7 +107,9 @@ export const Sidebar: React.FC<{
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={`${isCollapsed ? '' : 'ml-auto'} hidden lg:flex w-7 h-7 flex-shrink-0 bg-white/20 rounded-full items-center justify-center text-white font-black text-xs hover:bg-white/30 transition-colors`}
           >
-            {collapsed ? '»' : '«'}
+            <svg viewBox="0 0 24 24" className={`w-4 h-4 ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
           </button>
         )}
         <button
@@ -108,23 +122,24 @@ export const Sidebar: React.FC<{
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1 z-10 scrollbar-hide pb-4">
-        {['Onboarding', 'Intermediate', 'Advanced'].map(category => (
-          <div key={category} className="mb-6">
+        {sections.map(({ key, title, mods }) => (
+          <div key={key} className="mb-6">
             {!isCollapsed && (
-              <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">{category}</p>
+              <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">{title}</p>
             )}
             <div className="space-y-2">
-              {modules
-                .filter(m => m.category === category)
-                .sort((a, b) => a.order - b.order)
-                .map((mod) => {
+              {mods.map((mod) => {
                   const isSelected = selectedModuleId === mod.id;
                   // Own submission only matters for a designer's own view -
-                  // for engineers/admins this stays undefined so the "graded
-                  // card" highlight below never fires for someone else's data.
+                  // for engineers/admins this stays undefined so the
+                  // "completed" dimming below never fires for someone
+                  // else's data.
                   const sub = effectiveRole === 'sound_designer'
                     ? submissions.find(s => s.moduleId === mod.id && s.userId === currentUser?.id)
                     : undefined;
+                  // Selected wins over completed, so the module you're on
+                  // is never dimmed.
+                  const isCompleted = !isSelected && sub?.status === 'graded';
 
                   // What the badge shows depends on who's looking: a designer
                   // sees their own status, an engineer sees how many
@@ -132,34 +147,40 @@ export const Sidebar: React.FC<{
                   // their own nonexistent submission), and an admin sees a
                   // real count instead of a single-student status that used
                   // to be meaningless in this view.
+                  const neutralBadge = isSelected ? 'bg-gray-100 text-gray-500' : 'bg-black/10 text-white/90';
                   let statusBadge: React.ReactNode;
                   if (effectiveRole === 'audio_engineer') {
                     const pendingCount = submissions.filter(s => s.moduleId === mod.id && s.status === 'submitted').length;
                     statusBadge = pendingCount > 0 ? (
-                      <span className="bg-[#F4511E]/20 text-[#C53914] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{pendingCount} Pending</span>
+                      <span className="bg-[#F4511E]/20 text-ember px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">{pendingCount} Pending</span>
                     ) : (
-                      <span className={`${isSelected ? 'bg-white text-gray-500' : 'bg-black/10 text-white/90'} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Clear</span>
+                      <span className={`${neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Clear</span>
                     );
                   } else if (effectiveRole === 'admin') {
                     const totalCount = submissions.filter(s => s.moduleId === mod.id).length;
                     statusBadge = (
-                      <span className={`${isSelected ? 'bg-[#2E9DF7]/20 text-[#1E40AF]' : 'bg-white/20 text-white'} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>{totalCount} Submitted</span>
+                      <span className={`${isSelected ? 'bg-[#2E9DF7]/20 text-navy' : 'bg-white/20 text-white'} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>{totalCount} Submitted</span>
                     );
                   } else if (sub?.status === 'graded') {
                     const unseen = currentUser ? !isGradeSeen(currentUser.id, mod.id) : false;
                     statusBadge = (
-                      <span className="inline-flex items-center gap-1 bg-[#3DDC97]/20 text-[#2A8F62] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">
                         {unseen && <span className="w-1.5 h-1.5 rounded-full bg-[#F4511E]" title="New feedback" />}
                         Graded
                       </span>
                     );
                   } else if (sub?.status === 'submitted') {
-                    statusBadge = <span className="bg-[#2E9DF7]/20 text-[#1E40AF] px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Submitted</span>;
+                    statusBadge = <span className="bg-[#2E9DF7]/20 text-navy px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">Submitted</span>;
                   } else {
-                    statusBadge = <span className={`${isSelected ? 'bg-white text-gray-500' : 'bg-black/10 text-white/90'} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Not Started</span>;
+                    statusBadge = <span className={`${neutralBadge} px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0`}>Not Started</span>;
                   }
 
                   const label = mod.label || mod.order.toString().padStart(2, '0');
+                  // Three states: selected = bright white card, completed =
+                  // dimmed, default = standard sidebar item.
+                  const stateClass = isSelected
+                    ? 'theme-light bg-surface text-navy font-bold shadow-md'
+                    : `text-white/80 font-semibold hover:bg-white/10 ${isCompleted ? 'opacity-50 hover:opacity-80' : ''}`;
 
                   if (isCollapsed) {
                     return (
@@ -167,47 +188,9 @@ export const Sidebar: React.FC<{
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
                         title={mod.title}
-                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl border-2 font-black text-sm transition-colors ${
-                          isSelected
-                            ? 'bg-[#E0F2FE] border-white text-[#1E40AF] shadow-inner'
-                            : 'bg-white/10 border-transparent text-white hover:bg-white/20'
-                        }`}
+                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-black text-sm transition-all ${isSelected ? stateClass : `bg-white/10 ${stateClass}`}`}
                       >
                         {label}
-                      </button>
-                    );
-                  }
-
-                  if (isSelected) {
-                    return (
-                      <button
-                        key={mod.id}
-                        onClick={() => setSelectedModuleId(mod.id)}
-                        className="w-full flex items-center justify-between p-3 bg-[#E0F2FE] border-2 border-white rounded-2xl text-[#1E40AF] font-bold shadow-inner"
-                      >
-                        <span className="flex items-center gap-3 text-left">
-                          <span className="bg-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0">
-                            {label}
-                          </span>
-                          <span className="leading-tight">{mod.title}</span>
-                        </span>
-                        {statusBadge}
-                      </button>
-                    );
-                  }
-
-                  if (sub?.status === 'graded') {
-                    return (
-                      <button
-                        key={mod.id}
-                        onClick={() => setSelectedModuleId(mod.id)}
-                        className="w-full flex items-center justify-between p-3 bg-white rounded-2xl text-[#2E9DF7] font-bold shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <span className="flex items-center gap-3 text-left">
-                          <span className="w-6 text-center flex-shrink-0">{label}</span>
-                          <span className="leading-tight">{mod.title}</span>
-                        </span>
-                        {statusBadge}
                       </button>
                     );
                   }
@@ -216,10 +199,13 @@ export const Sidebar: React.FC<{
                     <button
                       key={mod.id}
                       onClick={() => setSelectedModuleId(mod.id)}
-                      className="w-full flex items-center justify-between p-3 text-white/70 font-semibold hover:bg-white/10 rounded-2xl transition-colors"
+                      aria-current={isSelected ? 'page' : undefined}
+                      className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${stateClass}`}
                     >
                       <span className="flex items-center gap-3 text-left">
-                        <span className="w-6 text-center flex-shrink-0">{label}</span>
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${isSelected ? 'bg-sky' : ''}`}>
+                          {label}
+                        </span>
                         <span className="leading-tight">{mod.title}</span>
                       </span>
                       {statusBadge}
@@ -239,9 +225,9 @@ export const Sidebar: React.FC<{
         >
           <div className={`flex items-center gap-3 truncate ${isCollapsed ? 'gap-0' : ''}`}>
             {currentUser?.avatarBase64 ? (
-              <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover flex-shrink-0" />
+              <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-surface shadow-sm object-cover flex-shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-[#F4511E] border-2 border-white shadow-sm flex items-center justify-center text-white font-black flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#F4511E] border-2 border-surface shadow-sm flex items-center justify-center text-white font-black flex-shrink-0">
                 {currentUser?.name.substring(0, 2).toUpperCase()}
               </div>
             )}
@@ -257,7 +243,7 @@ export const Sidebar: React.FC<{
           </div>
 
           {menuOpen && (
-            <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-white p-2 rounded-2xl shadow-xl z-50">
+            <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-surface p-2 rounded-2xl shadow-xl z-50">
                <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-black text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
 
                {/* Admin-only: preview other dashboards without changing your
@@ -271,7 +257,7 @@ export const Sidebar: React.FC<{
                        key={role}
                        onClick={() => { setMenuOpen(false); onChangePreviewRole(role === 'admin' ? null : role); }}
                        className={`text-left px-2 py-1 text-xs font-bold rounded-lg ${
-                         (previewRole ?? 'admin') === role ? 'bg-[#E0F2FE] text-[#1E40AF]' : 'text-gray-700 hover:bg-gray-100'
+                         (previewRole ?? 'admin') === role ? 'bg-sky text-navy' : 'text-gray-700 hover:bg-gray-100'
                        }`}
                      >
                        {ROLE_LABELS[role]}
@@ -279,6 +265,13 @@ export const Sidebar: React.FC<{
                    ))}
                  </>
                )}
+
+               <button
+                 onClick={() => { setMenuOpen(false); updateUserTheme(isDark ? 'light' : 'dark'); }}
+                 className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-t pt-2 mt-1"
+               >
+                 {isDark ? '☀️ Light mode' : '🌙 Dark mode'}
+               </button>
 
                <button onClick={() => { setMenuOpen(false); logout(); }} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-t pt-2 mt-1">Logout</button>
             </div>

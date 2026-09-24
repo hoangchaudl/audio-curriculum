@@ -30,6 +30,23 @@ service cloud.firestore {
       return isSignedIn() && (callerRole() == 'audio_engineer' || callerRole() == 'admin');
     }
 
+    // Restricted categories an admin has unlocked for the caller.
+    function callerUnlocked() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('unlockedCategories', []);
+    }
+
+    // Curriculum documents (modules, moduleVideos) carry their category's
+    // `restricted` flag (kept in sync by the admin client - see store.tsx).
+    // Engineers/admins read everything; everyone else only unrestricted
+    // content plus categories unlocked for them. Documents missing the flag
+    // are treated as locked until an admin's client backfills it.
+    function canReadCurriculum() {
+      return isEngineerOrAdmin() || (isSignedIn() && (
+               resource.data.get('restricted', true) == false ||
+               resource.data.get('category', '') in callerUnlocked()
+             ));
+    }
+
     // --- users ---
     // Anyone signed in can read the roster (needed for dashboards, avatars,
     // "who submitted this" displays). A user may only create/update their
@@ -38,30 +55,65 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
 
+      // New accounts can only create themselves as a sound designer. The
+      // single exception is the very first admin: allowed only when the
+      // one-time /config/bootstrap claim is written in the same batch and
+      // names this user (see store.tsx signup()).
       allow create: if isSignedIn()
                     && request.auth.uid == userId
-                    && request.resource.data.id == userId;
+                    && request.resource.data.id == userId
+                    && !('unlockedCategories' in request.resource.data)
+                    && (request.resource.data.role == 'sound_designer' ||
+                        (request.resource.data.role == 'admin' &&
+                         !exists(/databases/$(database)/documents/config/bootstrap) &&
+                         getAfter(/databases/$(database)/documents/config/bootstrap).data.adminUid == request.auth.uid));
 
+      // Users can edit their own profile (name, avatar, theme...) but not
+      // their role or which restricted categories they're allowed into.
       allow update: if isSignedIn() && (
                       isAdmin() ||
                       (request.auth.uid == userId &&
-                       request.resource.data.role == resource.data.role)
+                       request.resource.data.role == resource.data.role &&
+                       request.resource.data.get('unlockedCategories', []) == resource.data.get('unlockedCategories', []))
                     );
 
       allow delete: if isAdmin();
     }
 
-    // --- modules (curriculum content) ---
-    // Everyone signed in can read the curriculum. Only admins can create,
-    // edit, or delete modules (matches the Admin Dashboard's "Curriculum
-    // Management" tab being admin-only in the UI).
-    match /modules/{moduleId} {
+    // --- config/bootstrap (one-time first-admin claim) ---
+    // Created exactly once: either by the first-ever signup together with
+    // their own admin profile, or by an existing admin (older projects).
+    // Never updated or deleted, so the first-admin path stays closed.
+    match /config/bootstrap {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                    request.resource.data.adminUid == request.auth.uid && (
+                      isAdmin() ||
+                      (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+                    );
+      allow update, delete: if false;
+    }
+
+    // --- categories ---
+    // Everyone signed in can read the category list (sidebar sections);
+    // only admins create, rename, reorder, lock, or delete them.
+    match /categories/{categoryId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
+    // --- modules (curriculum content) ---
+    // Readable per canReadCurriculum() above. Only admins can create,
+    // edit, or delete modules (matches the Admin Dashboard's "Curriculum
+    // Management" tab being admin-only in the UI).
+    match /modules/{moduleId} {
+      allow read: if canReadCurriculum();
+      allow write: if isAdmin();
+    }
+
     match /moduleVideos/{videoId} {
-      allow read: if isSignedIn();
+      allow read: if canReadCurriculum();
       allow write: if isAdmin();
     }
 
