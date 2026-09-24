@@ -44,15 +44,18 @@ export const ProgramOverview: React.FC = () => {
 
   const StageCard: React.FC<{
     title: string; weight: number; weeks: string; published?: boolean; outcome: Outcome; status: string; onOpen?: () => void; children?: React.ReactNode;
-  }> = ({ title, weight, weeks, published, outcome, status, onOpen, children }) => (
+    task?: string; about: string;
+  }> = ({ title, weight, weeks, published, outcome, status, onOpen, children, task, about }) => (
     <div className={`${card} flex flex-col gap-3`}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{weeks}</p>
           <h3 className="text-lg font-black text-gray-800">{title}</h3>
+          {task && <p className="text-xs font-black text-[#2E9DF7] mt-0.5">{task}</p>}
         </div>
         <span className="bg-sky text-navy px-3 py-1 rounded-full text-xs font-black">{weight}%</span>
       </div>
+      <p className="text-xs text-gray-600 leading-relaxed">{about}</p>
       <div className="min-h-8">
         {published ? <OutcomeBadge outcome={outcome} size="lg" /> : (
           <p className="text-xs font-bold text-gray-500">{status}<span className="block text-gray-400 font-medium">Results not published yet</span></p>
@@ -199,10 +202,12 @@ export const ProgramOverview: React.FC = () => {
 
           <div>
             <h3 className={`${sectionTitle} mb-1 px-2`}>How you're graded</h3>
-            <p className="text-xs text-gray-400 font-medium mb-3 px-2">Each stage's share of your final grade. Scores appear here once your coordinator publishes them.</p>
+            <p className="text-sm text-gray-600 font-medium mb-1 px-2">Your final grade combines {stageList.length} stages, each assessing a different part of your progress.</p>
+            <p className="text-xs text-gray-400 font-medium mb-3 px-2">The percentage is each stage's share of your final grade. Scores appear here once your coordinator publishes them.</p>
           <div className={`grid md:grid-cols-2 ${hasDA ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-6`}>
             <StageCard title="Episode A" weight={config.stageWeights.episodeA} weeks={weeksOf(['A'], 'Weeks 1–2')} published={pub?.episodeA}
-              outcome={result.episodeA} status={`${epASubmitted} of ${epA.length} assignments submitted`}>
+              outcome={result.episodeA} status={`${epASubmitted} of ${epA.length} assignments submitted`}
+              about="Your guided practice episode, built step by step through the dialogue, SFX, background and music assignments. This assesses how well you apply the techniques taught in the course.">
               <ul className="space-y-1.5">
                 {epA.map(a => {
                   const o = assignmentOutcome(data, a);
@@ -219,14 +224,19 @@ export const ProgramOverview: React.FC = () => {
                 })}
               </ul>
             </StageCard>
-            <StageCard title="Episode B" weight={config.stageWeights.episodeB} weeks={`${weeksOf(['B'], 'Week 3')} · Final Episode Test`} published={pub?.episodeB}
-              outcome={result.episodeB} status={stageStatus('B')} onOpen={() => go(stageHash('B'))} />
+            <StageCard title="Episode B" weight={config.stageWeights.episodeB} weeks={weeksOf(['B'], 'Week 3')} published={pub?.episodeB}
+              outcome={result.episodeB} status={stageStatus('B')} onOpen={() => go(stageHash('B'))}
+              task="Finish a Full Episode"
+              about="Complete a new episode independently, from dialogue preparation through SFX, backgrounds and music. This assesses whether you can bring the full workflow together." />
             {hasDA && (
               <StageCard title="Audio Description" weight={sw.da} weeks={weeksOf(['DA'], 'DA')} published={pub?.da}
-                outcome={result.da} status={stageStatus('DA')} onOpen={() => go(stageHash('DA'))} />
+                outcome={result.da} status={stageStatus('DA')} onOpen={() => go(stageHash('DA'))}
+                task="Adapt a Session for Audio Description"
+                about="Adapt an existing session for listening without picture. Adjust pacing, pauses and sound transitions so the story remains clear and engaging." />
             )}
             <StageCard title="Pod Trial" weight={config.stageWeights.pod} weeks={weeksOf(['P1', 'P2'], 'Week 4')} published={pub?.pod} outcome={result.pod}
-              status={required === 2 ? `Ep 1: ${stageStatus('P1')} · Ep 2: ${stageStatus('P2')}` : stageStatus('P1')}>
+              status={required === 2 ? `Ep 1: ${stageStatus('P1')} · Ep 2: ${stageStatus('P2')}` : stageStatus('P1')}
+              about={`Complete ${required === 2 ? 'two assigned pod episodes, each' : 'one assigned pod episode,'} 2–3 minutes, with a key sound designer providing QC. This assesses production quality, communication, reliability and your ability to apply feedback.`}>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => go(stageHash('P1'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 1 →</button>
                 {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
