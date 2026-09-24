@@ -11,7 +11,7 @@ import { OutcomeBadge, card, sectionTitle } from './ui';
 import { AssignmentIntro } from './AssignmentIntro';
 
 export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentId }) => {
-  const { assignments, currentUser, modules, exercises } = useAppContext();
+  const { assignments, currentUser, exercises } = useAppContext();
   const data = useTraineeData(currentUser?.id);
   const assignment = assignments.find(a => a.id === assignmentId);
   if (!assignment) return <div className="p-10">Assignment not found</div>;
@@ -46,26 +46,25 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
           <section className={card}>
             <h3 className={`${sectionTitle} mb-1`}>How it's graded</h3>
             <p className="text-xs text-gray-500 mb-4">
-              Your trainer scores this submission from 1 to 5 separately for each part below. Scores appear once the coordinator publishes Episode A.
+              This assignment counts {assignment.weight ?? 0}% of Episode A ({Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade). Your trainer scores it from 1 to 5 separately for each criterion below. Scores appear once the coordinator publishes Episode A.
             </p>
             <ul className="space-y-2">
               {lines.map(l => {
-                const mod = modules.find(m => m.id === l.moduleId);
                 const review = data.reviews.find(r => r.stage === 'A' && r.target === l.id);
                 return (
                   <li key={l.id} className="bg-gray-50 rounded-2xl p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="font-bold text-sm text-gray-800">{l.title}</p>
-                        <p className="text-[11px] text-gray-500 font-bold">{mod?.title} · {l.weight}% of that module</p>
+                        <p className="text-[11px] text-gray-500 font-bold">{l.weight}% of this assignment</p>
                       </div>
-                      {published && <OutcomeBadge outcome={exerciseOutcome(data, l, mod?.title)} />}
+                      {published && <OutcomeBadge outcome={exerciseOutcome(data, l, assignment.title)} />}
                     </div>
                     {published && review?.feedback && <p className="text-xs text-navy bg-sky rounded-xl p-2 mt-2 whitespace-pre-wrap">{review.feedback}</p>}
                   </li>
                 );
               })}
-              {lines.length === 0 && <li className="text-sm text-gray-400">No grading parts set up yet.</li>}
+              {lines.length === 0 && <li className="text-sm text-gray-400">No criteria set up yet.</li>}
             </ul>
             <p className="text-[10px] text-gray-400 mt-3">Scale: {[1, 2, 3, 4, 5].map(n => `${n} ${SCORE_LABELS_5[n]}`).join(' · ')}</p>
           </section>

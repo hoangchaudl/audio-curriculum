@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../../store';
 import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
 import { CRITERIA, REVIEWER_SLOTS, SCORE_LABELS_5, STAGE_SLOTS, allowedScoreKeys, publicationKey } from '../../assessment/config';
-import { episodeAModules, exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
+import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
 import { STAGE_LABELS, card, input, primaryBtn, secondaryBtn } from './ui';
 
 type Status = 'needs-review' | 'draft' | 'done' | 'locked' | 'awaiting-submission' | 'awaiting-complete';
@@ -49,12 +49,11 @@ const useQueue = (): QueueItem[] => {
   return useMemo(() => {
     const uid = currentUser?.id;
     if (!uid) return [];
+    // Criteria of Episode A assignments, in assignment order.
+    const epAIds = assignments.filter(a => a.stage === 'A').map(a => a.id);
     const epAExercises = exercises
-      .filter(e => episodeAModules(modules).some(m => m.id === e.moduleId))
-      .sort((a, b) => {
-        const ma = modules.find(m => m.id === a.moduleId)?.order ?? 0, mb = modules.find(m => m.id === b.moduleId)?.order ?? 0;
-        return ma - mb || a.order - b.order;
-      });
+      .filter(e => !!e.assignmentId && epAIds.includes(e.assignmentId))
+      .sort((a, b) => epAIds.indexOf(a.assignmentId!) - epAIds.indexOf(b.assignmentId!) || a.order - b.order);
     const items: QueueItem[] = [];
     for (const e of enrollments) {
       const held = (Object.entries(e.reviewers) as [ReviewerSlot, string][]).filter(([, holder]) => holder === uid).map(([s]) => s);
@@ -62,13 +61,11 @@ const useQueue = (): QueueItem[] => {
       for (const slot of held) {
         for (const stage of stages.filter(s => STAGE_SLOTS[s].includes(slot))) {
           const own = assessmentSubmissions.filter(s => s.traineeId === e.traineeId);
-          // Episode A: one item per assignment, carrying all its grading
-          // lines (legacy exercises without an assignment stand alone).
+          // Episode A: one item per assignment, carrying all its criteria.
           const groups = stage === 'A'
-            ? [...new Set(epAExercises.map(x => x.assignmentId ?? x.id))].map(key => {
-                const lines = epAExercises.filter(x => (x.assignmentId ?? x.id) === key);
-                const asg = assignments.find(a => a.id === key);
-                const title = asg?.title ?? `${modules.find(m => m.id === lines[0].moduleId)?.title ?? ''} › ${lines[0].title}`;
+            ? [...new Set(epAExercises.map(x => x.assignmentId!))].map(key => {
+                const lines = epAExercises.filter(x => x.assignmentId === key);
+                const title = assignments.find(a => a.id === key)?.title ?? lines[0].title;
                 const versions = [...new Map(lines.flatMap(l => exerciseSubmissions(own, l)).map(v => [v.id, v])).values()].sort((a, b) => a.version - b.version);
                 return { id: key, title, lines, versions };
               })
@@ -132,7 +129,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const keyLabel = (k: string) => {
     if (isA) {
       const l = item.lines.find(x => x.id === k);
-      return `${l?.title ?? 'Part'} · ${modules.find(m => m.id === l?.moduleId)?.title ?? ''} (${l?.weight ?? 0}% of module)`;
+      return `${l?.title ?? 'Criterion'} (${l?.weight ?? 0}% of this assignment)`;
     }
     const w = cells.find(c => c.slot === item.slot && c.criterion === k)?.weight;
     return `${CRITERIA.find(c => c.id === k)?.label} (${w}%)`;

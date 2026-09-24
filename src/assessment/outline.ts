@@ -27,7 +27,7 @@ export const assignmentApplies = (a: Assignment, enrollment: Enrollment | undefi
   a.stage !== 'P2' || (enrollment?.podEpisodesRequired ?? 1) === 2;
 
 export const assignmentLines = (exercises: Exercise[], assignmentId: string) =>
-  exercises.filter(e => e.assignmentId === assignmentId).sort((a, b) => a.moduleId.localeCompare(b.moduleId) || a.order - b.order);
+  exercises.filter(e => e.assignmentId === assignmentId).sort((a, b) => a.order - b.order);
 
 // Where an assignment's submissions live: Episode A assignments are
 // submitted against the assignment id; Episode B / Pod against 'episode'.

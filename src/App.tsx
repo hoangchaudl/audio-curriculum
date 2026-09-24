@@ -239,12 +239,12 @@ const AppContent = () => {
     if (view === 'review') return <ReviewerQueue />;
     if (view === 'assignment') return <AssignmentView key={assignmentId} assignmentId={assignmentId} />;
 
-    // Modules placed in the weekly outline (and the Episode A modules) are
-    // reading content in the program - submissions happen on assignment
-    // pages - for everyone except admins, who manage them from the dashboard.
+    // Modules placed in the weekly outline are reading content in the
+    // program - submissions happen on assignment pages - for everyone
+    // except admins, who manage them from the dashboard.
     const selected = modules.find(m => m.id === selectedModuleId);
     const inOutline = !!programOutline?.weeks.some(w => w.items.some(i => i.kind === 'content' && i.moduleId === selectedModuleId));
-    if (selected && (selected.program === 'episodeA' || inOutline) && effectiveRole !== 'admin' && effectiveRole !== 'audio_engineer') {
+    if (selected && inOutline && effectiveRole !== 'admin' && effectiveRole !== 'audio_engineer') {
       return <ContentPageView moduleId={selectedModuleId} />;
     }
 

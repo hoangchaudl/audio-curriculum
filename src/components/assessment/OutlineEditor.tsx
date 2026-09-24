@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
-import { episodeAModules } from '../../assessment/scoring';
+import { splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentLines, itemDay } from '../../assessment/outline';
 import { ConfirmModal } from '../ConfirmModal';
 import { card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
@@ -9,9 +9,10 @@ import { card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
 const uid = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 // `input` is full-width; the per-item day/week pickers stay compact.
 const smallSelect = 'bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-[#2E9DF7]';
+const round = (n: number) => Math.round(n * 100) / 100;
 const dayOption = (d: number) => `Day ${d} · ${DAY_NAMES[d - 1]}`;
 const STAGE_OPTIONS: { id: AssessmentStage; label: string }[] = [
-  { id: 'A', label: 'Episode A (scored per skill)' },
+  { id: 'A', label: 'Episode A – scored on its criteria' },
   { id: 'B', label: 'Episode B – final episode test' },
   { id: 'P1', label: 'Pod Trial – episode 1' },
   { id: 'P2', label: 'Pod Trial – episode 2 (only if 2 required)' },
@@ -25,10 +26,14 @@ const AssignmentForm: React.FC<{
   onSave: (a: Assignment, lines: Exercise[]) => Promise<void>;
   onCancel: () => void;
 }> = ({ initial, initialLines, onSave, onCancel }) => {
-  const { modules } = useAppContext();
-  const epA = episodeAModules(modules);
+  const { assignments, assessmentConfig } = useAppContext();
   const [a, setA] = useState(initial);
-  const [lines, setLines] = useState(initialLines);
+  // A new Episode A assignment starts with one criterion worth 100%.
+  const [lines, setLines] = useState(initialLines.length || initial.stage !== 'A' ? initialLines
+    : [{ id: uid('ex'), assignmentId: initial.id, title: '', order: 1, weight: 100 }]);
+  const othersWeight = assignments.filter(x => x.stage === 'A' && x.id !== a.id).reduce((t, x) => t + (x.weight ?? 0), 0);
+  const lineTotal = lines.reduce((t, l) => t + l.weight, 0);
+  const linesOk = Math.abs(lineTotal - 100) < 0.01;
   const [busy, setBusy] = useState(false);
   const setLine = (i: number, patch: Partial<Exercise>) => setLines(ls => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
 
@@ -58,37 +63,53 @@ const AssignmentForm: React.FC<{
         <button type="button" onClick={() => setA({ ...a, materials: [...a.materials, { label: 'Materials', url: '' }] })} className={secondaryBtn}>+ Materials link</button>
       </div>
 
-      {a.stage === 'A' && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase text-gray-500">Scores reviewers give (each is one 1–5 grade)</p>
-          {lines.length > 0 && (
-            <div className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 text-[10px] font-bold uppercase text-gray-400 px-1">
-              <span>Counts toward skill</span><span>Score (what's judged)</span><span>Share of skill</span><span className="w-6" />
+      {a.stage === 'A' ? (
+        <div className="bg-surface rounded-2xl p-4 space-y-3">
+          <p className="text-[10px] font-black uppercase text-gray-500">How it's graded</p>
+          <label className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-700">
+            Counts
+            <input type="number" min={0} step="0.5" value={a.weight ?? 0} onChange={e => setA({ ...a, weight: Number(e.target.value) })}
+              aria-label="Weight in Episode A" className="w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-bold" />
+            % of Episode A
+            <span className="text-xs font-bold text-gray-400">= {round(((a.weight ?? 0) * assessmentConfig.stageWeights.episodeA) / 100)}% of the final grade · other Episode A assignments use {round(othersWeight)}%, so {round(100 - othersWeight)}% is left</span>
+          </label>
+
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-gray-500">Criteria - each is one 1–5 score the trainer gives for this submission</p>
+            {lines.map((l, i) => (
+              <div key={l.id} className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
+                <input value={l.title} onChange={e => setLine(i, { title: e.target.value })} placeholder="What's judged, e.g. Workflow" aria-label="Criterion name"
+                  className={`${input} ${l.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
+                <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                  <input type="number" min={0} step="0.01" value={l.weight} onChange={e => setLine(i, { weight: Number(e.target.value) })} aria-label="Share of assignment" className={input} />%
+                </label>
+                <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove criterion">✕</button>
+              </div>
+            ))}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setLines(ls => [...ls, { id: uid('ex'), assignmentId: a.id, title: '', order: ls.length + 1, weight: ls.length ? 0 : 100 }])} className={secondaryBtn}>+ Criterion</button>
+                {lines.length > 1 && (
+                  <button type="button" onClick={() => { const sh = splitEvenly(lines.length); setLines(ls => ls.map((l, i) => ({ ...l, weight: sh[i] }))); }} className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
+                )}
+              </div>
+              {lines.length > 0 && (
+                <span className={`text-xs font-black ${linesOk ? 'text-leaf' : 'text-ember'}`}>{linesOk ? '✓ ' : ''}Criteria total {round(lineTotal)}%</span>
+              )}
             </div>
-          )}
-          {lines.map((l, i) => (
-            <div key={l.id} className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 items-center">
-              <select value={l.moduleId} onChange={e => setLine(i, { moduleId: e.target.value })} aria-label="Counts toward skill" className={`${input} bg-surface`}>
-                {epA.map((m, n) => <option key={m.id} value={m.id}>Skill {n + 1}. {m.title || '(no name)'}</option>)}
-              </select>
-              <input value={l.title} onChange={e => setLine(i, { title: e.target.value })} placeholder="e.g. SFX" aria-label="Score name" className={`${input} bg-surface ${l.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
-              <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
-                <input type="number" min={0} step="0.01" value={l.weight} onChange={e => setLine(i, { weight: Number(e.target.value) })} aria-label="Share of skill" className={`${input} bg-surface`} />%
-              </label>
-              <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove score">✕</button>
-            </div>
-          ))}
-          <button type="button" disabled={!epA.length} onClick={() => setLines(ls => [...ls, {
-            id: uid('ex'), moduleId: epA[0].id, assignmentId: a.id, title: '', order: ls.length + 1, weight: 0,
-          }])} className={secondaryBtn}>+ Score</button>
-          <p className="text-[10px] text-gray-400">Add one score per thing reviewers judge separately (e.g. Workflow and Dialogue). Share = how much it counts inside its skill; a skill's scores should total 100% - see the "Grading" tab, which also has "Split equally".</p>
+          </div>
         </div>
+      ) : (
+        <p className="text-xs text-gray-500 bg-surface rounded-2xl p-3">
+          Graded with the {a.stage === 'B' ? 'Episode B' : 'Pod Trial'} reviewer table - see the <b>Grade formula</b> tab.
+        </p>
       )}
 
       <div className="flex gap-2">
-        <button disabled={busy || !a.title.trim() || (a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())))} onClick={async () => {
+        <button disabled={busy || !a.title.trim() || (a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())))}
+          title={a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())) ? 'Give every criterion a name' : undefined} onClick={async () => {
           setBusy(true);
-          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()) }, lines.map(l => ({ ...l, title: l.title.trim() }))); } finally { setBusy(false); }
+          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()) }, lines.map((l, i) => ({ ...l, title: l.title.trim(), order: i + 1 }))); } finally { setBusy(false); }
         }} className={primaryBtn}>Save assignment</button>
         <button onClick={onCancel} className={secondaryBtn}>Cancel</button>
       </div>
@@ -99,7 +120,7 @@ const AssignmentForm: React.FC<{
 // --- Outline editor -------------------------------------------------------------
 
 export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void }> = ({ onEditModule }) => {
-  const { programOutline, modules, assignments, exercises, saveOutline, saveAssignment, deleteAssignment } = useAppContext();
+  const { programOutline, modules, assignments, exercises, assessmentConfig, saveOutline, saveAssignment, deleteAssignment } = useAppContext();
   const [editing, setEditing] = useState<string | null>(null); // assignment item id being edited
   // The day slot the admin clicked "+ Add" on, and what they're adding there.
   const [adding, setAdding] = useState<{ weekId: string; day: number; kind?: 'content' | 'assignment' | 'milestone' } | null>(null);
@@ -125,6 +146,27 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
       if (asg) saveWith(saveAssignment({ ...asg, dueDay: day }, assignmentLines(exercises, asg.id)));
     } else updateItem(weekId, it.id, { day });
   };
+  // Swap with the neighbour on the same day - the order trainees see.
+  const moveWithinDay = (week: OutlineWeek, it: OutlineItem, dir: -1 | 1) => {
+    const sameDay = week.items.filter(x => itemDay(x, assignments) === itemDay(it, assignments));
+    const other = sameDay[sameDay.findIndex(x => x.id === it.id) + dir];
+    if (!other) return;
+    const items = [...week.items];
+    const i = items.findIndex(x => x.id === it.id), j = items.findIndex(x => x.id === other.id);
+    [items[i], items[j]] = [items[j], items[i]];
+    save(outline.weeks.map(w => (w.id === week.id ? { ...w, items } : w)));
+  };
+  // "Counts 40% of Episode A → 8% of final · Workflow 50% · Dialogue 50%"
+  const gradingSummary = (asg: Assignment) => {
+    const w = assessmentConfig.stageWeights;
+    if (asg.stage !== 'A') {
+      const share = asg.stage === 'B' ? w.episodeB : w.pod;
+      return `${asg.stage === 'B' ? 'Episode B' : 'Pod Trial'} · ${share}% of the final grade${asg.stage !== 'B' ? ' (shared by the pod episodes)' : ''}`;
+    }
+    const criteria = assignmentLines(exercises, asg.id);
+    return `Counts ${asg.weight ?? 0}% of Episode A → ${round(((asg.weight ?? 0) * w.episodeA) / 100)}% of final`
+      + (criteria.length ? ` · ${criteria.map(c => `${c.title || '(no name)'} ${c.weight}%`).join(' · ')}` : ' · ⚠ no criteria yet');
+  };
   const addItem = (weekId: string, item: OutlineItem) =>
     save(outline.weeks.map(w => (w.id === weekId ? { ...w, items: [...w.items, item] } : w)));
   const removeItem = (weekId: string, itemId: string) =>
@@ -139,8 +181,8 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500 px-2">
-        Each week is laid out day by day - put content, assignments and milestones on the day they happen. Trainees see the same order in their sidebar and on My Program.
-        Day 1 is the trainee's start day{' '}(Mon if they start on a Monday).
+        Each week is laid out day by day - put content, assignments and milestones on the day they happen, and use ▲▼ to order things within a day.
+        Trainees see exactly this order in their sidebar. Grading lives on each assignment (click Edit). Day 1 is the trainee's start day (Mon if they start on a Monday).
       </p>
       {outline.weeks.map((week, wi) => {
         const byDay = (d: number) => week.items.filter(it => itemDay(it, assignments) === d);
@@ -169,18 +211,24 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
                     <p className="text-[10px] font-bold uppercase text-gray-400">{DAY_NAMES[day - 1]}</p>
                   </div>
                   <div className="space-y-2 min-w-0">
-                    {items.map(it => {
+                    {items.map((it, ii) => {
                       const asg = it.kind === 'assignment' ? assignments.find(a => a.id === it.assignmentId) : undefined;
                       return (
                         <div key={it.id} className={`rounded-2xl p-2 pl-3 ${it.kind === 'assignment' ? 'bg-[#F4511E]/10' : it.kind === 'milestone' ? 'bg-[#3DDC97]/10' : 'bg-gray-50'}`}>
                           <div className="flex flex-wrap items-center gap-2">
+                            {items.length > 1 && (
+                              <div className="flex flex-col">
+                                <button onClick={() => moveWithinDay(week, it, -1)} disabled={ii === 0} aria-label="Move earlier in the day" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▲</button>
+                                <button onClick={() => moveWithinDay(week, it, 1)} disabled={ii === items.length - 1} aria-label="Move later in the day" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▼</button>
+                              </div>
+                            )}
                             <span className="text-lg" aria-hidden="true">{it.kind === 'content' ? '📖' : it.kind === 'assignment' ? '📝' : '🏁'}</span>
                             <div className="flex-1 min-w-[140px]">
                               <p className="text-sm font-bold text-gray-800 truncate">{itemTitle(it)}</p>
                               <p className="text-[10px] font-bold uppercase text-gray-400">
-                                {it.kind === 'content' ? 'Content' : it.kind === 'milestone' ? 'Milestone'
-                                  : `Assignment · due this day · ${STAGE_OPTIONS.find(o => o.id === asg?.stage)?.label ?? ''}`}
+                                {it.kind === 'content' ? 'Content' : it.kind === 'milestone' ? 'Milestone' : 'Assignment · due this day'}
                               </p>
+                              {asg && <p className={`text-[11px] font-bold mt-0.5 ${asg.stage === 'A' && !assignmentLines(exercises, asg.id).length ? 'text-ember' : 'text-gray-600'}`}>{gradingSummary(asg)}</p>}
                             </div>
                             <select value={day} onChange={e => setDay(week.id, it, Number(e.target.value))} aria-label="Move to day" className={smallSelect}>
                               {[1, 2, 3, 4, 5, 6, 7].map(d => <option key={d} value={d}>Day {d} · {DAY_NAMES[d - 1]}</option>)}

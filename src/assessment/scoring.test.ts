@@ -3,11 +3,11 @@ import {
   AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, CriterionId, Enrollment, ReviewerSlot,
 } from '../types';
 import {
-  DEFAULT_ASSESSMENT_CONFIG as CONFIG, EPISODE_A_EXERCISES, EPISODE_A_MODULES, allowedScoreKeys, reviewId, submissionId,
+  DEFAULT_ASSESSMENT_CONFIG as CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, allowedScoreKeys, reviewId, submissionId,
 } from './config';
 import {
-  TraineeData, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, moduleOutcome, outcomeLabel,
-  podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, skillNumber,
+  TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
+  podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -40,41 +40,31 @@ const fullTableReviews = (stage: 'B' | 'P1' | 'P2', score: AssessmentScore, subI
     Object.fromEntries(allowedScoreKeys(stage, slot).map(k => [k, score])), subId));
 
 const data = (overrides: Partial<TraineeData> = {}): TraineeData => ({
-  config: CONFIG, modules: EPISODE_A_MODULES, exercises: EPISODE_A_EXERCISES,
+  config: CONFIG, assignments: DEFAULT_ASSIGNMENTS, exercises: DEFAULT_CRITERIA,
   enrollment: enrollment(), submissions: [], reviews: [], ...overrides,
 });
 
 // Episode A fully submitted and graded, with a per-exercise score.
 // Submissions are per assignment; each grading line (exercise) gets its own review.
 const gradedEpisodeA = (scoreFor: (exerciseId: string) => AssessmentScore) => {
-  const assignmentIds = [...new Set(EPISODE_A_EXERCISES.map(e => e.assignmentId!))];
+  const assignmentIds = [...new Set(DEFAULT_CRITERIA.map(e => e.assignmentId!))];
   const submissions = assignmentIds.map(a => sub('A', a, 1));
-  const reviews = EPISODE_A_EXERCISES.map(e => review('A', e.id, 'trainer', { exercise: scoreFor(e.id) }, submissionId(T, 'A', e.assignmentId!, 1)));
+  const reviews = DEFAULT_CRITERIA.map(e => review('A', e.id, 'trainer', { exercise: scoreFor(e.id) }, submissionId(T, 'A', e.assignmentId!, 1)));
   return { submissions, reviews };
 };
 
 // --- Episode A ---------------------------------------------------------------
 
-describe('Episode A: dynamic exercises and weights', () => {
-  it('seeds 1, 1, 3 and 2 grading lines and line weights total 100 per module', () => {
-    const counts = EPISODE_A_MODULES.map(m => EPISODE_A_EXERCISES.filter(e => e.moduleId === m.id).length);
-    expect(counts).toEqual([1, 1, 3, 2]);
-    for (const m of EPISODE_A_MODULES) {
-      const total = EPISODE_A_EXERCISES.filter(e => e.moduleId === m.id).reduce((s, e) => s + e.weight, 0);
+describe('Episode A: assignments, criteria and weights', () => {
+  it('seeds assignment weights 40/10/20/30 and criteria that total 100% each', () => {
+    const epA = DEFAULT_ASSIGNMENTS.filter(a => a.stage === 'A');
+    expect(epA.map(a => a.weight)).toEqual([40, 10, 20, 30]);
+    for (const a of epA) {
+      const total = DEFAULT_CRITERIA.filter(e => e.assignmentId === a.id).reduce((s, e) => s + e.weight, 0);
       expect(total).toBeCloseTo(100, 6);
     }
-  });
-
-  it('module weights are 20/20/30/30 and every default weight group totals 100%', () => {
-    expect(EPISODE_A_MODULES.map(m => m.episodeAWeight)).toEqual([20, 20, 30, 30]);
-    expect(weightIssues(CONFIG, EPISODE_A_MODULES, EPISODE_A_EXERCISES)).toEqual([]);
-  });
-
-  it('flags exercise weights that do not total 100%', () => {
-    const skewed = EPISODE_A_EXERCISES.map(e => (e.id === 'epA_m3_ex1' ? { ...e, weight: 50 } : e));
-    expect(weightIssues(CONFIG, EPISODE_A_MODULES, skewed)).toEqual([
-      { scope: 'SFX & Ambience exercises', total: expect.closeTo(116.67, 2) },
-    ]);
+    expect(weightIssues(CONFIG)).toEqual([]);
+    expect(gradingProblems(CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA)).toEqual([]);
   });
 
   it('splits shares evenly to exactly 100', () => {
@@ -84,49 +74,44 @@ describe('Episode A: dynamic exercises and weights', () => {
     expect(splitEvenly(0)).toEqual([]);
   });
 
-  it('numbers skills by order, ignoring free-text labels', () => {
-    const relabeled = EPISODE_A_MODULES.map(m => ({ ...m, label: '6' }));
-    expect(relabeled.map(m => skillNumber(relabeled, m.id))).toEqual([1, 2, 3, 4]);
-  });
-
   it('reports grading setup problems in plain words', () => {
-    expect(gradingProblems(CONFIG, EPISODE_A_MODULES, EPISODE_A_EXERCISES)).toEqual([]);
-    const extra = { ...EPISODE_A_MODULES[0], id: 'epA_m6', order: 6, title: ' ', episodeAWeight: 0 };
-    const unnamed = EPISODE_A_EXERCISES.map(e => (e.id === 'epA_m1_ex1' ? { ...e, title: '' } : e));
-    const problems = gradingProblems(CONFIG, [...EPISODE_A_MODULES, extra], unnamed);
-    expect(problems).toEqual([
-      expect.stringContaining('has a score with no name'),
-      'Skill 5 has no name.',
-      expect.stringContaining('Skill 5 has no scores'),
+    const extra = { id: 'asg_x', stage: 'A' as const, title: 'Extra', materials: [], weight: 0 };
+    const skewed = DEFAULT_CRITERIA.map(e => (e.id === 'epA_m1_ex1' ? { ...e, title: '', weight: 70 } : e));
+    expect(gradingProblems(CONFIG, [...DEFAULT_ASSIGNMENTS, extra], skewed)).toEqual([
+      '"Week 1 assignment: dialogue session": criteria shares add up to 120% instead of 100%.',
+      expect.stringContaining('has a criterion with no name'),
+      expect.stringContaining('"Extra" has no criteria'),
     ]);
+    const heavier = DEFAULT_ASSIGNMENTS.map(a => (a.id === 'asg_w1' ? { ...a, weight: 50 } : a));
+    expect(gradingProblems(CONFIG, heavier, DEFAULT_CRITERIA)).toEqual(['Episode A assignment weights add up to 110% instead of 100%.']);
   });
 
-  it('rolls exercise scores up by their weights into the module score', () => {
-    const exercises = EPISODE_A_EXERCISES.map(e =>
-      e.moduleId === 'epA_m3' ? { ...e, weight: ({ epA_m3_ex1: 50, epA_m3_ex2: 30, epA_m3_ex3: 20 } as Record<string, number>)[e.id] } : e);
-    const scores: Record<string, AssessmentScore> = { epA_m3_ex1: 5, epA_m3_ex2: 3, epA_m3_ex3: 2 };
+  it('rolls criterion scores up by their shares into the assignment score', () => {
+    const exercises = DEFAULT_CRITERIA.map(e =>
+      e.assignmentId === 'asg_w2b' ? { ...e, weight: ({ epA_m3_ex2: 70, epA_m3_ex3: 30 } as Record<string, number>)[e.id] } : e);
+    const scores: Record<string, AssessmentScore> = { epA_m3_ex2: 5, epA_m3_ex3: 2 };
     const d = data({ exercises, ...gradedEpisodeA(id => scores[id] ?? 4) });
-    // 0.5*5 + 0.3*3 + 0.2*2 = 3.8
-    expect(moduleOutcome(d, EPISODE_A_MODULES[2])).toEqual({ status: 'scored', value: expect.closeTo(3.8, 10) });
+    // 0.7*5 + 0.3*2 = 4.1
+    expect(assignmentOutcome(d, DEFAULT_ASSIGNMENTS.find(a => a.id === 'asg_w2b')!)).toEqual({ status: 'scored', value: expect.closeTo(4.1, 10) });
   });
 
-  it('combines module scores with the 20/20/30/30 module weights', () => {
-    const byModule: Record<string, AssessmentScore> = { epA_m1: 5, epA_m2: 4, epA_m3: 3, epA_m4: 2 };
-    const d = data(gradedEpisodeA(id => byModule[id.split('_ex')[0]]));
-    // 0.2*5 + 0.2*4 + 0.3*3 + 0.3*2 = 3.3
-    expect(episodeAOutcome(d)).toEqual({ status: 'scored', value: expect.closeTo(3.3, 10) });
+  it('combines assignment scores with their Episode A weights', () => {
+    const byAssignment: Record<string, AssessmentScore> = { asg_w1: 5, asg_w2a: 4, asg_w2b: 3, asg_w3a: 2 };
+    const d = data(gradedEpisodeA(id => byAssignment[DEFAULT_CRITERIA.find(e => e.id === id)!.assignmentId!]));
+    // 0.4*5 + 0.1*4 + 0.2*3 + 0.3*2 = 3.6
+    expect(episodeAOutcome(d)).toEqual({ status: 'scored', value: expect.closeTo(3.6, 10) });
   });
 
-  it('a module is incomplete until every one of its exercises is graded', () => {
+  it('an assignment is incomplete until every one of its criteria is graded', () => {
     const { submissions, reviews } = gradedEpisodeA(() => 4);
     const d = data({ submissions, reviews: reviews.filter(r => r.target !== 'epA_m4_ex2') });
-    const music = moduleOutcome(d, EPISODE_A_MODULES[3]);
-    expect(music).toEqual({ status: 'awaiting', reason: 'assessment', missing: ['Music Editing › Music editing – part 2'] });
+    const music = assignmentOutcome(d, DEFAULT_ASSIGNMENTS.find(a => a.id === 'asg_w3a')!);
+    expect(music).toEqual({ status: 'awaiting', reason: 'assessment', missing: ['Week 3 – 1st assignment: music editing › Music editing – part 2'] });
     expect(episodeAOutcome(d).status).toBe('awaiting');
   });
 
   it('uses the trainer-selected revision and keeps earlier versions', () => {
-    const ex = EPISODE_A_EXERCISES[0];
+    const ex = DEFAULT_CRITERIA[0];
     const v1 = sub('A', ex.assignmentId!, 1), v2 = sub('A', ex.assignmentId!, 2);
     const d = data({ submissions: [v1, v2], reviews: [review('A', ex.id, 'trainer', { exercise: 5 }, v2.id)] });
     expect(exerciseOutcome(d, ex)).toEqual({ status: 'scored', value: 5 });
@@ -134,15 +119,14 @@ describe('Episode A: dynamic exercises and weights', () => {
   });
 
   it('ignores a grade pointing at a submission for another assignment', () => {
-    const a = EPISODE_A_EXERCISES.find(e => e.assignmentId === 'asg_w1')!;
+    const a = DEFAULT_CRITERIA.find(e => e.assignmentId === 'asg_w1')!;
     const d = data({ submissions: [sub('A', 'asg_w1', 1), sub('A', 'asg_w2a', 1)], reviews: [review('A', a.id, 'trainer', { exercise: 5 }, submissionId(T, 'A', 'asg_w2a', 1))] });
     expect(exerciseOutcome(d, a)).toMatchObject({ status: 'awaiting', reason: 'assessment' });
   });
 
-  it('one assignment submission is graded separately for each module it covers', () => {
-    // Week 1 covers Workflow (Module 1) and Dialogue (Module 2).
-    const [workflow, dialogue] = EPISODE_A_EXERCISES.filter(e => e.assignmentId === 'asg_w1');
-    expect([workflow.moduleId, dialogue.moduleId]).toEqual(['epA_m1', 'epA_m2']);
+  it('one assignment submission is graded separately for each criterion', () => {
+    // Week 1 is scored for Workflow and Dialogue.
+    const [workflow, dialogue] = DEFAULT_CRITERIA.filter(e => e.assignmentId === 'asg_w1');
     const s = sub('A', 'asg_w1', 1);
     const d = data({ submissions: [s], reviews: [
       review('A', workflow.id, 'trainer', { exercise: 5 }, s.id),
@@ -150,19 +134,18 @@ describe('Episode A: dynamic exercises and weights', () => {
     ] });
     expect(exerciseOutcome(d, workflow)).toEqual({ status: 'scored', value: 5 });
     expect(exerciseOutcome(d, dialogue)).toEqual({ status: 'scored', value: 2 });
-    expect(moduleOutcome(d, EPISODE_A_MODULES[0])).toEqual({ status: 'scored', value: 5 });
-    expect(moduleOutcome(d, EPISODE_A_MODULES[1])).toEqual({ status: 'scored', value: 2 });
+    expect(assignmentOutcome(d, DEFAULT_ASSIGNMENTS.find(a => a.id === 'asg_w1')!)).toEqual({ status: 'scored', value: 3.5 });
   });
 
   it('still counts submissions made directly against an exercise (before assignments)', () => {
-    const ex = EPISODE_A_EXERCISES[0];
+    const ex = DEFAULT_CRITERIA[0];
     const legacy = sub('A', ex.id, 1);
     const d = data({ submissions: [legacy], reviews: [review('A', ex.id, 'trainer', { exercise: 3 }, legacy.id)] });
     expect(exerciseOutcome(d, ex)).toEqual({ status: 'scored', value: 3 });
   });
 
   it('draft reviews do not count', () => {
-    const ex = EPISODE_A_EXERCISES[0];
+    const ex = DEFAULT_CRITERIA[0];
     const d = data({ submissions: [sub('A', ex.assignmentId!, 1)], reviews: [review('A', ex.id, 'trainer', { exercise: 4 }, submissionId(T, 'A', ex.assignmentId!, 1), 'draft')] });
     expect(exerciseOutcome(d, ex)).toMatchObject({ status: 'awaiting', reason: 'assessment' });
   });
@@ -344,16 +327,21 @@ describe('Final grade', () => {
   });
 
   it('judges the benchmark on the displayed 2-decimal score (33.33% weights)', () => {
-    // SFX exercises weighted 33.33/33.33/33.34 scored 5/4/3 compute 3.9999, shown as 4.00.
-    const scores: Record<string, AssessmentScore> = { epA_m3_ex1: 5, epA_m3_ex2: 4, epA_m3_ex3: 3 };
-    const d = data(gradedEpisodeA(id => scores[id] ?? 4));
-    const sfx = moduleOutcome(d, EPISODE_A_MODULES[2]);
-    expect(sfx.status === 'scored' && sfx.value).toBeLessThan(4);
-    expect(outcomeLabel(sfx)).toBe('4.00');
+    // One Episode A assignment with criteria 33.33/33.33/33.34 scored 5/4/3 computes 3.9999, shown as 4.00.
+    const only = { ...DEFAULT_ASSIGNMENTS[0], weight: 100 };
+    const assignments = [only, ...DEFAULT_ASSIGNMENTS.filter(a => a.stage !== 'A')];
+    const exercises = [['c1', 33.33], ['c2', 33.33], ['c3', 33.34]].map(([id, weight], i) => ({ id: id as string, assignmentId: only.id, title: id as string, order: i + 1, weight: weight as number }));
+    const scores: Record<string, AssessmentScore> = { c1: 5, c2: 4, c3: 3 };
+    const s1 = sub('A', only.id, 1);
+    const epA = { submissions: [s1], reviews: exercises.map(e => review('A', e.id, 'trainer', { exercise: scores[e.id] }, s1.id)) };
+    const d = data({ assignments, exercises, ...epA });
+    const asgScore = assignmentOutcome(d, only);
+    expect(asgScore.status === 'scored' && asgScore.value).toBeLessThan(4);
+    expect(outcomeLabel(asgScore)).toBe('4.00');
     // A final that computes just under the benchmark but displays at it passes.
     const sb = sub('B', 'episode', 1), sp = sub('P1', 'episode', 1);
-    const epA = gradedEpisodeA(id => scores[id] ?? 4); // Episode A = 3.99997
     const r = finalResult(data({
+      assignments, exercises,
       config: { ...CONFIG, passThreshold: 3.2 },
       submissions: [...epA.submissions, sb, sp],
       reviews: [...epA.reviews, ...fullTableReviews('B', 3, sb.id, ['trainer', 'engineer']), ...fullTableReviews('P1', 3, sp.id, ALL_SLOTS)],

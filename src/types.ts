@@ -67,10 +67,10 @@ export interface Module {
   homeworkLink?: string;
   homeworkDescription?: string;
   additionalMaterials?: Resource[];
-  // --- Assessment program (new 4-week program) ---
-  // Set on the Episode A modules only; legacy modules leave these unset.
+  // --- Legacy "skill" modules (before grading moved onto assignments) ---
+  // Only read by convertSkillGrading (assessment/migrate.ts), which turns
+  // them into assignment weights and deletes them.
   program?: 'episodeA';
-  // This module's share of Episode A, in percent (the four sum to 100).
   episodeAWeight?: number;
   // Mixed-media content shown instead of (or alongside) a video. A module
   // never requires a video.
@@ -150,25 +150,26 @@ export type ReviewerSlot = 'trainer' | 'engineer' | 'keySoundDesigner' | 'produc
 // P1/P2 = first/second Pod Trial episode.
 export type AssessmentStage = 'A' | 'B' | 'P1' | 'P2';
 
-// One exercise inside an Episode A module - a module has any number.
-// `weight` is the exercise's share of its module, in percent.
+// One criterion of an Episode A assignment: a 1-5 score its trainer gives
+// (e.g. Week 1 is scored for Workflow AND Dialogue). `weight` is its share
+// of the assignment, in percent. Stored in the `exercises` collection.
 export interface Exercise {
   id: string;
-  moduleId: string;
+  // Legacy skill module it belonged to; unused since grading moved onto
+  // assignments.
+  moduleId?: string;
   title: string;
   instructions?: string;
   order: number;
   weight: number;
-  // The assignment trainees submit for this grading line. One assignment
-  // can carry several lines (e.g. Week 1 is graded for Workflow AND
-  // Dialogue - one score each). Unset = legacy: submitted per exercise.
+  // The assignment it scores. Unset = legacy exercise that isn't graded.
   assignmentId?: string;
 }
 
-// Something trainees submit, placed in a week of the program outline.
-// Episode A assignments are graded through their linked exercises (one
-// score per module line); B/P1/P2 assignments are the Episode B test and
-// the Pod Trial episodes.
+// Something trainees submit, placed on a day of the program outline.
+// Episode A assignments are scored on their criteria (`exercises`) and
+// weighted within Episode A; B/P1/P2 are the Episode B test and the Pod
+// Trial episodes, scored with the reviewer tables in AssessmentConfig.
 export interface Assignment {
   id: string;
   title: string;
@@ -177,6 +178,8 @@ export interface Assignment {
   materials: { label: string; url: string }[];
   // Day of the program week it's due (1 = first day of that week).
   dueDay?: number;
+  // Episode A only: this assignment's share of Episode A, in percent.
+  weight?: number;
 }
 
 export type OutlineItem =

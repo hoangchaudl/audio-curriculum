@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
-import { ContentBlock, Enrollment, Exercise, ReviewerSlot, Role, User } from '../../types';
-import { REVIEWER_SLOTS } from '../../assessment/config';
-import { episodeAModules, finalResult, gradingProblems, outcomeLabel, splitEvenly } from '../../assessment/scoring';
+import { Assignment, CellWeight, ContentBlock, Enrollment, ReviewerSlot, Role, User } from '../../types';
+import { CRITERIA, REVIEWER_SLOTS } from '../../assessment/config';
+import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, splitEvenly } from '../../assessment/scoring';
+import { assignmentWeek } from '../../assessment/outline';
+import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
 import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
@@ -15,7 +17,7 @@ type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'bri
 const TAB_GROUPS: { label: string; tabs: { id: Tab; label: string }[] }[] = [
   { label: 'Set up', tabs: [
     { id: 'outline', label: 'Program outline' },
-    { id: 'structure', label: 'Grading' },
+    { id: 'structure', label: 'Grade formula' },
     { id: 'briefs', label: 'Episode B & Pod briefs' },
   ] },
   { label: 'People', tabs: [
@@ -157,176 +159,180 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
   );
 };
 
-// --- Grading (Episode A skills and their scores) --------------------------------
-// The one place Episode A skills are named, ordered, weighted and deleted.
-// A skill is an Episode A module; each score is one 1-5 grade a reviewer
-// gives, coming from an assignment (an `Exercise` in the data model).
+// --- Grade formula ---------------------------------------------------------------
+// Every number that turns reviewer scores into the final grade, in one place:
+// stage weights + benchmark, each Episode A assignment's weight, and the
+// Episode B / Pod reviewer tables. Criteria are edited on the assignment.
 
-const uidEx = () => `ex_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const TotalChip: React.FC<{ total: number; label: string }> = ({ total, label }) => {
+  const ok = Math.abs(total - 100) < 0.01;
+  return <span className={`text-xs font-black ${ok ? 'text-leaf' : 'text-ember'}`}>{ok ? '✓ ' : ''}{label} {round2(total)}%</span>;
+};
+const numInput = 'w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-bold';
 
-const ScoreRow: React.FC<{ exercise: Exercise; hasSubmissions: boolean }> = ({ exercise, hasSubmissions }) => {
-  const { assignments, upsertExercise, deleteExercise } = useAppContext();
-  const [showInstructions, setShowInstructions] = useState(!!exercise.instructions);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const save = (patch: Partial<Exercise>) => saveWith(upsertExercise({ ...exercise, ...patch }));
-  const from = assignments.find(a => a.id === exercise.assignmentId)?.title;
+const ReviewerTable: React.FC<{ title: string; cells: CellWeight[]; onSave: (cells: CellWeight[]) => Promise<void> }> = ({ title, cells, onSave }) => {
+  const slots = REVIEWER_SLOTS.filter(r => cells.some(c => c.slot === r.id));
+  const criteria = CRITERIA.filter(k => cells.some(c => c.criterion === k.id));
   return (
-    <div className="bg-gray-50 rounded-2xl p-3 space-y-2">
-      <div className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 items-center">
-        {/* Blank names are refused: the field snaps back instead of saving. */}
-        <input defaultValue={exercise.title} key={exercise.title} placeholder="What's judged, e.g. SFX" aria-label="Score name"
-          onBlur={e => {
-            const v = e.target.value.trim();
-            if (!v) { e.target.value = exercise.title; return; }
-            if (v !== exercise.title) save({ title: v });
-          }}
-          className={`${input} bg-surface ${exercise.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
-        <span className="text-xs font-bold text-gray-500 truncate" title={from}>{from ?? 'Not linked to an assignment'}</span>
-        <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
-          <input type="number" min={0} step="0.01" defaultValue={exercise.weight} key={exercise.weight} aria-label="Share of skill"
-            onBlur={e => Number(e.target.value) !== exercise.weight && save({ weight: Number(e.target.value) })}
-            className={`${input} bg-surface`} />%
-        </label>
-        <button onClick={() => setConfirmDelete(true)} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Delete score">✕</button>
+    <div className={card}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h4 className="font-black text-gray-800">{title}</h4>
+        <TotalChip total={cells.reduce((t, c) => t + c.weight, 0)} label="Table total" />
       </div>
-      {showInstructions ? (
-        <textarea defaultValue={exercise.instructions ?? ''} key={exercise.instructions ?? ''} placeholder="Instructions for the trainee (Markdown)"
-          onBlur={e => e.target.value !== (exercise.instructions ?? '') && save({ instructions: e.target.value })}
-          className={`${input} bg-surface h-16`} />
-      ) : (
-        <button onClick={() => setShowInstructions(true)} className="text-[10px] font-bold uppercase text-gray-400 hover:text-[#2E9DF7] ml-1">+ Instructions for the trainee</button>
-      )}
-      <ConfirmModal
-        open={confirmDelete}
-        title={`Delete the score "${exercise.title || 'unnamed'}"?`}
-        message={hasSubmissions ? 'Trainees already submitted work for this score. Their submissions are kept, but it will no longer count toward the skill.' : 'This removes the score from the skill.'}
-        confirmLabel="Delete"
-        onConfirm={() => { saveWith(deleteExercise(exercise.id)); setConfirmDelete(false); }}
-        onCancel={() => setConfirmDelete(false)}
-      />
+      <p className="text-xs text-gray-500 mb-3">Each cell is how much one reviewer's score on one criterion counts toward this stage.</p>
+      <div className="overflow-x-auto">
+        <table className="text-sm">
+          <thead><tr><th />{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}</tr></thead>
+          <tbody>
+            {criteria.map(k => (
+              <tr key={k.id}>
+                <td className="text-xs font-bold text-gray-700 pr-3 py-1">{k.label}</td>
+                {slots.map(r => {
+                  const cell = cells.find(c => c.slot === r.id && c.criterion === k.id);
+                  return (
+                    <td key={r.id} className="px-2 py-1">
+                      {cell ? (
+                        <span className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                          <input type="number" min={0} step="0.5" defaultValue={cell.weight} key={cell.weight} aria-label={`${r.label} – ${k.label}`}
+                            onBlur={e => Number(e.target.value) !== cell.weight && saveWith(onSave(cells.map(c => (c === cell ? { ...c, weight: Number(e.target.value) } : c))))}
+                            className={numInput} />%
+                        </span>
+                      ) : <span className="text-gray-300">–</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
 
-const AddScore: React.FC<{ moduleId: string; nextOrder: number; remaining: number }> = ({ moduleId, nextOrder, remaining }) => {
-  const { assignments, upsertExercise } = useAppContext();
-  const options = assignments.filter(a => a.stage === 'A');
-  const [assignmentId, setAssignmentId] = useState('');
-  const [title, setTitle] = useState('');
-  const add = async () => {
-    const ok = await saveWith(upsertExercise({ id: uidEx(), moduleId, assignmentId, title: title.trim(), order: nextOrder, weight: Math.max(0, Math.round(remaining * 100) / 100) }));
-    if (ok) { setTitle(''); setAssignmentId(''); }
-  };
-  if (!options.length) return <p className="text-[10px] text-gray-400">Create an Episode A assignment in "Program outline" first.</p>;
-  return (
-    <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
-      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="New score, e.g. SFX" aria-label="New score name" className={`${input} bg-surface`} />
-      <select value={assignmentId} onChange={e => setAssignmentId(e.target.value)} aria-label="Comes from assignment" className={`${input} bg-surface`}>
-        <option value="">From which assignment?</option>
-        {options.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
-      </select>
-      <button disabled={!title.trim() || !assignmentId} onClick={add} className={secondaryBtn}>+ Score</button>
-    </div>
+const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutline }) => {
+  const { assignments, exercises, programOutline, assessmentConfig: config, updateAssessmentConfig, updateAssignment } = useAppContext();
+  const w = config.stageWeights;
+  const epA = episodeAAssignments(assignments);
+  const epATotal = epA.reduce((t, a) => t + (a.weight ?? 0), 0);
+  const stage = (key: keyof typeof w, label: string) => (
+    <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+      {label}
+      <input type="number" min={0} step="1" defaultValue={w[key]} key={w[key]} aria-label={`${label} share of final grade`}
+        onBlur={e => Number(e.target.value) !== w[key] && saveWith(updateAssessmentConfig({ stageWeights: { ...w, [key]: Number(e.target.value) } }))}
+        className={numInput} />%
+    </label>
   );
-};
-
-const GradingTab: React.FC = () => {
-  const { modules, exercises, assessmentSubmissions, assessmentConfig, upsertExercise, setModuleWeight, updateModule, deleteModule, programOutline, saveOutline } = useAppContext();
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const mods = episodeAModules(modules);
-  if (!mods.length) return <p className={`${card} text-sm text-gray-500`}>Set up the assessment program first (button above).</p>;
-  const epAShare = assessmentConfig.stageWeights.episodeA;
-  const skillTotal = mods.reduce((s, m) => s + (m.episodeAWeight ?? 0), 0);
-  const round = (n: number) => Math.round(n * 100) / 100;
-  // Swap order values with the neighbour (both writes, one toast).
-  const move = (i: number, dir: -1 | 1) => {
-    const a = mods[i], b = mods[i + dir];
-    if (b) saveWith(Promise.all([updateModule(a.id, { order: b.order }), updateModule(b.id, { order: a.order })]));
+  const where = (a: Assignment) => {
+    const week = assignmentWeek(programOutline, a.id);
+    return week ? `Week ${week} · Day ${a.dueDay ?? 7}` : 'Not in the outline';
   };
-  const toDelete = mods.find(m => m.id === pendingDelete);
   return (
     <div className="space-y-4">
-      <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
-        <p className="text-sm text-gray-600 max-w-2xl">
-          <b>Episode A is {epAShare}% of the final grade.</b> It's made of the skills below, and each skill is made of <b>scores</b>. A score is one 1–5 grade a reviewer gives, based on one assignment.
-        </p>
-        <span className={`text-xs font-black ${Math.abs(skillTotal - 100) < 0.01 ? 'text-leaf' : 'text-ember'}`}>Skills total {round(skillTotal)}% of Episode A</span>
+      <div className={card}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h4 className="font-black text-gray-800">Final grade</h4>
+          <TotalChip total={w.episodeA + w.episodeB + w.pod} label="Stages total" />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          {stage('episodeA', 'Episode A')}
+          {stage('episodeB', 'Episode B')}
+          {stage('pod', 'Pod Trial')}
+          <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+            Benchmark
+            <input type="number" min={1} max={5} step="0.1" defaultValue={config.passThreshold} key={config.passThreshold} aria-label="Benchmark score"
+              onBlur={e => Number(e.target.value) !== config.passThreshold && saveWith(updateAssessmentConfig({ passThreshold: Number(e.target.value) }))}
+              className={numInput} />/ 5
+          </label>
+        </div>
       </div>
-      {mods.map((m, i) => {
-        const ex = exercises.filter(e => e.moduleId === m.id).sort((a, b) => a.order - b.order);
-        const total = ex.reduce((s, e) => s + e.weight, 0);
-        const weight = m.episodeAWeight ?? 0;
-        return (
-          <div key={m.id} className={`${card} ${ex.length === 0 || !m.title.trim() ? 'ring-2 ring-[#F4511E]' : ''}`}>
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col">
-                <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move skill up" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▲</button>
-                <button onClick={() => move(i, 1)} disabled={i === mods.length - 1} aria-label="Move skill down" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▼</button>
-              </div>
-              <span className="font-black text-gray-800 whitespace-nowrap">Skill {i + 1}</span>
-              <input defaultValue={m.title} key={m.title} placeholder="Name this skill" aria-label="Skill name"
-                onBlur={e => {
-                  const v = e.target.value.trim();
-                  if (!v) { e.target.value = m.title; return; }
-                  if (v !== m.title) saveWith(updateModule(m.id, { title: v }));
-                }}
-                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                className={`${input} flex-1 min-w-0 font-black ${m.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
-              <button onClick={() => setPendingDelete(m.id)} disabled={ex.length > 0}
-                title={ex.length > 0 ? 'Delete its scores first' : 'Delete this skill'}
-                className="text-xs font-bold text-gray-400 hover:text-ember disabled:opacity-30 disabled:hover:text-gray-400 whitespace-nowrap">Delete skill</button>
-            </div>
-            <label className="flex flex-wrap items-center gap-2 text-xs font-bold text-gray-500 mt-2 mb-4 ml-9">
-              Share of Episode A
-              <input type="number" min={0} step="0.5" defaultValue={weight} key={weight} aria-label="Share of Episode A"
-                onBlur={e => Number(e.target.value) !== weight && saveWith(setModuleWeight(m.id, Number(e.target.value)))}
-                className="w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-medium" />%
-              <span className="text-gray-400">= {round(weight * epAShare / 100)}% of the final grade</span>
-            </label>
 
-            {ex.length > 0 ? (
-              <div className="space-y-2">
-                <div className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 text-[10px] font-bold uppercase text-gray-400 px-3">
-                  <span>Score</span><span>From assignment</span><span>Share of skill</span><span className="w-6" />
-                </div>
-                {ex.map(e => <ScoreRow key={e.id} exercise={e} hasSubmissions={assessmentSubmissions.some(s => s.stage === 'A' && s.target === e.id)} />)}
-              </div>
-            ) : (
-              <p className="text-sm font-bold text-ember mb-2">No scores yet, so no trainee can finish Episode A. Add a score below, or delete this skill.</p>
+      <div className={card}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <h4 className="font-black text-gray-800">Episode A - assignment weights</h4>
+          <div className="flex items-center gap-3">
+            {epA.length > 1 && (
+              <button onClick={() => { const sh = splitEvenly(epA.length); saveWith(Promise.all(epA.map((a, i) => updateAssignment(a.id, { weight: sh[i] })))); }}
+                className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
             )}
-
-            <div className="mt-3 space-y-2">
-              <AddScore moduleId={m.id} nextOrder={ex.length + 1} remaining={100 - total} />
-              <div className="flex items-center justify-between gap-2">
-                {ex.length > 1 ? (
-                  <button onClick={() => { const shares = splitEvenly(ex.length); saveWith(Promise.all(ex.map((e, j) => upsertExercise({ ...e, weight: shares[j] })))); }}
-                    className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
-                ) : <span />}
-                {ex.length > 0 && (
-                  <span className={`text-xs font-black ${Math.abs(total - 100) < 0.01 ? 'text-leaf' : 'text-ember'}`}>
-                    {Math.abs(total - 100) < 0.01 ? '✓ ' : ''}Scores total {round(total)}%
-                  </span>
-                )}
-              </div>
-            </div>
+            <TotalChip total={epATotal} label="Assignments total" />
           </div>
-        );
-      })}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Episode A is {w.episodeA}% of the final grade. Each assignment's score comes from its criteria - edit those on the assignment in{' '}
+          <button onClick={onOpenOutline} className="font-bold text-[#2E9DF7] hover:underline">Program outline</button>.
+        </p>
+        {epA.length === 0 ? <p className="text-sm text-gray-400">No Episode A assignments yet - add one on a day in Program outline.</p> : (
+          <div className="space-y-2">
+            {epA.map(a => {
+              const criteria = assignmentCriteria(exercises, a.id);
+              return (
+                <div key={a.id} className="bg-gray-50 rounded-2xl p-3 flex flex-wrap items-center gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-sm font-bold text-gray-800">📝 {a.title}</p>
+                    <p className="text-[11px] font-bold text-gray-400">
+                      {where(a)} · {criteria.length ? criteria.map(c => `${c.title || '(no name)'} ${c.weight}%`).join(' · ') : <span className="text-ember">no criteria yet</span>}
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                    <input type="number" min={0} step="0.5" defaultValue={a.weight ?? 0} key={a.weight ?? 0} aria-label={`${a.title} weight in Episode A`}
+                      onBlur={e => Number(e.target.value) !== (a.weight ?? 0) && saveWith(updateAssignment(a.id, { weight: Number(e.target.value) }))}
+                      className={numInput} />% of Episode A
+                  </label>
+                  <span className="text-[11px] font-bold text-gray-400 w-28 text-right">= {round2(((a.weight ?? 0) * w.episodeA) / 100)}% of final</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <ReviewerTable title={`Episode B reviewer table (${w.episodeB}% of final)`} cells={config.episodeBCells} onSave={cells => updateAssessmentConfig({ episodeBCells: cells })} />
+      <ReviewerTable title={`Pod Trial reviewer table (${w.pod}% of final)`} cells={config.podCells} onSave={cells => updateAssessmentConfig({ podCells: cells })} />
+    </div>
+  );
+};
+
+// --- One-time conversion off the old skill modules -----------------------------
+
+const ConvertSkillsCard: React.FC = () => {
+  const { modules, moduleVideos, assignments, exercises, convertToAssignmentGrading } = useAppContext();
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const skills = legacySkills(modules);
+  if (!skills.length) return null;
+  const preview = convertSkillGrading(modules, assignments, exercises);
+  return (
+    <div className="bg-sky rounded-[32px] p-6 space-y-3">
+      <h4 className="font-black text-navy">Grading now lives on your assignments</h4>
+      <p className="text-sm text-navy max-w-3xl">
+        Convert once to move off the {skills.length} old skill module{skills.length === 1 ? '' : 's'} ({skills.map(m => m.title || '(no name)').join(', ')}).
+        Every trainee's Episode A score stays exactly the same. The skill modules are then deleted, including their pages in the weekly outline.
+      </p>
+      <div className="bg-surface rounded-2xl p-4 overflow-x-auto">
+        <table className="text-sm w-full">
+          <thead><tr className="text-[10px] font-black uppercase text-gray-400 text-left"><th className="pb-2">Assignment</th><th className="pb-2">Weight in Episode A</th><th className="pb-2">Criteria</th></tr></thead>
+          <tbody>
+            {preview.assignments.map(a => (
+              <tr key={a.id} className="border-t border-gray-100">
+                <td className="py-2 pr-3 font-bold text-gray-800">{a.title}</td>
+                <td className="py-2 pr-3 font-black text-navy">{a.weight}%</td>
+                <td className="py-2 text-xs text-gray-600">{preview.criteria.filter(c => c.assignmentId === a.id).map(c => `${c.title} ${c.weight}`).join(' · ') || <span className="text-ember font-bold">none - add criteria after converting</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button disabled={busy} onClick={() => setConfirm(true)} className={primaryBtn}>{busy ? 'Converting…' : 'Convert and delete the skill modules'}</button>
       <ConfirmModal
-        open={!!toDelete}
-        title={`Delete ${toDelete?.title.trim() ? `"${toDelete.title}"` : 'this skill'}?`}
-        message="The skill is removed from Episode A and from the curriculum. Give its share to the other skills afterwards so they total 100%."
-        confirmLabel="Delete"
+        open={confirm}
+        title="Convert grading and delete the skill modules?"
+        message={`Assignments get the weights shown above, and ${skills.length} skill module${skills.length === 1 ? ' is' : 's are'} deleted. Submissions and reviews are kept. This can't be undone from the app.`}
+        confirmLabel="Convert"
         danger
-        onConfirm={() => {
-          if (toDelete) {
-            // Also take it out of the weekly outline so no "(missing module)" row is left behind.
-            const outline = programOutline && { ...programOutline, weeks: programOutline.weeks.map(w => ({ ...w, items: w.items.filter(it => !(it.kind === 'content' && it.moduleId === toDelete.id)) })) };
-            saveWith(Promise.all([deleteModule(toDelete.id), ...(outline ? [saveOutline(outline)] : [])]));
-          }
-          setPendingDelete(null);
-        }}
-        onCancel={() => setPendingDelete(null)}
+        onConfirm={async () => { setConfirm(false); setBusy(true); try { await saveWith(convertToAssignmentGrading(modules, moduleVideos)); } finally { setBusy(false); } }}
+        onCancel={() => setConfirm(false)}
       />
     </div>
   );
@@ -460,11 +466,13 @@ const PeopleTab: React.FC = () => {
 // --- Tab shell ------------------------------------------------------------------
 
 export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => void }> = ({ onEditModule }) => {
-  const { users, enrollments, modules, exercises, assessmentConfig, assessmentConfigSaved, setupAssessmentProgram, programOutline } = useAppContext();
+  const { users, enrollments, modules, assignments, exercises, assessmentConfig, assessmentConfigSaved, setupAssessmentProgram, programOutline } = useAppContext();
   const [tab, setTab] = useState<Tab>('outline');
   const [setupBusy, setSetupBusy] = useState(false);
-  const needsSetup = !assessmentConfigSaved || episodeAModules(modules).length === 0 || !programOutline;
-  const problems = gradingProblems(assessmentConfig, modules, exercises);
+  const needsSetup = !assessmentConfigSaved || !programOutline;
+  // Before the one-time conversion the old data trips every check, and
+  // converting fixes it - so only the conversion card shows until then.
+  const problems = legacySkills(modules).length ? [] : gradingProblems(assessmentConfig, assignments, exercises);
   const trainees = users.filter(u => u.role === 'sound_designer').sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -474,8 +482,8 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
           <div>
             <h4 className="font-black text-gray-800">Set up the assessment program</h4>
             <p className="text-xs text-gray-500 max-w-xl">
-              Creates the Episode A skills (weights 20/20/30/30), the default Week 1–4 outline with its assignments and scores, and the grading
-              weights. If you ran setup before, existing scores are kept and linked to the new assignments. Nothing that already exists is overwritten.
+              Creates the default Week 1–4 outline with its assignments (Episode A weights 40/10/20/30) and their criteria, and the grade formula.
+              Nothing that already exists is overwritten.
             </p>
           </div>
           <button disabled={setupBusy} onClick={async () => { setSetupBusy(true); try { await setupAssessmentProgram(); } finally { setSetupBusy(false); } }} className={primaryBtn}>
@@ -483,13 +491,14 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
           </button>
         </div>
       )}
+      <ConvertSkillsCard />
       {problems.length > 0 && (
         <div className="bg-rose rounded-[32px] p-5 flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase text-ember mb-1">⚠ {problems.length} problem{problems.length === 1 ? '' : 's'} with grading</p>
             <ul className="text-sm text-ember font-bold list-disc pl-5 space-y-0.5">{problems.map(p => <li key={p}>{p}</li>)}</ul>
           </div>
-          {tab !== 'structure' && <button onClick={() => setTab('structure')} className={primaryBtn}>Fix in Grading</button>}
+          {tab !== 'structure' && <button onClick={() => setTab('structure')} className={primaryBtn}>Open Grade formula</button>}
         </div>
       )}
 
@@ -521,7 +530,7 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
         </div>
       )}
       {tab === 'outline' && <OutlineEditor onEditModule={onEditModule} />}
-      {tab === 'structure' && <GradingTab />}
+      {tab === 'structure' && <GradeFormulaTab onOpenOutline={() => setTab('outline')} />}
       {tab === 'briefs' && <BriefsTab />}
       {tab === 'people' && <PeopleTab />}
     </div>
