@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
-import { ContentBlock, Enrollment, Exercise, ReviewerSlot } from '../../types';
+import { ContentBlock, Enrollment, Exercise, ReviewerSlot, Role, User } from '../../types';
 import { REVIEWER_SLOTS } from '../../assessment/config';
 import { episodeAModules, finalResult, outcomeLabel, weightIssues } from '../../assessment/scoring';
 import { useTraineeData } from '../../assessment/traineeData';
@@ -8,12 +8,13 @@ import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { BenchmarkChip, OutcomeBadge, card, input, primaryBtn, secondaryBtn, sectionTitle } from './ui';
 
-type Tab = 'tracking' | 'enrollment' | 'structure' | 'briefs';
+type Tab = 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'tracking', label: 'Tracking & publishing' },
   { id: 'enrollment', label: 'Enrollment & reviewers' },
   { id: 'structure', label: 'Episode A structure' },
   { id: 'briefs', label: 'Episode B & Pod briefs' },
+  { id: 'people', label: 'People & roles' },
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -142,6 +143,7 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
       </div>
       <p className="text-[10px] text-gray-400 mt-2">
         Assign the actual accounts. Trainer scores Episode A, B and Pod; Audio Engineer scores B and Pod; Key Sound Designer and Producer score Pod only (Producer: SFX & Music).
+        Set producers and key sound designers to the Reviewer role first on "People & roles".
       </p>
     </div>
   );
@@ -243,6 +245,101 @@ const BriefsTab: React.FC = () => {
   );
 };
 
+// --- People & roles --------------------------------------------------------------
+
+const ROLE_OPTIONS: { id: Role; label: string; help: string }[] = [
+  { id: 'sound_designer', label: 'Sound Designer (trainee)', help: 'Can be enrolled and submit work.' },
+  { id: 'reviewer', label: 'Reviewer', help: 'Producer / Key Sound Designer: reviews only what they are assigned. Not a trainee.' },
+  { id: 'audio_engineer', label: 'Audio Engineer', help: 'Can be assigned as Audio Engineer; sees the full curriculum and legacy grading.' },
+  { id: 'admin', label: 'Admin', help: 'Full access: curriculum, enrollment, reviewer assignment and publishing.' },
+];
+const roleLabel = (role: Role) => ROLE_OPTIONS.find(o => o.id === role)?.label ?? role;
+
+const PeopleTab: React.FC = () => {
+  const { users, currentUser, enrollments, updateUserRole } = useAppContext();
+  const [drafts, setDrafts] = useState<Record<string, Role>>({});
+  const [pending, setPending] = useState<{ user: User; role: Role } | null>(null);
+  const [filter, setFilter] = useState('');
+  const sorted = [...users]
+    .filter(u => `${u.name} ${u.email}`.toLowerCase().includes(filter.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Warnings that matter before the change goes through.
+  const warning = (user: User, role: Role) => {
+    if (role === 'admin') return `${user.name} will get full admin access, including publishing results and changing everyone's roles.`;
+    if (user.role === 'sound_designer' && enrollments.some(e => e.id === user.id)) {
+      return `${user.name} is enrolled as a trainee. As ${roleLabel(role)} they'll no longer see the trainee program pages (their enrollment and submissions are kept).`;
+    }
+    if (user.role === 'admin') return `${user.name} will lose admin access.`;
+    return `${user.name} will become ${roleLabel(role)}.`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className={card}>
+        <h4 className={`${sectionTitle} mb-1`}>Account roles</h4>
+        <p className="text-xs text-gray-500 mb-3">
+          New sign-ups always start as Sound Designers. Set Producer and Key Sound Designer accounts to <strong>Reviewer</strong> so they aren't treated as trainees,
+          then assign them on "Enrollment & reviewers".
+        </p>
+        <ul className="grid sm:grid-cols-2 gap-2 mb-4">
+          {ROLE_OPTIONS.map(o => (
+            <li key={o.id} className="bg-gray-50 rounded-2xl p-3 text-xs"><span className="font-black text-gray-700">{o.label}</span><span className="block text-gray-500">{o.help}</span></li>
+          ))}
+        </ul>
+        <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search by name or email" className={input} aria-label="Search people" />
+      </div>
+
+      <div className={`${card} divide-y divide-gray-100 !py-2`}>
+        {sorted.map(u => {
+          const isSelf = u.id === currentUser?.id;
+          const draft = drafts[u.id] ?? u.role;
+          return (
+            <div key={u.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="font-bold text-gray-800 truncate">{u.name}{isSelf && <span className="text-xs text-gray-400 font-bold"> (you)</span>}</p>
+                <p className="text-xs text-gray-400 font-medium truncate">{u.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={draft}
+                  disabled={isSelf}
+                  title={isSelf ? "You can't change your own role (so an admin can't lock themselves out)" : undefined}
+                  onChange={e => setDrafts(d => ({ ...d, [u.id]: e.target.value as Role }))}
+                  aria-label={`Role for ${u.name}`}
+                  className={`${input} w-auto disabled:opacity-60`}
+                >
+                  {ROLE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+                {!isSelf && draft !== u.role && (
+                  <button onClick={() => setPending({ user: u, role: draft })} className={primaryBtn}>Save</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {sorted.length === 0 && <p className="text-sm text-gray-400 py-3">No matching accounts.</p>}
+      </div>
+
+      <ConfirmModal
+        open={pending !== null}
+        title={pending ? `Change ${pending.user.name} to ${roleLabel(pending.role)}?` : ''}
+        message={pending ? warning(pending.user, pending.role) : ''}
+        confirmLabel="Change role"
+        danger={pending?.role === 'admin' || pending?.user.role === 'admin'}
+        onConfirm={() => {
+          if (pending) {
+            updateUserRole(pending.user.id, pending.role);
+            setDrafts(d => { const { [pending.user.id]: _, ...rest } = d; return rest; });
+          }
+          setPending(null);
+        }}
+        onCancel={() => setPending(null)}
+      />
+    </div>
+  );
+};
+
 // --- Tab shell ------------------------------------------------------------------
 
 export const AssessmentAdmin: React.FC = () => {
@@ -298,6 +395,7 @@ export const AssessmentAdmin: React.FC = () => {
       )}
       {tab === 'structure' && <StructureTab />}
       {tab === 'briefs' && <BriefsTab />}
+      {tab === 'people' && <PeopleTab />}
     </div>
   );
 };

@@ -71,6 +71,12 @@ describe('category lock (curriculum)', () => {
     await assertFails(updateDoc(doc(as('unlocked'), 'users/unlocked'), { unlockedCategories: ['Advanced', 'X'] }));
     await assertSucceeds(updateDoc(doc(as('admin'), 'users/designer'), { unlockedCategories: ['Advanced'] }));
   });
+  it('only admins change roles (e.g. to reviewer); users cannot change their own', async () => {
+    await assertSucceeds(updateDoc(doc(as('admin'), 'users/designer'), { role: 'reviewer' }));
+    await assertFails(updateDoc(doc(as('engineer'), 'users/unlocked'), { role: 'reviewer' }));
+    await assertFails(updateDoc(doc(as('unlocked'), 'users/unlocked'), { role: 'reviewer' }));
+    await assertFails(updateDoc(doc(as('engineer'), 'users/engineer'), { role: 'admin' }));
+  });
   it('only admins manage categories', async () => {
     const cat = { id: 'x', name: 'X', order: 9, restricted: false };
     await assertFails(setDoc(doc(as('designer'), 'categories/x'), cat));
