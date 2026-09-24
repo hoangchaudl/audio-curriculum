@@ -95,7 +95,9 @@ export const Sidebar: React.FC<{
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={`${isCollapsed ? '' : 'ml-auto'} hidden lg:flex w-7 h-7 flex-shrink-0 bg-white/20 rounded-full items-center justify-center text-white font-black text-xs hover:bg-white/30 transition-colors`}
           >
-            {collapsed ? '»' : '«'}
+            <svg viewBox="0 0 24 24" className={`w-4 h-4 ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" />
+            </svg>
           </button>
         )}
         <button
