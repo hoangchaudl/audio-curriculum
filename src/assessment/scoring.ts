@@ -63,6 +63,14 @@ export const isCompleteReview = (review: AssessmentReview | undefined): review i
 export const stageSubmissions = (submissions: AssessmentSubmission[], stage: AssessmentStage, target: string) =>
   submissions.filter(s => s.stage === stage && s.target === target).sort((a, b) => a.version - b.version);
 
+// A grading line's submissions are its assignment's submissions (one
+// submission can be graded for several lines). Submissions made directly
+// against the exercise id (before assignments existed) still count.
+export const exerciseSubmissions = (submissions: AssessmentSubmission[], exercise: Exercise) =>
+  submissions
+    .filter(s => s.stage === 'A' && (s.target === exercise.id || (!!exercise.assignmentId && s.target === exercise.assignmentId)))
+    .sort((a, b) => a.version - b.version);
+
 // Episode B is graded on the first submission the trainee marked complete;
 // later revisions are preserved separately and don't replace it.
 export const firstCompleteSubmission = (submissions: AssessmentSubmission[], stage: AssessmentStage) =>
@@ -86,7 +94,7 @@ export const exerciseOutcome = (d: TraineeData, exercise: Exercise, moduleTitle 
   const name = moduleTitle ? `${moduleTitle} › ${exercise.title}` : exercise.title;
   if (!d.enrollment) return awaiting('enrollment', [name]);
   if (!d.enrollment.reviewers.trainer) return awaiting('assignment', [`Trainer (${name})`]);
-  const versions = stageSubmissions(d.submissions, 'A', exercise.id);
+  const versions = exerciseSubmissions(d.submissions, exercise);
   if (versions.length === 0) return awaiting('submission', [name]);
   const review = findReview(d, 'A', exercise.id, 'trainer');
   // The trainer picks which revision the grade applies to; it must be one

@@ -12,11 +12,12 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
-  AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Enrollment, Exercise, Publication,
-  ReviewerSlot, User,
+  AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, Enrollment, Exercise,
+  ProgramOutline, Publication, ReviewerSlot, User,
 } from '../types';
 import {
-  DEFAULT_ASSESSMENT_CONFIG, EPISODE_A_CATEGORY, EPISODE_A_EXERCISES, EPISODE_A_MODULES, STAGE_SLOTS, publicationKey,
+  DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_OUTLINE, EPISODE_A_CATEGORY, EPISODE_A_EXERCISES, EPISODE_A_MODULES,
+  STAGE_SLOTS, publicationKey,
   reviewId, submissionId,
 } from './config';
 
@@ -72,6 +73,10 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   // Falls back to the built-in weights until an admin has set the program up.
   const config = configRows[0] ?? DEFAULT_ASSESSMENT_CONFIG;
   const configSaved = configRows.length > 0;
+
+  const assignments = useLive<Assignment>(ready ? 'assignments' : null, () => [collection(db, 'assignments')]);
+  const outlineRows = useLive<ProgramOutline>(ready ? 'outline' : null, () => [doc(db, 'programOutline', 'current')]);
+  const programOutline = outlineRows[0] ?? null;
 
   // --- enrollments ---
   const allEnrollments = useLive<Enrollment>(ready && isAdmin ? 'enr:all' : null, () => [collection(db, 'enrollments')]);
@@ -195,9 +200,13 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   };
 
   // One-time setup, run explicitly by an admin (never automatically):
-  // creates the Episode A category, its four modules and their exercises,
-  // and the weights config. Anything that already exists is left alone, so
-  // running it twice is harmless and existing content is never overwritten.
+  // creates the Episode A category and modules, the weights config, the
+  // default assignments, their grading lines (exercises) and the weekly
+  // outline. Idempotent and non-destructive: existing documents are kept.
+  // Placeholder exercises from the first version of setup (same ids) are
+  // just linked to their assignment - and renamed only if they still have
+  // their default "Exercise N" title - so anything graded against them
+  // stays valid.
   const setupAssessmentProgram = async () => {
     if (!isAdmin) return;
     const batch = writeBatch(db);
@@ -206,10 +215,57 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     for (const m of EPISODE_A_MODULES) {
       if (await missing('modules', m.id)) batch.set(doc(db, 'modules', m.id), { ...m, restricted: false });
     }
+    for (const a of DEFAULT_ASSIGNMENTS) {
+      if (await missing('assignments', a.id)) batch.set(doc(db, 'assignments', a.id), a);
+    }
     for (const e of EPISODE_A_EXERCISES) {
-      if (!exercises.some(x => x.moduleId === e.moduleId) && await missing('exercises', e.id)) batch.set(doc(db, 'exercises', e.id), e);
+      const existing = exercises.find(x => x.id === e.id);
+      if (!existing) {
+        if (await missing('exercises', e.id)) batch.set(doc(db, 'exercises', e.id), e);
+      } else if (!existing.assignmentId) {
+        batch.update(doc(db, 'exercises', e.id), {
+          assignmentId: e.assignmentId,
+          ...(/^Exercise \d+$/.test(existing.title) ? { title: e.title } : {}),
+        });
+      }
     }
     if (!configSaved) batch.set(doc(db, 'assessmentConfig', 'current'), DEFAULT_ASSESSMENT_CONFIG);
+    if (!programOutline) batch.set(doc(db, 'programOutline', 'current'), DEFAULT_OUTLINE);
+    await batch.commit();
+  };
+
+  const saveOutline = async (outline: ProgramOutline) => {
+    if (!isAdmin) return;
+    await setDoc(doc(db, 'programOutline', 'current'), { ...outline, id: 'current' });
+  };
+
+  // Saves an assignment and replaces its Episode A grading lines in one
+  // batch. Lines removed here are deleted; submissions and reviews are
+  // never touched.
+  const saveAssignment = async (assignment: Assignment, lines: Exercise[]) => {
+    if (!isAdmin) return;
+    const batch = writeBatch(db);
+    const clean = Object.fromEntries(Object.entries(assignment).filter(([, v]) => v !== undefined));
+    batch.set(doc(db, 'assignments', assignment.id), clean);
+    const keep = new Set(lines.map(l => l.id));
+    exercises.filter(e => e.assignmentId === assignment.id && !keep.has(e.id)).forEach(e => batch.delete(doc(db, 'exercises', e.id)));
+    if (assignment.stage === 'A') lines.forEach(l => batch.set(doc(db, 'exercises', l.id), { ...l, assignmentId: assignment.id }));
+    await batch.commit();
+  };
+
+  // Removes an assignment (and its grading lines) and takes it out of the
+  // outline. Trainee submissions/reviews for it are preserved.
+  const deleteAssignment = async (assignmentId: string) => {
+    if (!isAdmin) return;
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'assignments', assignmentId));
+    exercises.filter(e => e.assignmentId === assignmentId).forEach(e => batch.delete(doc(db, 'exercises', e.id)));
+    if (programOutline) {
+      batch.set(doc(db, 'programOutline', 'current'), {
+        ...programOutline,
+        weeks: programOutline.weeks.map(w => ({ ...w, items: w.items.filter(i => !(i.kind === 'assignment' && i.assignmentId === assignmentId)) })),
+      });
+    }
     await batch.commit();
   };
 
@@ -219,10 +275,10 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   };
 
   return {
-    exercises, assessmentConfig: config, assessmentConfigSaved: configSaved,
+    exercises, assignments, programOutline, assessmentConfig: config, assessmentConfigSaved: configSaved,
     enrollments, assessmentSubmissions: submissions, assessmentReviews: reviews, publications,
     submitAssessmentVersion, saveReview, upsertEnrollment, setPublication, upsertExercise, deleteExercise,
-    updateAssessmentConfig, setupAssessmentProgram, setModuleWeight,
+    updateAssessmentConfig, setupAssessmentProgram, setModuleWeight, saveOutline, saveAssignment, deleteAssignment,
   };
 };
 

@@ -45,16 +45,18 @@ const data = (overrides: Partial<TraineeData> = {}): TraineeData => ({
 });
 
 // Episode A fully submitted and graded, with a per-exercise score.
+// Submissions are per assignment; each grading line (exercise) gets its own review.
 const gradedEpisodeA = (scoreFor: (exerciseId: string) => AssessmentScore) => {
-  const submissions = EPISODE_A_EXERCISES.map(e => sub('A', e.id, 1));
-  const reviews = EPISODE_A_EXERCISES.map(e => review('A', e.id, 'trainer', { exercise: scoreFor(e.id) }, submissionId(T, 'A', e.id, 1)));
+  const assignmentIds = [...new Set(EPISODE_A_EXERCISES.map(e => e.assignmentId!))];
+  const submissions = assignmentIds.map(a => sub('A', a, 1));
+  const reviews = EPISODE_A_EXERCISES.map(e => review('A', e.id, 'trainer', { exercise: scoreFor(e.id) }, submissionId(T, 'A', e.assignmentId!, 1)));
   return { submissions, reviews };
 };
 
 // --- Episode A ---------------------------------------------------------------
 
 describe('Episode A: dynamic exercises and weights', () => {
-  it('seeds 1, 1, 3 and 2 exercises and exercise weights total 100 per module', () => {
+  it('seeds 1, 1, 3 and 2 grading lines and line weights total 100 per module', () => {
     const counts = EPISODE_A_MODULES.map(m => EPISODE_A_EXERCISES.filter(e => e.moduleId === m.id).length);
     expect(counts).toEqual([1, 1, 3, 2]);
     for (const m of EPISODE_A_MODULES) {
@@ -95,27 +97,49 @@ describe('Episode A: dynamic exercises and weights', () => {
     const { submissions, reviews } = gradedEpisodeA(() => 4);
     const d = data({ submissions, reviews: reviews.filter(r => r.target !== 'epA_m4_ex2') });
     const music = moduleOutcome(d, EPISODE_A_MODULES[3]);
-    expect(music).toEqual({ status: 'awaiting', reason: 'assessment', missing: ['Music Editing › Exercise 2'] });
+    expect(music).toEqual({ status: 'awaiting', reason: 'assessment', missing: ['Music Editing › Music editing – part 2'] });
     expect(episodeAOutcome(d).status).toBe('awaiting');
   });
 
   it('uses the trainer-selected revision and keeps earlier versions', () => {
     const ex = EPISODE_A_EXERCISES[0];
-    const v1 = sub('A', ex.id, 1), v2 = sub('A', ex.id, 2);
+    const v1 = sub('A', ex.assignmentId!, 1), v2 = sub('A', ex.assignmentId!, 2);
     const d = data({ submissions: [v1, v2], reviews: [review('A', ex.id, 'trainer', { exercise: 5 }, v2.id)] });
     expect(exerciseOutcome(d, ex)).toEqual({ status: 'scored', value: 5 });
     expect(d.submissions).toHaveLength(2);
   });
 
-  it('ignores a grade pointing at a submission from another exercise', () => {
-    const [a, b] = EPISODE_A_EXERCISES;
-    const d = data({ submissions: [sub('A', a.id, 1), sub('A', b.id, 1)], reviews: [review('A', a.id, 'trainer', { exercise: 5 }, submissionId(T, 'A', b.id, 1))] });
+  it('ignores a grade pointing at a submission for another assignment', () => {
+    const a = EPISODE_A_EXERCISES.find(e => e.assignmentId === 'asg_w1')!;
+    const d = data({ submissions: [sub('A', 'asg_w1', 1), sub('A', 'asg_w2a', 1)], reviews: [review('A', a.id, 'trainer', { exercise: 5 }, submissionId(T, 'A', 'asg_w2a', 1))] });
     expect(exerciseOutcome(d, a)).toMatchObject({ status: 'awaiting', reason: 'assessment' });
+  });
+
+  it('one assignment submission is graded separately for each module it covers', () => {
+    // Week 1 covers Workflow (Module 1) and Dialogue (Module 2).
+    const [workflow, dialogue] = EPISODE_A_EXERCISES.filter(e => e.assignmentId === 'asg_w1');
+    expect([workflow.moduleId, dialogue.moduleId]).toEqual(['epA_m1', 'epA_m2']);
+    const s = sub('A', 'asg_w1', 1);
+    const d = data({ submissions: [s], reviews: [
+      review('A', workflow.id, 'trainer', { exercise: 5 }, s.id),
+      review('A', dialogue.id, 'trainer', { exercise: 2 }, s.id),
+    ] });
+    expect(exerciseOutcome(d, workflow)).toEqual({ status: 'scored', value: 5 });
+    expect(exerciseOutcome(d, dialogue)).toEqual({ status: 'scored', value: 2 });
+    expect(moduleOutcome(d, EPISODE_A_MODULES[0])).toEqual({ status: 'scored', value: 5 });
+    expect(moduleOutcome(d, EPISODE_A_MODULES[1])).toEqual({ status: 'scored', value: 2 });
+  });
+
+  it('still counts submissions made directly against an exercise (before assignments)', () => {
+    const ex = EPISODE_A_EXERCISES[0];
+    const legacy = sub('A', ex.id, 1);
+    const d = data({ submissions: [legacy], reviews: [review('A', ex.id, 'trainer', { exercise: 3 }, legacy.id)] });
+    expect(exerciseOutcome(d, ex)).toEqual({ status: 'scored', value: 3 });
   });
 
   it('draft reviews do not count', () => {
     const ex = EPISODE_A_EXERCISES[0];
-    const d = data({ submissions: [sub('A', ex.id, 1)], reviews: [review('A', ex.id, 'trainer', { exercise: 4 }, submissionId(T, 'A', ex.id, 1), 'draft')] });
+    const d = data({ submissions: [sub('A', ex.assignmentId!, 1)], reviews: [review('A', ex.id, 'trainer', { exercise: 4 }, submissionId(T, 'A', ex.assignmentId!, 1), 'draft')] });
     expect(exerciseOutcome(d, ex)).toMatchObject({ status: 'awaiting', reason: 'assessment' });
   });
 });

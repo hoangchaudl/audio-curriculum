@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../../store';
-import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, ReviewerSlot } from '../../types';
+import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
 import { CRITERIA, REVIEWER_SLOTS, SCORE_LABELS_5, STAGE_SLOTS, allowedScoreKeys, publicationKey } from '../../assessment/config';
-import { episodeAModules, stageSubmissions } from '../../assessment/scoring';
+import { episodeAModules, exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
 import { STAGE_LABELS, card, input, primaryBtn, secondaryBtn } from './ui';
 
 type Status = 'needs-review' | 'draft' | 'done' | 'locked' | 'awaiting-submission' | 'awaiting-complete';
@@ -33,6 +33,10 @@ interface QueueItem {
   slot: ReviewerSlot;
   versions: AssessmentSubmission[];
   review?: AssessmentReview;
+  // Episode A: the grading lines (one score each) of this assignment, and
+  // their existing reviews. One queue item = one assignment submission.
+  lines: Exercise[];
+  lineReviews: AssessmentReview[];
   published: boolean;
   status: Status;
 }
@@ -41,7 +45,7 @@ interface QueueItem {
 // where the current user holds a reviewer slot. firestore.rules enforce the
 // same boundary, so nothing else is even loaded for non-admins.
 const useQueue = (): QueueItem[] => {
-  const { currentUser, users, enrollments, modules, exercises, assessmentSubmissions, assessmentReviews, publications } = useAppContext();
+  const { currentUser, users, enrollments, modules, exercises, assignments, assessmentSubmissions, assessmentReviews, publications } = useAppContext();
   return useMemo(() => {
     const uid = currentUser?.id;
     if (!uid) return [];
@@ -57,29 +61,43 @@ const useQueue = (): QueueItem[] => {
       const stages: AssessmentStage[] = ['A', 'B', 'P1', ...(e.podEpisodesRequired === 2 ? ['P2' as const] : [])];
       for (const slot of held) {
         for (const stage of stages.filter(s => STAGE_SLOTS[s].includes(slot))) {
-          const targets = stage === 'A'
-            ? epAExercises.map(x => ({ id: x.id, title: `${modules.find(m => m.id === x.moduleId)?.title ?? ''} › ${x.title}` }))
-            : [{ id: 'episode', title: STAGE_LABELS[stage] }];
-          for (const t of targets) {
-            const versions = stageSubmissions(assessmentSubmissions.filter(s => s.traineeId === e.traineeId), stage, t.id);
-            const review = assessmentReviews.find(r => r.traineeId === e.traineeId && r.stage === stage && r.target === t.id && r.reviewerSlot === slot);
+          const own = assessmentSubmissions.filter(s => s.traineeId === e.traineeId);
+          // Episode A: one item per assignment, carrying all its grading
+          // lines (legacy exercises without an assignment stand alone).
+          const groups = stage === 'A'
+            ? [...new Set(epAExercises.map(x => x.assignmentId ?? x.id))].map(key => {
+                const lines = epAExercises.filter(x => (x.assignmentId ?? x.id) === key);
+                const asg = assignments.find(a => a.id === key);
+                const title = asg?.title ?? `${modules.find(m => m.id === lines[0].moduleId)?.title ?? ''} › ${lines[0].title}`;
+                const versions = [...new Map(lines.flatMap(l => exerciseSubmissions(own, l)).map(v => [v.id, v])).values()].sort((a, b) => a.version - b.version);
+                return { id: key, title, lines, versions };
+              })
+            : [{ id: 'episode', title: STAGE_LABELS[stage], lines: [] as Exercise[], versions: stageSubmissions(own, stage, 'episode') }];
+          for (const t of groups) {
+            const versions = t.versions;
+            const lineReviews = assessmentReviews.filter(r => r.traineeId === e.traineeId && r.stage === 'A' && r.reviewerSlot === slot && t.lines.some(l => l.id === r.target));
+            const review = stage === 'A' ? lineReviews[0]
+              : assessmentReviews.find(r => r.traineeId === e.traineeId && r.stage === stage && r.target === t.id && r.reviewerSlot === slot);
             const published = !!publications.find(p => p.id === e.traineeId)?.[publicationKey(stage)];
+            const allSubmitted = stage === 'A'
+              ? t.lines.length > 0 && t.lines.every(l => lineReviews.find(r => r.target === l.id)?.status === 'submitted')
+              : review?.status === 'submitted';
             const status: Status = !versions.length ? 'awaiting-submission'
               : stage !== 'A' && !versions.some(v => v.isComplete) ? 'awaiting-complete'
               : published ? 'locked'
-              : review?.status === 'submitted' ? 'done'
-              : review?.status === 'draft' ? 'draft' : 'needs-review';
+              : allSubmitted ? 'done'
+              : (stage === 'A' ? lineReviews.length > 0 : review?.status === 'draft') ? 'draft' : 'needs-review';
             items.push({
               key: `${e.traineeId}|${stage}|${t.id}|${slot}`, traineeId: e.traineeId,
               traineeName: users.find(u => u.id === e.traineeId)?.name ?? 'Trainee', stage, target: t.id, targetTitle: t.title,
-              slot, versions, review, published, status,
+              slot, versions, review, lines: t.lines, lineReviews, published, status,
             });
           }
         }
       }
     }
     return items;
-  }, [currentUser?.id, users, enrollments, modules, exercises, assessmentSubmissions, assessmentReviews, publications]);
+  }, [currentUser?.id, users, enrollments, modules, exercises, assignments, assessmentSubmissions, assessmentReviews, publications]);
 };
 
 // Which version the review applies to. Episode B: always the first complete
@@ -92,15 +110,19 @@ const gradableVersions = (item: QueueItem) => {
 };
 
 const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, onDone }) => {
-  const { saveReview, assessmentConfig, exercises } = useAppContext();
+  const { saveReview, assessmentConfig, modules } = useAppContext();
+  const isA = item.stage === 'A';
   const options = gradableVersions(item);
   const [submissionId, setSubmissionId] = useState(item.review?.submissionId && options.some(o => o.id === item.review!.submissionId)
     ? item.review.submissionId : options.at(-1)?.id ?? '');
-  const [scores, setScores] = useState<AssessmentReview['scores']>(item.review?.scores ?? {});
+  // Episode B/Pod: criterion -> score. Episode A: grading line id -> score.
+  const [scores, setScores] = useState<Record<string, AssessmentScore | undefined>>(
+    isA ? Object.fromEntries(item.lineReviews.map(r => [r.target, r.scores.exercise])) : { ...(item.review?.scores ?? {}) },
+  );
   const [feedback, setFeedback] = useState(item.review?.feedback ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const keys = allowedScoreKeys(item.stage, item.slot);
+  const keys: string[] = isA ? item.lines.map(l => l.id) : allowedScoreKeys(item.stage, item.slot);
   const cells = item.stage === 'B' ? assessmentConfig.episodeBCells : assessmentConfig.podCells;
   const complete = keys.every(k => scores[k]);
   const selected = item.versions.find(v => v.id === submissionId);
@@ -108,9 +130,9 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const locked = item.published;
 
   const keyLabel = (k: string) => {
-    if (k === 'exercise') {
-      const ex = exercises.find(e => e.id === item.target);
-      return `${ex?.title ?? 'Exercise'} (${ex?.weight ?? 0}% of module)`;
+    if (isA) {
+      const l = item.lines.find(x => x.id === k);
+      return `${l?.title ?? 'Part'} · ${modules.find(m => m.id === l?.moduleId)?.title ?? ''} (${l?.weight ?? 0}% of module)`;
     }
     const w = cells.find(c => c.slot === item.slot && c.criterion === k)?.weight;
     return `${CRITERIA.find(c => c.id === k)?.label} (${w}%)`;
@@ -120,7 +142,13 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
     setBusy(true);
     setError('');
     try {
-      await saveReview(item.traineeId, item.stage, item.target, item.slot, submissionId, scores, status, feedback);
+      if (isA) {
+        // One review per grading line, all against the same submission.
+        await Promise.all(item.lines.map(l => saveReview(item.traineeId, 'A', l.id, item.slot, submissionId,
+          scores[l.id] ? { exercise: scores[l.id] } : {}, status, feedback)));
+      } else {
+        await saveReview(item.traineeId, item.stage, item.target, item.slot, submissionId, scores as AssessmentReview['scores'], status, feedback);
+      }
       if (status === 'submitted') onDone();
     } catch (err) {
       console.error(err);

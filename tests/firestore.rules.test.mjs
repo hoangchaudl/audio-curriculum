@@ -157,6 +157,12 @@ describe('assessment program', () => {
       reviewers: { trainer: 'outsider' }, reviewerUids: ['outsider'],
     });
     await setDoc(doc(db, 'exercises/ex1'), { id: 'ex1', moduleId: 'epA_m3', title: 'Ex 1', order: 1, weight: 100 });
+    // Week-1-style assignment graded on two lines (Workflow + Dialogue).
+    await setDoc(doc(db, 'assignments/asg1'), { id: 'asg1', title: 'Week 1', stage: 'A', materials: [] });
+    await setDoc(doc(db, 'assignments/asgB'), { id: 'asgB', title: 'Episode B', stage: 'B', materials: [] });
+    await setDoc(doc(db, 'exercises/lineWf'), { id: 'lineWf', moduleId: 'epA_m1', assignmentId: 'asg1', title: 'Workflow', order: 1, weight: 100 });
+    await setDoc(doc(db, 'exercises/lineDx'), { id: 'lineDx', moduleId: 'epA_m2', assignmentId: 'asg1', title: 'Dialogue', order: 1, weight: 100 });
+    await setDoc(doc(db, 'assessmentSubmissions/trainee__A__asg1__v1'), sub('A', 'asg1', 1));
     for (const s of [sub('A', 'ex1', 1), sub('B', 'episode', 1, false), sub('B', 'episode', 2), sub('P1', 'episode', 1), sub('A', 'ex1', 1, true, 'trainee2')]) {
       await setDoc(doc(db, `assessmentSubmissions/${s.id}`), s);
     }
@@ -272,6 +278,29 @@ describe('assessment program', () => {
     await assertSucceeds(getDoc(doc(as('producer'), `publications/${T}`)));
     await assertFails(getDoc(doc(as('outsider'), `publications/${T}`)));
     await assertFails(getDoc(doc(as('trainee2'), `publications/${T}`)));
+  });
+
+  // --- assignments & outline ---
+  it('trainee submits against an Episode A assignment (not a B/P assignment id)', async () => {
+    const s = sub('A', 'asg1', 2);
+    await assertSucceeds(setDoc(doc(as(T), `assessmentSubmissions/${s.id}`), s));
+    const wrong = sub('A', 'asgB', 1);
+    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${wrong.id}`), wrong));
+    const missing = sub('A', 'nope', 1);
+    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${missing.id}`), missing));
+  });
+  it('trainer grades each line of one assignment submission separately', async () => {
+    await assertSucceeds(put('trainer', rev('A', 'lineWf', 'trainer', 'trainer', 'trainee__A__asg1__v1', { exercise: 5 })));
+    await assertSucceeds(put('trainer', rev('A', 'lineDx', 'trainer', 'trainer', 'trainee__A__asg1__v1', { exercise: 3 })));
+    // A line can't be graded against another assignment's submission.
+    await assertFails(put('trainer', rev('A', 'lineWf', 'trainer', 'trainer', 'trainee__A__ex1__v1', { exercise: 5 })));
+  });
+  it('only admins arrange assignments and the outline', async () => {
+    await assertSucceeds(getDoc(doc(as(T), 'assignments/asg1')));
+    await assertFails(updateDoc(doc(as(T), 'assignments/asg1'), { dueDay: 7 }));
+    await assertFails(setDoc(doc(as('trainer'), 'programOutline/current'), { id: 'current', weeks: [] }));
+    await assertSucceeds(setDoc(doc(as('admin'), 'programOutline/current'), { id: 'current', weeks: [] }));
+    await assertSucceeds(getDoc(doc(as(T), 'programOutline/current')));
   });
 
   // --- configuration ---

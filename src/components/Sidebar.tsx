@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
-import { Role } from '../types';
+import { Assignment, Module, Role } from '../types';
+
+type WeekRow = { key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment };
 import { countUnseenGrades, isGradeSeen } from '../notifications';
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
+import { assignmentApplies, assignmentStatus, dueLabel } from '../assessment/outline';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -28,16 +31,23 @@ export const Sidebar: React.FC<{
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }> = ({ selectedModuleId, activePage, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
-  const { modules: allModules, categories, currentUser, submissions, logout, updateUserTheme, enrollments, exercises, assessmentSubmissions } = useAppContext();
+  const { modules: allModules, categories, currentUser, submissions, logout, updateUserTheme, enrollments, exercises, assessmentSubmissions, programOutline, assignments } = useAppContext();
+  // Trainees (and admins previewing as one) navigate the program week by
+  // week once an outline exists.
+  const weekMode = effectiveRole === 'sound_designer' && !!programOutline?.weeks.length;
   const ownEnrollment = enrollments.find(e => e.id === currentUser?.id);
   const hasReviews = useHasReviewAssignments();
   const reviewTodo = useReviewTodoCount();
   const programLinks = [
     ...(ownEnrollment ? [
       { page: 'program', hash: '#/program', label: 'My Program', icon: '📋' },
-      { page: 'episode:B', hash: '#/episode/B', label: 'Episode B – Final Test', icon: '🎬' },
-      { page: 'episode:P1', hash: '#/episode/P1', label: ownEnrollment.podEpisodesRequired === 2 ? 'Pod Trial – Episode 1' : 'Pod Trial', icon: '🎧' },
-      ...(ownEnrollment.podEpisodesRequired === 2 ? [{ page: 'episode:P2', hash: '#/episode/P2', label: 'Pod Trial – Episode 2', icon: '🎧' }] : []),
+      // With a weekly outline, Episode B and Pod are assignments inside
+      // the weeks instead of separate links.
+      ...(weekMode ? [] : [
+        { page: 'episode:B', hash: '#/episode/B', label: 'Episode B – Final Test', icon: '🎬' },
+        { page: 'episode:P1', hash: '#/episode/P1', label: ownEnrollment.podEpisodesRequired === 2 ? 'Pod Trial – Episode 1' : 'Pod Trial', icon: '🎧' },
+        ...(ownEnrollment.podEpisodesRequired === 2 ? [{ page: 'episode:P2', hash: '#/episode/P2', label: 'Pod Trial – Episode 2', icon: '🎧' }] : []),
+      ]),
     ] : []),
     ...(hasReviews ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: '✅' }] : []),
   ];
@@ -45,10 +55,14 @@ export const Sidebar: React.FC<{
   // designer without unlocks couldn't see so the preview is realistic.
   const modules = allModules.filter(m => canSeeModule(m, categories, currentUser, effectiveRole));
   const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
+  // In week mode, modules already placed in a week (and the Episode A
+  // grading modules) aren't repeated in the category sections below.
+  const placed = new Set(weekMode ? programOutline!.weeks.flatMap(w => w.items.flatMap(i => (i.kind === 'content' ? [i.moduleId] : []))) : []);
+  const listed = (m: { id: string; program?: string }) => !weekMode || (!placed.has(m.id) && m.program !== 'episodeA');
   const sections = [
-    ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id).sort(byOrder) })),
+    ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id && listed(m)).sort(byOrder) })),
     // Modules whose category was removed still need to be reachable.
-    { key: '__none', title: 'Other', mods: modules.filter(m => !categories.some(c => c.id === m.category)).sort(byOrder) },
+    { key: '__none', title: 'Other', mods: modules.filter(m => !categories.some(c => c.id === m.category) && listed(m)).sort(byOrder) },
   ].filter(sec => sec.mods.length > 0);
   const isDark = useResolvedTheme(currentUser) === 'dark';
   const [menuOpen, setMenuOpen] = useState(false);
@@ -165,6 +179,72 @@ export const Sidebar: React.FC<{
             </div>
           </div>
         )}
+
+        {weekMode && programOutline!.weeks.map(week => {
+          const rows = week.items.flatMap<WeekRow>(it => {
+            if (it.kind === 'content') {
+              const mod = modules.find(m => m.id === it.moduleId);
+              return mod ? [{ key: it.id, kind: 'content' as const, mod }] : [];
+            }
+            if (it.kind === 'assignment') {
+              const asg = assignments.find(a => a.id === it.assignmentId);
+              return asg && assignmentApplies(asg, ownEnrollment) ? [{ key: it.id, kind: 'assignment' as const, asg }] : [];
+            }
+            return []; // milestones show on My Program, not in the sidebar
+          });
+          if (!rows.length) return null;
+          const weekNo = programOutline!.weeks.indexOf(week) + 1;
+          return (
+            <div key={week.id} className="mb-6">
+              {!isCollapsed && <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">{week.title}</p>}
+              <div className="space-y-2">
+                {rows.map((row, i) => {
+                  const n = i + 1;
+                  const selected = row.kind === 'content' ? selectedModuleId === row.mod.id : activePage === `assignment:${row.asg.id}`;
+                  const title = row.kind === 'content' ? row.mod.title : row.asg.title;
+                  const status = row.kind === 'assignment' ? assignmentStatus(row.asg, currentUser?.id, assessmentSubmissions) : null;
+                  const due = row.kind === 'assignment' ? dueLabel(ownEnrollment?.startDate, weekNo, row.asg.dueDay) : '';
+                  const open = () => {
+                    if (row.kind === 'content') setSelectedModuleId(row.mod.id);
+                    else { window.location.hash = `#/assignment/${row.asg.id}`; onCloseMobile(); }
+                  };
+                  const cls = selected ? 'theme-light bg-surface text-navy font-bold shadow-md' : 'text-white/80 font-semibold hover:bg-white/10';
+                  if (isCollapsed) {
+                    return (
+                      <button key={row.key} onClick={open} title={title} aria-current={selected ? 'page' : undefined}
+                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-black text-sm transition-all ${selected ? cls : `bg-white/10 ${cls}`}`}>
+                        {n}
+                      </button>
+                    );
+                  }
+                  return (
+                    <button key={row.key} onClick={open} aria-current={selected ? 'page' : undefined}
+                      className={`w-full flex items-center justify-between gap-2 p-3 rounded-2xl text-left transition-all ${cls}`}>
+                      <span className="flex items-center gap-3 min-w-0">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${selected ? 'bg-sky' : ''}`}>
+                          {n}
+                        </span>
+                        <span className="leading-tight">
+                          {row.kind === 'assignment' && <span aria-hidden="true">📝 </span>}{title}
+                          {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : 'text-white/60'}`}>Due {due}</span>}
+                        </span>
+                      </span>
+                      {status && (
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0 ${
+                          status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]'
+                            : status === 'draft' ? 'bg-[#2E9DF7]/20 text-navy'
+                            : selected ? 'bg-gray-100 text-gray-500' : 'bg-black/10 text-white/90'
+                        }`}>
+                          {status === 'submitted' ? '✓ Submitted' : status === 'draft' ? 'Draft' : 'To do'}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
 
         {sections.map(({ key, title, mods }) => (
           <div key={key} className="mb-6">

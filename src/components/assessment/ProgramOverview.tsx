@@ -3,13 +3,19 @@ import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { Outcome, episodeAModules, finalResult, moduleOutcome } from '../../assessment/scoring';
 import { BenchmarkChip, OutcomeBadge, card, dateFor, formatDate, sectionTitle } from './ui';
+import { assignmentApplies, assignmentStatus, dueLabel } from '../../assessment/outline';
 
 const go = (hash: string) => { window.location.hash = hash; };
 
 // Trainee home for the assessment program: the three weighted stages, the
 // four-week schedule, and (once everything is published) the final grade.
 export const ProgramOverview: React.FC = () => {
-  const { currentUser, assessmentConfig: config } = useAppContext();
+  const { currentUser, assessmentConfig: config, programOutline, assignments } = useAppContext();
+  // Stage links go to the matching assignment page when the outline has one.
+  const stageHash = (stage: 'B' | 'P1' | 'P2') => {
+    const a = assignments.find(x => x.stage === stage);
+    return a ? `#/assignment/${a.id}` : `#/episode/${stage}`;
+  };
   const data = useTraineeData(currentUser?.id);
   const result = finalResult(data);
   const pub = data.publication;
@@ -94,12 +100,12 @@ export const ProgramOverview: React.FC = () => {
               </ul>
             </StageCard>
             <StageCard title="Episode B" weight={config.stageWeights.episodeB} weeks="Week 3 · Final Episode Test" published={pub?.episodeB}
-              outcome={result.episodeB} status={stageStatus('B')} onOpen={() => go('#/episode/B')} />
+              outcome={result.episodeB} status={stageStatus('B')} onOpen={() => go(stageHash('B'))} />
             <StageCard title="Pod Trial" weight={config.stageWeights.pod} weeks="Week 4" published={pub?.pod} outcome={result.pod}
               status={required === 2 ? `Ep 1: ${stageStatus('P1')} · Ep 2: ${stageStatus('P2')}` : stageStatus('P1')}>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => go('#/episode/P1')} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 1 →</button>
-                {required === 2 && <button onClick={() => go('#/episode/P2')} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
+                <button onClick={() => go(stageHash('P1'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 1 →</button>
+                {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
               </div>
             </StageCard>
           </div>
@@ -118,6 +124,63 @@ export const ProgramOverview: React.FC = () => {
             )}
           </section>
 
+          {programOutline?.weeks.length ? (
+            <section className={card}>
+              <h3 className={`${sectionTitle} mb-1`}>Weekly milestones</h3>
+              <p className="text-xs text-gray-400 font-medium mb-5">What to complete each week, and by when.</p>
+              <div className="space-y-6">
+                {programOutline.weeks.map((week, wi) => {
+                  const weekNo = wi + 1;
+                  const entries = week.items.flatMap(it => {
+                    if (it.kind === 'assignment') {
+                      const a = assignments.find(x => x.id === it.assignmentId);
+                      if (!a || !assignmentApplies(a, data.enrollment)) return [];
+                      return [{ key: it.id, day: a.dueDay ?? 7, title: a.title, description: undefined as string | undefined,
+                        status: assignmentStatus(a, currentUser?.id, data.submissions), hash: `#/assignment/${a.id}` }];
+                    }
+                    if (it.kind === 'milestone') {
+                      return [{ key: it.id, day: it.day ?? 7, title: it.title, description: it.description, status: null, hash: '' }];
+                    }
+                    return [];
+                  }).sort((a, b) => a.day - b.day);
+                  return (
+                    <div key={week.id}>
+                      <p className="text-xs font-black uppercase text-gray-500 mb-2">
+                        {week.title}
+                        {start && <span className="normal-case font-bold text-gray-400 ml-2">{formatDate(dateFor(start, weekNo))} – {formatDate(dateFor(start, weekNo, 5))}</span>}
+                      </p>
+                      {entries.length === 0 ? <p className="text-xs text-gray-400">Nothing due this week.</p> : (
+                        <ol className="space-y-2">
+                          {entries.map(e => (
+                            <li key={e.key} className="bg-gray-50 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-start gap-3 min-w-0">
+                                <span className="bg-[#F4511E]/15 text-ember rounded-xl px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap">
+                                  By {dueLabel(start, weekNo, e.day)}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-gray-800">{e.hash ? '📝 ' : '🏁 '}{e.title}</p>
+                                  {e.description && <p className="text-xs text-gray-500">{e.description}</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {e.status && (
+                                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                                    e.status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]' : e.status === 'draft' ? 'bg-sky text-navy' : 'bg-gray-100 text-gray-500'}`}>
+                                    {e.status === 'submitted' ? '✓ Submitted' : e.status === 'draft' ? 'Not marked complete' : 'To do'}
+                                  </span>
+                                )}
+                                {e.hash && <button onClick={() => go(e.hash)} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Open →</button>}
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : (
           <section className={card}>
             <h3 className={`${sectionTitle} mb-4`}>Schedule</h3>
             <ol className="space-y-3">
@@ -132,6 +195,7 @@ export const ProgramOverview: React.FC = () => {
               ))}
             </ol>
           </section>
+          )}
         </div>
       </div>
     </main>

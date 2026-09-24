@@ -6,9 +6,11 @@ import { CRITERIA, REVIEWER_SLOTS, STAGE_SLOTS } from '../../assessment/config';
 import { ContentBlocks } from './ContentBlocks';
 import { SubmissionPanel } from './SubmissionPanel';
 import { OutcomeBadge, STAGE_LABELS, card, sectionTitle } from './ui';
+import { Assignment } from '../../types';
+import { AssignmentIntro } from './AssignmentIntro';
 
 // Trainee page for Episode B (final test) or one Pod Trial episode.
-export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' }> = ({ stage }) => {
+export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2'; assignment?: Assignment }> = ({ stage, assignment }) => {
   const { currentUser, assessmentConfig } = useAppContext();
   const data = useTraineeData(currentUser?.id);
   const isB = stage === 'B';
@@ -29,7 +31,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' }> = ({ stage }) =
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <header className="min-h-20 bg-surface border-b flex items-center justify-between gap-4 px-4 md:px-10 py-3 flex-shrink-0">
         <div className="min-w-0">
-          <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{STAGE_LABELS[stage]}</h2>
+          <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{assignment?.title ?? STAGE_LABELS[stage]}</h2>
           <p className="text-xs text-gray-400 font-medium mt-1">
             {isB ? 'Week 3 · 40% of your final grade · work independently on a new full episode'
               : `Week 4 · Pod Trial is 40% of your final grade${(data.enrollment?.podEpisodesRequired ?? 1) === 2 ? ' (average of both episodes)' : ''}`}
@@ -40,6 +42,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' }> = ({ stage }) =
 
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-4xl mx-auto space-y-6">
+          {assignment && <AssignmentIntro assignment={assignment} startDate={data.enrollment?.startDate} />}
           <ContentBlocks blocks={blocks} startDate={data.enrollment?.startDate} />
 
           <section className={card}>

@@ -159,6 +159,41 @@ export interface Exercise {
   instructions?: string;
   order: number;
   weight: number;
+  // The assignment trainees submit for this grading line. One assignment
+  // can carry several lines (e.g. Week 1 is graded for Workflow AND
+  // Dialogue - one score each). Unset = legacy: submitted per exercise.
+  assignmentId?: string;
+}
+
+// Something trainees submit, placed in a week of the program outline.
+// Episode A assignments are graded through their linked exercises (one
+// score per module line); B/P1/P2 assignments are the Episode B test and
+// the Pod Trial episodes.
+export interface Assignment {
+  id: string;
+  title: string;
+  stage: AssessmentStage;
+  instructions?: string;
+  materials: { label: string; url: string }[];
+  // Day of the program week it's due (1 = first day of that week).
+  dueDay?: number;
+}
+
+export type OutlineItem =
+  | { id: string; kind: 'content'; moduleId: string }
+  | { id: string; kind: 'assignment'; assignmentId: string }
+  | { id: string; kind: 'milestone'; title: string; day?: number; description?: string };
+
+export interface OutlineWeek {
+  id: string;
+  title: string;
+  items: OutlineItem[];
+}
+
+// Admin-arranged week-by-week program (sidebar order + weekly milestones).
+export interface ProgramOutline {
+  id: 'current';
+  weeks: OutlineWeek[];
 }
 
 // One cell of a reviewer table: this reviewer's score on this criterion is
