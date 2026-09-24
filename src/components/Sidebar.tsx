@@ -4,6 +4,7 @@ import { Role } from '../types';
 import { countUnseenGrades, isGradeSeen } from '../notifications';
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
+import { ThemeToggle } from './ThemeToggle';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -88,7 +89,8 @@ export const Sidebar: React.FC<{
           title={unseenGradeCount > 0 ? `${unseenGradeCount} new grade${unseenGradeCount === 1 ? '' : 's'} - click to open` : undefined}
           className="relative w-10 flex-shrink-0"
         >
-          <img src="/favicon.png" alt="StoryCo" className="w-10 h-auto rounded-md shadow-md" />
+          <img src="/storyco-logo-light.png" alt="StoryCo" className="w-10 h-auto rounded-md shadow-md dark:hidden" />
+          <img src="/storyco-logo-dark.png" alt="StoryCo" className="w-10 h-auto rounded-md shadow-md hidden dark:block" />
           {unseenGradeCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-surface shadow-sm">
               {unseenGradeCount}
@@ -97,7 +99,8 @@ export const Sidebar: React.FC<{
         </button>
         {!isCollapsed && (
           <h1 className="flex flex-col leading-none">
-            <img src="/storyco-wordmark.png" alt="StoryCo" className="h-4 w-auto self-start dark:invert dark:hue-rotate-180" />
+            <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-4 w-auto self-start dark:hidden" />
+            <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-4 w-auto self-start hidden dark:block" />
             <span className="text-[#E0F2FE] text-[9px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
           </h1>
         )}
@@ -164,9 +167,9 @@ export const Sidebar: React.FC<{
                   } else if (sub?.status === 'graded') {
                     const unseen = currentUser ? !isGradeSeen(currentUser.id, mod.id) : false;
                     statusBadge = (
-                      <span className="inline-flex items-center gap-1 bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ml-2 flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 bg-[#3DDC97] text-[#0B3D2A] px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ml-2 flex-shrink-0 shadow-sm">
                         {unseen && <span className="w-1.5 h-1.5 rounded-full bg-[#F4511E]" title="New feedback" />}
-                        Graded
+                        <span aria-hidden="true">✓</span> Graded
                       </span>
                     );
                   } else if (sub?.status === 'submitted') {
@@ -180,7 +183,8 @@ export const Sidebar: React.FC<{
                   // dimmed, default = standard sidebar item.
                   const stateClass = isSelected
                     ? 'theme-light bg-surface text-navy font-bold shadow-md'
-                    : `text-white/80 font-semibold hover:bg-white/10 ${isCompleted ? 'opacity-50 hover:opacity-80' : ''}`;
+                    : 'text-white/80 font-semibold hover:bg-white/10';
+                  const dimClass = isCompleted ? 'opacity-50 group-hover:opacity-80 transition-opacity' : '';
 
                   if (isCollapsed) {
                     return (
@@ -188,7 +192,7 @@ export const Sidebar: React.FC<{
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
                         title={mod.title}
-                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-black text-sm transition-all ${isSelected ? stateClass : `bg-white/10 ${stateClass}`}`}
+                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-black text-sm transition-all ${isSelected ? stateClass : `bg-white/10 ${stateClass} ${dimClass}`}`}
                       >
                         {label}
                       </button>
@@ -200,9 +204,9 @@ export const Sidebar: React.FC<{
                       key={mod.id}
                       onClick={() => setSelectedModuleId(mod.id)}
                       aria-current={isSelected ? 'page' : undefined}
-                      className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all ${stateClass}`}
+                      className={`group w-full flex items-center justify-between p-3 rounded-2xl transition-all ${stateClass}`}
                     >
-                      <span className="flex items-center gap-3 text-left">
+                      <span className={`flex items-center gap-3 text-left ${dimClass}`}>
                         <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${isSelected ? 'bg-sky' : ''}`}>
                           {label}
                         </span>
@@ -218,6 +222,12 @@ export const Sidebar: React.FC<{
       </div>
 
       <div className="mt-auto pt-4 z-10">
+        <div className={`flex items-center mb-3 ${isCollapsed ? 'justify-center' : 'justify-between px-2'}`}>
+          {!isCollapsed && (
+            <span className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest">{isDark ? 'Dark mode' : 'Light mode'}</span>
+          )}
+          <ThemeToggle isDark={isDark} onChange={(dark) => updateUserTheme(dark ? 'dark' : 'light')} />
+        </div>
         <div
           ref={menuRef}
           className={`bg-[#1E40AF]/20 border border-white/10 rounded-3xl flex items-center relative cursor-pointer hover:bg-[#1E40AF]/30 transition-colors ${isCollapsed ? 'p-2 justify-center' : 'p-4 justify-between'}`}
@@ -265,13 +275,6 @@ export const Sidebar: React.FC<{
                    ))}
                  </>
                )}
-
-               <button
-                 onClick={() => { setMenuOpen(false); updateUserTheme(isDark ? 'light' : 'dark'); }}
-                 className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-t pt-2 mt-1"
-               >
-                 {isDark ? '☀️ Light mode' : '🌙 Dark mode'}
-               </button>
 
                <button onClick={() => { setMenuOpen(false); logout(); }} className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg border-t pt-2 mt-1">Logout</button>
             </div>
