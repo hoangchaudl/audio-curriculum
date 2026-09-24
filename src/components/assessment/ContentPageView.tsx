@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { youTubeId } from '../../videoClip';
 import { useAppContext } from '../../store';
 import { ContentBlocks } from './ContentBlocks';
 import { Md, card, sectionTitle } from './ui';
@@ -9,7 +10,9 @@ import { Md, card, sectionTitle } from './ui';
 export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
   const { modules, moduleVideos, programOutline, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched } = useAppContext();
   const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { scrollRef.current?.scrollTo(0, 0); }, [moduleId]);
+  // Videos on this page played to the end (clips count at their end time).
+  const [finished, setFinished] = useState<string[]>([]);
+  useEffect(() => { scrollRef.current?.scrollTo(0, 0); setFinished([]); }, [moduleId]);
 
   const mod = modules.find(m => m.id === moduleId);
   if (!mod) return <div className="p-10">Content not found</div>;
@@ -18,6 +21,17 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
   const video = moduleVideos.find(v => v.moduleId === mod.id && v.url && v.url !== '#');
   const startDate = enrollments.find(e => e.id === currentUser?.id)?.startDate;
   const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === currentUser?.id);
+  // Watching every YouTube video on the page marks it done automatically
+  // (the "Mark as done" button still works for pages without videos).
+  const videoIds = [
+    ...(video && youTubeId(video.url) ? ['module-video'] : []),
+    ...(mod.contentBlocks ?? []).flatMap(b => (b.type === 'video' && youTubeId(b.url) ? [b.id] : [])),
+  ];
+  const onVideoEnded = (id: string) => {
+    const next = finished.includes(id) ? finished : [...finished, id];
+    setFinished(next);
+    if (!done && videoIds.every(v => next.includes(v))) markVideoWatched(mod.id);
+  };
   const list = (title: string, items?: string[]) => items?.length ? (
     <div>
       <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 tracking-widest">{title}</h4>
@@ -44,9 +58,9 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
       </header>
       <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-4xl mx-auto space-y-6">
-          {video && <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, title: video.title, start: video.start, end: video.end }]} />}
+          {video && <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, title: video.title, start: video.start, end: video.end }]} onVideoEnded={onVideoEnded} />}
           {mod.description && <div className={card}><Md>{mod.description}</Md></div>}
-          <ContentBlocks blocks={mod.contentBlocks} startDate={startDate} />
+          <ContentBlocks blocks={mod.contentBlocks} startDate={startDate} onVideoEnded={onVideoEnded} />
           {(mod.objectives?.length || mod.outcomes?.length) ? (
             <div className={`${card} grid md:grid-cols-2 gap-6`}>
               {list('Objectives', mod.objectives)}
