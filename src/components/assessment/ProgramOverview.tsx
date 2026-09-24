@@ -3,7 +3,7 @@ import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { Outcome, assignmentCriteria, assignmentOutcome, episodeAAssignments, finalResult } from '../../assessment/scoring';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, card, dateFor, formatDate, sectionTitle } from './ui';
-import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, programProgress } from '../../assessment/outline';
+import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, programProgress, weekLabel } from '../../assessment/outline';
 
 const go = (hash: string) => { window.location.hash = hash; };
 
@@ -137,7 +137,7 @@ export const ProgramOverview: React.FC = () => {
                   return (
                     <div key={week.id}>
                       <p className="text-xs font-black uppercase text-gray-500 mb-2">
-                        {week.title}
+                        {weekLabel(wi)}
                         {start && <span className="normal-case font-bold text-gray-400 ml-2">{formatDate(dateFor(start, weekNo))} – {formatDate(dateFor(start, weekNo, 5))}</span>}
                       </p>
                       {entries.length === 0 ? <p className="text-xs text-gray-400">Nothing due this week.</p> : (

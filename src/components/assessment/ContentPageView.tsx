@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppContext } from '../../store';
 import { ContentBlocks } from './ContentBlocks';
+import { weekLabel } from '../../assessment/outline';
 import { Md, card, sectionTitle } from './ui';
 
 // A module shown as a content item in the week-by-week program: reading
@@ -30,7 +31,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
       <header className="min-h-20 bg-surface border-b flex items-center justify-between gap-4 px-4 md:px-10 py-3 flex-shrink-0">
         <div className="min-w-0">
           <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{mod.title}</h2>
-          {weekIndex >= 0 && <p className="text-xs text-gray-400 font-medium mt-1">{programOutline!.weeks[weekIndex].title} · content</p>}
+          {weekIndex >= 0 && <p className="text-xs text-gray-400 font-medium mt-1">{weekLabel(weekIndex)} · content</p>}
         </div>
         <button
           onClick={() => (done ? unmarkVideoWatched(mod.id) : markVideoWatched(mod.id))}
