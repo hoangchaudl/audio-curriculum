@@ -327,7 +327,14 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           </button>
         </div>
 
-        {activeTab === 'assessment' && <AssessmentAdmin />}
+        {activeTab === 'assessment' && (
+          <AssessmentAdmin onEditModule={(id) => {
+            const mod = modules.find(m => m.id === id);
+            if (!mod) return;
+            setActiveTab('modules');
+            handleEditClick(mod);
+          }} />
+        )}
 
         {activeTab === 'designers' && (
           <div className="space-y-6">

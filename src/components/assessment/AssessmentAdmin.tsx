@@ -6,10 +6,12 @@ import { episodeAModules, finalResult, outcomeLabel, weightIssues } from '../../
 import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
+import { OutlineEditor } from './OutlineEditor';
 import { BenchmarkChip, OutcomeBadge, card, input, primaryBtn, secondaryBtn, sectionTitle } from './ui';
 
-type Tab = 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
+type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'outline', label: 'Program outline' },
   { id: 'tracking', label: 'Tracking & publishing' },
   { id: 'enrollment', label: 'Enrollment & reviewers' },
   { id: 'structure', label: 'Episode A structure' },
@@ -152,6 +154,7 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
 // --- Episode A structure --------------------------------------------------------
 
 const ExerciseEditor: React.FC<{ exercise: Exercise; hasSubmissions: boolean }> = ({ exercise, hasSubmissions }) => {
+  const { assignments } = useAppContext();
   const { upsertExercise, deleteExercise } = useAppContext();
   const [draft, setDraft] = useState(exercise);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -160,7 +163,12 @@ const ExerciseEditor: React.FC<{ exercise: Exercise; hasSubmissions: boolean }> 
   return (
     <div className="bg-gray-50 rounded-2xl p-3 space-y-2">
       <div className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
-        <input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} aria-label="Exercise title" className={`${input} bg-surface`} />
+        <div>
+          <input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} aria-label="Grading line title" className={`${input} bg-surface`} />
+          <p className="text-[10px] font-bold text-gray-400 mt-1 ml-1">
+            {exercise.assignmentId ? `From assignment: ${assignments.find(a => a.id === exercise.assignmentId)?.title ?? exercise.assignmentId}` : 'Not linked to an assignment (legacy)'}
+          </p>
+        </div>
         <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
           <input type="number" min={0} step="0.01" value={draft.weight} onChange={e => setDraft({ ...draft, weight: Number(e.target.value) })} aria-label="Weight" className={`${input} bg-surface`} />%
         </label>
@@ -202,11 +210,8 @@ const StructureTab: React.FC = () => {
               {ex.map(e => <ExerciseEditor key={e.id} exercise={e} hasSubmissions={assessmentSubmissions.some(s => s.stage === 'A' && s.target === e.id)} />)}
             </div>
             <div className="flex items-center justify-between mt-3">
-              <button onClick={() => upsertExercise({
-                id: `${m.id}_ex${Date.now().toString(36)}`, moduleId: m.id, title: `Exercise ${ex.length + 1}`,
-                order: (ex.at(-1)?.order ?? 0) + 1, weight: 0,
-              })} className={secondaryBtn}>+ Add exercise</button>
-              <span className={`text-xs font-black ${Math.abs(total - 100) < 0.01 ? 'text-leaf' : 'text-ember'}`}>Exercise weights total {Math.round(total * 100) / 100}%</span>
+              <span className="text-[10px] text-gray-400">Add grading lines from an assignment in "Program outline".</span>
+              <span className={`text-xs font-black ${Math.abs(total - 100) < 0.01 ? 'text-leaf' : 'text-ember'}`}>Line weights total {Math.round(total * 100) / 100}%</span>
             </div>
           </div>
         );
@@ -342,11 +347,11 @@ const PeopleTab: React.FC = () => {
 
 // --- Tab shell ------------------------------------------------------------------
 
-export const AssessmentAdmin: React.FC = () => {
-  const { users, enrollments, modules, exercises, assessmentConfig, assessmentConfigSaved, setupAssessmentProgram } = useAppContext();
-  const [tab, setTab] = useState<Tab>('tracking');
+export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => void }> = ({ onEditModule }) => {
+  const { users, enrollments, modules, exercises, assessmentConfig, assessmentConfigSaved, setupAssessmentProgram, programOutline } = useAppContext();
+  const [tab, setTab] = useState<Tab>('outline');
   const [setupBusy, setSetupBusy] = useState(false);
-  const needsSetup = !assessmentConfigSaved || episodeAModules(modules).length === 0;
+  const needsSetup = !assessmentConfigSaved || episodeAModules(modules).length === 0 || !programOutline;
   const issues = weightIssues(assessmentConfig, modules, exercises);
   const trainees = users.filter(u => u.role === 'sound_designer').sort((a, b) => a.name.localeCompare(b.name));
 
@@ -357,8 +362,8 @@ export const AssessmentAdmin: React.FC = () => {
           <div>
             <h4 className="font-black text-gray-800">Set up the assessment program</h4>
             <p className="text-xs text-gray-500 max-w-xl">
-              Creates the Episode A category, its four modules (weights 20/20/30/30), their exercises (1 / 1 / 3 / 2, equal weights, placeholder titles)
-              and the grading weights. Nothing that already exists is changed.
+              Creates the Episode A modules (weights 20/20/30/30), the default Week 1–4 outline with its assignments and grading lines, and the grading
+              weights. If you ran setup before, existing exercises are kept and linked to the new assignments. Nothing that already exists is overwritten.
             </p>
           </div>
           <button disabled={setupBusy} onClick={async () => { setSetupBusy(true); try { await setupAssessmentProgram(); } finally { setSetupBusy(false); } }} className={primaryBtn}>
@@ -393,6 +398,7 @@ export const AssessmentAdmin: React.FC = () => {
           {trainees.map(t => <EnrollmentRow key={t.id} traineeId={t.id} />)}
         </div>
       )}
+      {tab === 'outline' && <OutlineEditor onEditModule={onEditModule} />}
       {tab === 'structure' && <StructureTab />}
       {tab === 'briefs' && <BriefsTab />}
       {tab === 'people' && <PeopleTab />}

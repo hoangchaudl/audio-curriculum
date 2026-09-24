@@ -245,6 +245,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Assignments and the week-by-week outline: everyone signed in reads
+    // them (sidebar, milestones); only admins arrange or change them.
+    match /assignments/{assignmentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /programOutline/{outlineId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // One per trainee (doc id = trainee uid). Admins enroll trainees and
     // assign reviewer accounts; trainees can't change their own.
     match /enrollments/{traineeId} {
@@ -269,7 +281,12 @@ service cloud.firestore {
                     request.resource.data.version is int && request.resource.data.version >= 1 &&
                     submissionId == request.resource.data.traineeId + '__' + request.resource.data.stage + '__' +
                                     request.resource.data.target + '__v' + string(request.resource.data.version) &&
-                    ((request.resource.data.stage == 'A' && exists(/databases/$(database)/documents/exercises/$(request.resource.data.target))) ||
+                    // Episode A: submitted against an Episode A assignment
+                    // (or, for older data, directly against an exercise).
+                    ((request.resource.data.stage == 'A' &&
+                      (exists(/databases/$(database)/documents/exercises/$(request.resource.data.target)) ||
+                       (exists(/databases/$(database)/documents/assignments/$(request.resource.data.target)) &&
+                        get(/databases/$(database)/documents/assignments/$(request.resource.data.target)).data.stage == 'A'))) ||
                      (request.resource.data.stage != 'A' && request.resource.data.target == 'episode')) &&
                     (request.resource.data.stage != 'P2' || enrollmentOf(request.auth.uid).podEpisodesRequired == 2) &&
                     request.resource.data.links is list && request.resource.data.links.size() >= 1 && request.resource.data.links.size() <= 10 &&
@@ -309,7 +326,11 @@ service cloud.firestore {
     // complete (the app picks the first complete one for Episode B).
     function submissionMatches(d) {
       let s = get(/databases/$(database)/documents/assessmentSubmissions/$(d.submissionId)).data;
-      return s.traineeId == d.traineeId && s.stage == d.stage && s.target == d.target &&
+      // Episode A reviews target an exercise (grading line); the submission
+      // is for that exercise's assignment (or the exercise itself, legacy).
+      return s.traineeId == d.traineeId && s.stage == d.stage &&
+             (s.target == d.target ||
+              (d.stage == 'A' && s.target == get(/databases/$(database)/documents/exercises/$(d.target)).data.get('assignmentId', ''))) &&
              (d.stage == 'A' || s.isComplete == true);
     }
 

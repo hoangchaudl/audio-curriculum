@@ -15,7 +15,8 @@ import { Role } from './types';
 import { getNextActionableModule } from './progress';
 import { useApplyTheme, useResolvedTheme } from './theme';
 import { ProgramOverview } from './components/assessment/ProgramOverview';
-import { ProgramModuleView } from './components/assessment/ProgramModuleView';
+import { ContentPageView } from './components/assessment/ContentPageView';
+import { AssignmentView } from './components/assessment/AssignmentView';
 import { EpisodeView } from './components/assessment/EpisodeView';
 import { ReviewerQueue } from './components/assessment/ReviewerQueue';
 
@@ -26,13 +27,15 @@ const getModuleIdFromHash = (): string => {
   return match ? decodeURIComponent(match[1]) : '';
 };
 
-type View = 'module' | 'profile' | 'program' | 'review' | 'episode';
+type View = 'module' | 'profile' | 'program' | 'review' | 'episode' | 'assignment';
 type EpisodeStage = 'B' | 'P1' | 'P2';
 
 // Non-module pages of the assessment program, also addressable by hash so
 // they're linkable and back/forward works: #/program, #/review, #/episode/B.
-const getPageFromHash = (): { view: View; stage?: EpisodeStage } | null => {
+const getPageFromHash = (): { view: View; stage?: EpisodeStage; assignmentId?: string } | null => {
   const h = window.location.hash;
+  const asg = h.match(/^#\/assignment\/(.+)$/);
+  if (asg) return { view: 'assignment', assignmentId: decodeURIComponent(asg[1]) };
   if (h === '#/program') return { view: 'program' };
   if (h === '#/review') return { view: 'review' };
   const m = h.match(/^#\/episode\/(B|P1|P2)$/);
@@ -40,12 +43,13 @@ const getPageFromHash = (): { view: View; stage?: EpisodeStage } | null => {
 };
 
 const AppContent = () => {
-  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded, enrollments } = useAppContext();
+  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded, enrollments, programOutline } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   useApplyTheme(useResolvedTheme(currentUser));
   const initialPage = useRef(getPageFromHash());
   const [view, setView] = useState<View>(initialPage.current?.view ?? 'module');
   const [episodeStage, setEpisodeStage] = useState<EpisodeStage>(initialPage.current?.stage ?? 'B');
+  const [assignmentId, setAssignmentId] = useState<string>(initialPage.current?.assignmentId ?? '');
 
   // hasSession-but-no-currentUser is a normal, brief gap on every sign-in
   // (Firebase Auth resolves before the /users/{uid} listener's first
@@ -157,6 +161,7 @@ const AppContent = () => {
       if (page) {
         setView(page.view);
         if (page.stage) setEpisodeStage(page.stage);
+        if (page.assignmentId) setAssignmentId(page.assignmentId);
         return;
       }
       const id = getModuleIdFromHash();
@@ -232,12 +237,15 @@ const AppContent = () => {
     if (view === 'program') return <ProgramOverview />;
     if (view === 'episode') return <EpisodeView key={episodeStage} stage={episodeStage} />;
     if (view === 'review') return <ReviewerQueue />;
+    if (view === 'assignment') return <AssignmentView key={assignmentId} assignmentId={assignmentId} />;
 
-    // Episode A modules use the exercise-based view for everyone except
-    // admins (who manage them from the dashboard).
+    // Modules placed in the weekly outline (and the Episode A modules) are
+    // reading content in the program - submissions happen on assignment
+    // pages - for everyone except admins, who manage them from the dashboard.
     const selected = modules.find(m => m.id === selectedModuleId);
-    if (selected?.program === 'episodeA' && effectiveRole !== 'admin') {
-      return <ProgramModuleView moduleId={selectedModuleId} />;
+    const inOutline = !!programOutline?.weeks.some(w => w.items.some(i => i.kind === 'content' && i.moduleId === selectedModuleId));
+    if (selected && (selected.program === 'episodeA' || inOutline) && effectiveRole !== 'admin' && effectiveRole !== 'audio_engineer') {
+      return <ContentPageView moduleId={selectedModuleId} />;
     }
 
     // selectedModuleId is briefly '' on first render while the "next
@@ -275,7 +283,7 @@ const AppContent = () => {
     <div className="flex h-screen w-full bg-page text-ink font-sans overflow-hidden">
       <Sidebar
         selectedModuleId={view === 'module' ? selectedModuleId : ''}
-        activePage={view === 'episode' ? `episode:${episodeStage}` : view}
+        activePage={view === 'episode' ? `episode:${episodeStage}` : view === 'assignment' ? `assignment:${assignmentId}` : view}
         setSelectedModuleId={(id) => {
           setSelectedModuleId(id);
           setView('module');
