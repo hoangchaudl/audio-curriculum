@@ -1,4 +1,6 @@
-export type Role = 'sound_designer' | 'audio_engineer' | 'admin';
+// 'reviewer' is for assessment-only accounts (producers, key sound
+// designers) who score assigned trainees but are not trainees themselves.
+export type Role = 'sound_designer' | 'audio_engineer' | 'admin' | 'reviewer';
 
 export interface User {
   id: string;
@@ -65,7 +67,24 @@ export interface Module {
   homeworkLink?: string;
   homeworkDescription?: string;
   additionalMaterials?: Resource[];
+  // --- Assessment program (new 4-week program) ---
+  // Set on the Episode A modules only; legacy modules leave these unset.
+  program?: 'episodeA';
+  // This module's share of Episode A, in percent (the four sum to 100).
+  episodeAWeight?: number;
+  // Mixed-media content shown instead of (or alongside) a video. A module
+  // never requires a video.
+  contentBlocks?: ContentBlock[];
 }
+
+// Admin-authored module content. Weeks/days are relative to the trainee's
+// enrollment start date (week 1 day 1 = startDate).
+export type ContentBlock =
+  | { id: string; type: 'richText'; markdown: string }
+  | { id: string; type: 'schedule'; title?: string; items: { week: number; day?: number; task: string; hours?: number }[] }
+  | { id: string; type: 'milestone'; title: string; week: number; day?: number; description?: string }
+  | { id: string; type: 'expectation'; text: string }
+  | { id: string; type: 'video'; url: string; title?: string };
 
 export interface ModuleVideo {
   id: string;
@@ -86,6 +105,10 @@ export interface Submission {
   status: 'not_started' | 'in_progress' | 'submitted' | 'graded';
   submittedAt?: string;
 }
+
+// Legacy 1-4 grade (original homework flow). Kept as-is and shown as
+// "Legacy (1-4)"; never used by the 1-5 assessment calculations.
+export type LegacyGrade = Grade;
 
 export interface Grade {
   id: string;
@@ -116,6 +139,102 @@ export interface VideoProgress {
   moduleId: string;
   userId: string;
   watchedAt: string;
+}
+
+// ===== Assessment program (1-5 scale) =====
+
+export type AssessmentScore = 1 | 2 | 3 | 4 | 5;
+export type CriterionId = 'workflow' | 'dialogue' | 'sfx' | 'music';
+export type ReviewerSlot = 'trainer' | 'engineer' | 'keySoundDesigner' | 'producer';
+// A = Episode A (graded per exercise), B = Episode B final test,
+// P1/P2 = first/second Pod Trial episode.
+export type AssessmentStage = 'A' | 'B' | 'P1' | 'P2';
+
+// One exercise inside an Episode A module - a module has any number.
+// `weight` is the exercise's share of its module, in percent.
+export interface Exercise {
+  id: string;
+  moduleId: string;
+  title: string;
+  instructions?: string;
+  order: number;
+  weight: number;
+}
+
+// One cell of a reviewer table: this reviewer's score on this criterion is
+// worth `weight` percent of the stage. Cell weights already include the
+// criterion weight - they are never multiplied again.
+export interface CellWeight {
+  slot: ReviewerSlot;
+  criterion: CriterionId;
+  weight: number;
+}
+
+export interface AssessmentConfig {
+  id: 'current';
+  // Percent of the final grade.
+  stageWeights: { episodeA: number; episodeB: number; pod: number };
+  passThreshold: number;
+  episodeBCells: CellWeight[];
+  podCells: CellWeight[];
+}
+
+// One per trainee; doc id = trainee uid. Reviewer slots hold real account
+// ids assigned by an admin (never inferred from names/emails).
+export interface Enrollment {
+  id: string;
+  traineeId: string;
+  startDate: string; // YYYY-MM-DD
+  reviewers: Partial<Record<ReviewerSlot, string>>;
+  // Same uids as `reviewers`, as a list so reviewers can query their
+  // assigned trainees (firestore.rules checks it matches).
+  reviewerUids: string[];
+  podEpisodesRequired: 1 | 2;
+  createdAt: string;
+}
+
+// Append-only: every revision is a new document; firestore.rules forbid
+// updating or deleting one. Id = `${traineeId}__${stage}__${target}__v${version}`.
+export interface AssessmentSubmission {
+  id: string;
+  traineeId: string;
+  stage: AssessmentStage;
+  // Episode A exercise id, or 'episode' for B/P1/P2.
+  target: string;
+  version: number;
+  links: { label: string; url: string }[];
+  note?: string;
+  // Trainee's "this is my complete submission" flag (Episode B grades the
+  // first complete one).
+  isComplete: boolean;
+  submittedAt: string;
+}
+
+// One reviewer's scores for one target. Id =
+// `${traineeId}__${stage}__${target}__${reviewerSlot}`. Episode A uses the
+// key 'exercise'; B/P use criterion ids.
+export interface AssessmentReview {
+  id: string;
+  traineeId: string;
+  stage: AssessmentStage;
+  target: string;
+  reviewerSlot: ReviewerSlot;
+  reviewerUid: string;
+  submissionId: string;
+  scores: Partial<Record<CriterionId | 'exercise', AssessmentScore>>;
+  feedback?: string;
+  status: 'draft' | 'submitted';
+  updatedAt: string;
+}
+
+// Doc id = trainee uid. Trainees see a stage's scores only once published.
+export interface Publication {
+  id: string;
+  episodeA: boolean;
+  episodeB: boolean;
+  pod: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface AppState {
