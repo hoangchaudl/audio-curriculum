@@ -7,6 +7,8 @@ import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
+import { skillNumber } from '../assessment/scoring';
+import { SavedToast, saveWith } from './assessment/ui';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 
@@ -217,10 +219,18 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const handleSaveModule = () => {
     if (editingModule) {
       const parsedOrder = Number(editForm.order);
-      const fallbackOrder = modules.find(m => m.id === editingModule)?.order ?? 1;
-      updateModule(editingModule, {
-        ...editForm,
+      const current = modules.find(m => m.id === editingModule);
+      const fallbackOrder = current?.order ?? 1;
+      // Episode A skills are named/ordered only in Assessment -> Grading, so
+      // their name, number, order and category are never written from here.
+      const { title, label, order, category, ...rest } = editForm;
+      const identity = current?.program === 'episodeA' ? {} : {
+        title: title?.trim() || current?.title || 'New Module', label, category,
         order: parsedOrder > 0 ? parsedOrder : fallbackOrder,
+      };
+      saveWith(updateModule(editingModule, {
+        ...rest,
+        ...identity,
         outline: splitLines(outlineText),
         objectives: splitLines(objectivesText),
         outcomes: splitLines(outcomesText),
@@ -228,7 +238,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         // Drop sub-skills the admin left completely blank rather than saving
         // empty tables.
         rubricCriteria: rubricCriteria.filter(c => c.title.trim() || c.levels.some(l => l.trim())),
-      });
+      }));
       if (videoUrl.trim()) {
         upsertModuleVideo(editingModule, { type: videoType, url: videoUrl.trim(), title: videoTitle.trim() || 'Module Video' });
       } else {
@@ -683,6 +693,12 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 <div key={mod.id} className={`bg-surface border border-gray-100 shadow-sm ${editingModule === mod.id ? 'rounded-[32px] p-6' : 'rounded-2xl px-4 py-3'}`}>
                   {editingModule === mod.id ? (
                     <div className="space-y-4">
+                      {mod.program === 'episodeA' ? (
+                        <div className="bg-sky rounded-2xl p-4 text-sm text-navy">
+                          <p className="font-black">🔒 Skill {skillNumber(modules, mod.id)}: {mod.title || '(no name)'}</p>
+                          <p className="text-xs font-medium mt-1">This is an Episode A graded skill. Rename, reorder or delete it in <b>Assessment (1–5) → Grading</b>. Its lesson content below is edited here as usual.</p>
+                        </div>
+                      ) : (<>
                       <div className="grid grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
@@ -726,6 +742,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
                         />
                       </div>
+                      </>)}
                       <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
                         <p className="text-[10px] text-gray-400 mb-1">Shown on curriculum cards and as "About this Module" on the designer's page.</p>
@@ -973,11 +990,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0"
                           style={{ background: theme.bg, color: theme.accent }}
                         >
-                          {mod.label || mod.order.toString().padStart(2, '0')}
+                          {mod.program === 'episodeA' ? skillNumber(modules, mod.id) : mod.label || mod.order.toString().padStart(2, '0')}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-black text-base leading-tight">{mod.title}</h4>
+                            <h4 className="font-black text-base leading-tight">{mod.title || <span className="text-ember">(no name)</span>}</h4>
+                            {mod.program === 'episodeA' && (
+                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0" title="Rename, reorder or delete in Assessment (1–5) → Grading">
+                                🔒 Graded skill
+                              </span>
+                            )}
                             {missingFields.length === 0 ? (
                               <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0">
                                 ✓ Complete
@@ -1008,7 +1030,9 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             confirm modal below. */}
                         <button
                           onClick={() => handleDeleteModule(mod)}
-                          className="flex-shrink-0 text-gray-400 font-bold text-sm px-3 py-2 rounded-xl hover:text-ember hover:bg-rose transition-colors ml-1"
+                          disabled={mod.program === 'episodeA'}
+                          title={mod.program === 'episodeA' ? 'Delete graded skills in Assessment (1–5) → Grading' : undefined}
+                          className="disabled:opacity-30 disabled:pointer-events-none flex-shrink-0 text-gray-400 font-bold text-sm px-3 py-2 rounded-xl hover:text-ember hover:bg-rose transition-colors ml-1"
                         >
                           Delete
                         </button>
@@ -1053,7 +1077,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         confirmLabel={pendingConfirm?.kind === 'delete-module' ? 'Delete' : pendingConfirm?.kind === 'promote' ? 'Promote' : 'Move'}
         danger={pendingConfirm?.kind === 'delete-module'}
         onConfirm={() => {
-          if (pendingConfirm?.kind === 'delete-module') deleteModule(pendingConfirm.mod.id);
+          if (pendingConfirm?.kind === 'delete-module') saveWith(deleteModule(pendingConfirm.mod.id));
           else if (pendingConfirm?.kind === 'promote') updateUserRole(pendingConfirm.user.id, 'audio_engineer');
           else if (pendingConfirm?.kind === 'demote') updateUserRole(pendingConfirm.user.id, 'sound_designer');
           setPendingConfirm(null);
@@ -1072,6 +1096,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         }}
         onCancel={() => setDiscardConfirmAction(null)}
       />
+      <SavedToast />
     </main>
   );
 };

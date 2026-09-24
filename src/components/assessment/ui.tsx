@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import { AssessmentStage } from '../../types';
 import { Outcome, outcomeLabel, roundScore } from '../../assessment/scoring';
@@ -17,6 +17,41 @@ export const input = 'w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focu
 export const primaryBtn =
   'bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2.5 rounded-2xl shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0';
 export const secondaryBtn = 'bg-gray-100 text-gray-700 font-bold text-sm px-4 py-2 rounded-2xl hover:bg-gray-200 transition-colors disabled:opacity-50';
+
+// One save rule for admin screens: every write goes through saveWith, which
+// shows "✓ Saved" (or a failure) in the corner via <SavedToast />.
+export const saveWith = async (work: Promise<unknown>): Promise<boolean> => {
+  try {
+    await work;
+    window.dispatchEvent(new CustomEvent('app-saved', { detail: true }));
+    return true;
+  } catch (error) {
+    console.error('Save failed', error);
+    window.dispatchEvent(new CustomEvent('app-saved', { detail: false }));
+    return false;
+  }
+};
+
+export const SavedToast: React.FC = () => {
+  const [state, setState] = useState<'ok' | 'fail' | null>(null);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const onSaved = (e: Event) => {
+      setState((e as CustomEvent<boolean>).detail ? 'ok' : 'fail');
+      clearTimeout(t);
+      t = setTimeout(() => setState(null), 2000);
+    };
+    window.addEventListener('app-saved', onSaved);
+    return () => { window.removeEventListener('app-saved', onSaved); clearTimeout(t); };
+  }, []);
+  if (!state) return null;
+  return (
+    <div role="status" className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-black ${
+      state === 'ok' ? 'bg-[#3DDC97] text-[#0B3D2A]' : 'bg-[#F4511E] text-white'}`}>
+      {state === 'ok' ? '✓ Saved' : "Couldn't save - check your connection and try again"}
+    </div>
+  );
+};
 
 // "3.80 / 5 · Production Ready" for scores, or the awaiting label.
 export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg' }> = ({ outcome, size = 'sm' }) => {

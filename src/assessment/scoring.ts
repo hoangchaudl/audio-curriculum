@@ -226,6 +226,45 @@ export const weightIssues = (config: AssessmentConfig, modules: Module[], exerci
   return groups.filter(g => !is100(g.total));
 };
 
+// Position of an Episode A skill (1-based, by order) - shown instead of the
+// free-text module label so numbering can't skip or repeat.
+export const skillNumber = (modules: Module[], moduleId: string) =>
+  episodeAModules(modules).findIndex(m => m.id === moduleId) + 1;
+
+// n shares of 100 with 2 decimals; the last one absorbs the rounding
+// (3 -> 33.33 / 33.33 / 33.34).
+export const splitEvenly = (n: number): number[] => {
+  if (n <= 0) return [];
+  const base = Math.floor(10000 / n) / 100;
+  return Array.from({ length: n }, (_, i) => (i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base));
+};
+
+// Everything in the grading setup that would give wrong or stuck results,
+// in plain words for the admin banner.
+export const gradingProblems = (config: AssessmentConfig, modules: Module[], exercises: Exercise[]): string[] => {
+  const out: string[] = [];
+  const pct = (n: number) => `${Math.round(n * 100) / 100}%`;
+  const mods = episodeAModules(modules);
+  mods.forEach((m, i) => {
+    const name = m.title.trim() ? `"${m.title.trim()}"` : `Skill ${i + 1}`;
+    if (!m.title.trim()) out.push(`Skill ${i + 1} has no name.`);
+    const ex = exercises.filter(e => e.moduleId === m.id);
+    if (!ex.length) {
+      out.push(`${name} has no scores, so no trainee can finish Episode A. Add a score to it, or delete the skill.`);
+      return;
+    }
+    const total = sum(ex.map(e => e.weight));
+    if (!is100(total)) out.push(`${name}: score shares add up to ${pct(total)} instead of 100%.`);
+    if (ex.some(e => !e.title.trim())) out.push(`${name} has a score with no name, so reviewers can't tell what it's for.`);
+  });
+  if (mods.length) {
+    const total = sum(mods.map(m => m.episodeAWeight ?? 0));
+    if (!is100(total)) out.push(`Episode A skill weights add up to ${pct(total)} instead of 100%.`);
+  }
+  for (const g of weightIssues(config, [], [])) out.push(`${g.scope} add up to ${pct(g.total)} instead of 100%.`);
+  return out;
+};
+
 // Each reviewer's total share of a stage (e.g. Episode B: trainer 50, engineer 50).
 export const slotTotals = (cells: CellWeight[]) =>
   cells.reduce<Partial<Record<ReviewerSlot, number>>>((acc, c) => ({ ...acc, [c.slot]: (acc[c.slot] ?? 0) + c.weight }), {});

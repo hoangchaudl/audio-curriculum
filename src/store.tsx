@@ -42,9 +42,9 @@ interface AppContextType extends AppState, AssessmentApi {
   updateUserAvatar: (userId: string, avatarBase64: string) => void;
   updateUserName: (userId: string, name: string) => void;
   updateUserRole: (userId: string, role: User['role']) => void;
-  updateModule: (moduleId: string, updates: Partial<Module>) => void;
+  updateModule: (moduleId: string, updates: Partial<Module>) => Promise<void>;
   createModule: () => Promise<Module>;
-  deleteModule: (moduleId: string) => void;
+  deleteModule: (moduleId: string) => Promise<void>;
   upsertModuleVideo: (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title'>) => void;
   deleteModuleVideo: (moduleId: string) => void;
   updateUserTheme: (theme: 'light' | 'dark') => void;
@@ -586,6 +586,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updateDoc(doc(db, 'modules', moduleId), clean);
     } catch (error) {
       console.error('Error updating module', error);
+      throw error; // lets saveWith() show the failure instead of "Saved"
     }
   };
 
@@ -618,6 +619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (video) await deleteDoc(doc(db, 'moduleVideos', video.id));
     } catch (error) {
       console.error('Error deleting module', error);
+      throw error;
     }
   };
 

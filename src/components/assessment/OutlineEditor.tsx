@@ -4,13 +4,13 @@ import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, Progra
 import { episodeAModules } from '../../assessment/scoring';
 import { assignmentLines } from '../../assessment/outline';
 import { ConfirmModal } from '../ConfirmModal';
-import { card, input, primaryBtn, secondaryBtn } from './ui';
+import { card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
 
 const uid = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const dayOption = (d: number) => `Day ${d} (${DAY_NAMES[d - 1]} if the week starts Monday)`;
 const STAGE_OPTIONS: { id: AssessmentStage; label: string }[] = [
-  { id: 'A', label: 'Episode A (graded per module)' },
+  { id: 'A', label: 'Episode A (scored per skill)' },
   { id: 'B', label: 'Episode B – final episode test' },
   { id: 'P1', label: 'Pod Trial – episode 1' },
   { id: 'P2', label: 'Pod Trial – episode 2 (only if 2 required)' },
@@ -60,35 +60,35 @@ const AssignmentForm: React.FC<{
 
       {a.stage === 'A' && (
         <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase text-gray-500">Scores reviewers give (one 1–5 score per line)</p>
+          <p className="text-[10px] font-black uppercase text-gray-500">Scores reviewers give (each is one 1–5 grade)</p>
           {lines.length > 0 && (
             <div className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 text-[10px] font-bold uppercase text-gray-400 px-1">
-              <span>Counts toward module</span><span>What's scored</span><span>Weight in module</span><span className="w-6" />
+              <span>Counts toward skill</span><span>Score (what's judged)</span><span>Share of skill</span><span className="w-6" />
             </div>
           )}
           {lines.map((l, i) => (
             <div key={l.id} className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 items-center">
-              <select value={l.moduleId} onChange={e => setLine(i, { moduleId: e.target.value })} aria-label="Module" className={`${input} bg-surface`}>
-                {epA.map(m => <option key={m.id} value={m.id}>{m.label}. {m.title}</option>)}
+              <select value={l.moduleId} onChange={e => setLine(i, { moduleId: e.target.value })} aria-label="Counts toward skill" className={`${input} bg-surface`}>
+                {epA.map((m, n) => <option key={m.id} value={m.id}>Skill {n + 1}. {m.title || '(no name)'}</option>)}
               </select>
-              <input value={l.title} onChange={e => setLine(i, { title: e.target.value })} placeholder="What's scored" aria-label="Line title" className={`${input} bg-surface`} />
+              <input value={l.title} onChange={e => setLine(i, { title: e.target.value })} placeholder="e.g. SFX" aria-label="Score name" className={`${input} bg-surface ${l.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
               <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
-                <input type="number" min={0} step="0.01" value={l.weight} onChange={e => setLine(i, { weight: Number(e.target.value) })} aria-label="Weight in module" className={`${input} bg-surface`} />%
+                <input type="number" min={0} step="0.01" value={l.weight} onChange={e => setLine(i, { weight: Number(e.target.value) })} aria-label="Share of skill" className={`${input} bg-surface`} />%
               </label>
-              <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove line">✕</button>
+              <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove score">✕</button>
             </div>
           ))}
           <button type="button" disabled={!epA.length} onClick={() => setLines(ls => [...ls, {
-            id: uid('ex'), moduleId: epA[0].id, assignmentId: a.id, title: a.title || 'Part', order: ls.length + 1, weight: 0,
-          }])} className={secondaryBtn}>+ Grading line</button>
-          <p className="text-[10px] text-gray-400">Add a line per separate score (e.g. Workflow and Dialogue). Weight = this line's share of its module; one line alone = 100. Check each module totals 100% under "Episode A structure".</p>
+            id: uid('ex'), moduleId: epA[0].id, assignmentId: a.id, title: '', order: ls.length + 1, weight: 0,
+          }])} className={secondaryBtn}>+ Score</button>
+          <p className="text-[10px] text-gray-400">Add one score per thing reviewers judge separately (e.g. Workflow and Dialogue). Share = how much it counts inside its skill; a skill's scores should total 100% - see the "Grading" tab, which also has "Split equally".</p>
         </div>
       )}
 
       <div className="flex gap-2">
-        <button disabled={busy || !a.title.trim() || (a.stage === 'A' && lines.length === 0)} onClick={async () => {
+        <button disabled={busy || !a.title.trim() || (a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())))} onClick={async () => {
           setBusy(true);
-          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()) }, lines); } finally { setBusy(false); }
+          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()) }, lines.map(l => ({ ...l, title: l.title.trim() }))); } finally { setBusy(false); }
         }} className={primaryBtn}>Save assignment</button>
         <button onClick={onCancel} className={secondaryBtn}>Cancel</button>
       </div>
@@ -108,7 +108,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
 
   if (!programOutline) return <p className={`${card} text-sm text-gray-500`}>Set up the assessment program first (button above) to create the default weekly outline.</p>;
   const outline: ProgramOutline = programOutline;
-  const save = (weeks: OutlineWeek[]) => saveOutline({ ...outline, weeks });
+  const save = (weeks: OutlineWeek[]) => saveWith(saveOutline({ ...outline, weeks }));
   const placedModules = new Set(outline.weeks.flatMap(w => w.items.flatMap(i => (i.kind === 'content' ? [i.moduleId] : []))));
 
   const moveItem = (wi: number, ii: number, dir: -1 | 1) => {
@@ -185,7 +185,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
                   {it.kind === 'milestone' && it.description && <p className="text-xs text-gray-500 ml-12 mt-1">{it.description}</p>}
                   {it.kind === 'assignment' && asg && editing === it.id && (
                     <AssignmentForm initial={asg} initialLines={assignmentLines(exercises, asg.id)}
-                      onSave={async (a, lines) => { await saveAssignment(a, lines); setEditing(null); }} onCancel={() => setEditing(null)} />
+                      onSave={async (a, lines) => { if (await saveWith(saveAssignment(a, lines))) setEditing(null); }} onCancel={() => setEditing(null)} />
                   )}
                 </li>
               );
@@ -198,7 +198,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
               initial={{ id: uid('asg'), title: '', stage: 'A', materials: [], dueDay: 5 }}
               initialLines={[]}
               onSave={async (a, lines) => {
-                await saveAssignment(a, lines);
+                if (!(await saveWith(saveAssignment(a, lines)))) return;
                 await addItem(week.id, { id: uid('oi'), kind: 'assignment', assignmentId: a.id });
                 setEditing(null);
               }}
@@ -250,7 +250,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
         open={pendingDelete !== null}
         title={pendingDelete?.item.kind === 'assignment' ? 'Delete this assignment?' : 'Remove from the outline?'}
         message={pendingDelete?.item.kind === 'assignment'
-          ? 'The assignment and its grading lines are deleted. Trainee submissions and any scores already given are kept in the database but no longer count.'
+          ? 'The assignment and its scores are deleted. Trainee submissions and any scores already given are kept in the database but no longer count.'
           : pendingDelete?.item.kind === 'content'
             ? 'The module is only removed from this week - its content is not deleted.'
             : 'The milestone is removed.'}
@@ -259,7 +259,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
           const p = pendingDelete;
           setPendingDelete(null);
           if (!p) return;
-          if (p.item.kind === 'assignment') await deleteAssignment(p.item.assignmentId);
+          if (p.item.kind === 'assignment') await saveWith(deleteAssignment(p.item.assignmentId));
           else await removeItem(p.weekId, p.item.id);
         }}
         onCancel={() => setPendingDelete(null)}

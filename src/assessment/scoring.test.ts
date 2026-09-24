@@ -7,7 +7,7 @@ import {
 } from './config';
 import {
   TraineeData, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, moduleOutcome, outcomeLabel,
-  podOutcome, slotTotals, weightIssues,
+  podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, skillNumber,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -74,6 +74,30 @@ describe('Episode A: dynamic exercises and weights', () => {
     const skewed = EPISODE_A_EXERCISES.map(e => (e.id === 'epA_m3_ex1' ? { ...e, weight: 50 } : e));
     expect(weightIssues(CONFIG, EPISODE_A_MODULES, skewed)).toEqual([
       { scope: 'SFX & Ambience exercises', total: expect.closeTo(116.67, 2) },
+    ]);
+  });
+
+  it('splits shares evenly to exactly 100', () => {
+    expect(splitEvenly(3)).toEqual([33.33, 33.33, 33.34]);
+    expect(splitEvenly(2)).toEqual([50, 50]);
+    expect(splitEvenly(1)).toEqual([100]);
+    expect(splitEvenly(0)).toEqual([]);
+  });
+
+  it('numbers skills by order, ignoring free-text labels', () => {
+    const relabeled = EPISODE_A_MODULES.map(m => ({ ...m, label: '6' }));
+    expect(relabeled.map(m => skillNumber(relabeled, m.id))).toEqual([1, 2, 3, 4]);
+  });
+
+  it('reports grading setup problems in plain words', () => {
+    expect(gradingProblems(CONFIG, EPISODE_A_MODULES, EPISODE_A_EXERCISES)).toEqual([]);
+    const extra = { ...EPISODE_A_MODULES[0], id: 'epA_m6', order: 6, title: ' ', episodeAWeight: 0 };
+    const unnamed = EPISODE_A_EXERCISES.map(e => (e.id === 'epA_m1_ex1' ? { ...e, title: '' } : e));
+    const problems = gradingProblems(CONFIG, [...EPISODE_A_MODULES, extra], unnamed);
+    expect(problems).toEqual([
+      expect.stringContaining('has a score with no name'),
+      'Skill 5 has no name.',
+      expect.stringContaining('Skill 5 has no scores'),
     ]);
   });
 

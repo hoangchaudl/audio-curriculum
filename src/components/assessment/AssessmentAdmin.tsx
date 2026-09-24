@@ -2,21 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
 import { ContentBlock, Enrollment, Exercise, ReviewerSlot, Role, User } from '../../types';
 import { REVIEWER_SLOTS } from '../../assessment/config';
-import { episodeAModules, finalResult, outcomeLabel, weightIssues } from '../../assessment/scoring';
+import { episodeAModules, finalResult, gradingProblems, outcomeLabel, splitEvenly } from '../../assessment/scoring';
 import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { OutlineEditor } from './OutlineEditor';
-import { BenchmarkChip, OutcomeBadge, card, input, primaryBtn, secondaryBtn, sectionTitle } from './ui';
+import { BenchmarkChip, OutcomeBadge, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
 
 type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'outline', label: 'Program outline' },
-  { id: 'tracking', label: 'Tracking & publishing' },
-  { id: 'enrollment', label: 'Enrollment & reviewers' },
-  { id: 'structure', label: 'Episode A structure' },
-  { id: 'briefs', label: 'Episode B & Pod briefs' },
-  { id: 'people', label: 'People & roles' },
+// Grouped in the order an admin works: set the program up, add people,
+// then follow results.
+const TAB_GROUPS: { label: string; tabs: { id: Tab; label: string }[] }[] = [
+  { label: 'Set up', tabs: [
+    { id: 'outline', label: 'Program outline' },
+    { id: 'structure', label: 'Grading' },
+    { id: 'briefs', label: 'Episode B & Pod briefs' },
+  ] },
+  { label: 'People', tabs: [
+    { id: 'people', label: 'People & roles' },
+    { id: 'enrollment', label: 'Enrollment & reviewers' },
+  ] },
+  { label: 'Results', tabs: [{ id: 'tracking', label: 'Tracking & publishing' }] },
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -151,79 +157,177 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
   );
 };
 
-// --- Episode A structure --------------------------------------------------------
+// --- Grading (Episode A skills and their scores) --------------------------------
+// The one place Episode A skills are named, ordered, weighted and deleted.
+// A skill is an Episode A module; each score is one 1-5 grade a reviewer
+// gives, coming from an assignment (an `Exercise` in the data model).
 
-const ExerciseEditor: React.FC<{ exercise: Exercise; hasSubmissions: boolean }> = ({ exercise, hasSubmissions }) => {
-  const { assignments } = useAppContext();
-  const { upsertExercise, deleteExercise } = useAppContext();
-  const [draft, setDraft] = useState(exercise);
+const uidEx = () => `ex_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+
+const ScoreRow: React.FC<{ exercise: Exercise; hasSubmissions: boolean }> = ({ exercise, hasSubmissions }) => {
+  const { assignments, upsertExercise, deleteExercise } = useAppContext();
+  const [showInstructions, setShowInstructions] = useState(!!exercise.instructions);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  useEffect(() => setDraft(exercise), [JSON.stringify(exercise)]);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(exercise);
+  const save = (patch: Partial<Exercise>) => saveWith(upsertExercise({ ...exercise, ...patch }));
+  const from = assignments.find(a => a.id === exercise.assignmentId)?.title;
   return (
     <div className="bg-gray-50 rounded-2xl p-3 space-y-2">
-      <div className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
-        <div>
-          <input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} aria-label="Grading line title" className={`${input} bg-surface`} />
-          <p className="text-[10px] font-bold text-gray-400 mt-1 ml-1">
-            {exercise.assignmentId ? `From assignment: ${assignments.find(a => a.id === exercise.assignmentId)?.title ?? exercise.assignmentId}` : 'Not linked to an assignment (legacy)'}
-          </p>
-        </div>
+      <div className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 items-center">
+        {/* Blank names are refused: the field snaps back instead of saving. */}
+        <input defaultValue={exercise.title} key={exercise.title} placeholder="What's judged, e.g. SFX" aria-label="Score name"
+          onBlur={e => {
+            const v = e.target.value.trim();
+            if (!v) { e.target.value = exercise.title; return; }
+            if (v !== exercise.title) save({ title: v });
+          }}
+          className={`${input} bg-surface ${exercise.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
+        <span className="text-xs font-bold text-gray-500 truncate" title={from}>{from ?? 'Not linked to an assignment'}</span>
         <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
-          <input type="number" min={0} step="0.01" value={draft.weight} onChange={e => setDraft({ ...draft, weight: Number(e.target.value) })} aria-label="Weight" className={`${input} bg-surface`} />%
+          <input type="number" min={0} step="0.01" defaultValue={exercise.weight} key={exercise.weight} aria-label="Share of skill"
+            onBlur={e => Number(e.target.value) !== exercise.weight && save({ weight: Number(e.target.value) })}
+            className={`${input} bg-surface`} />%
         </label>
-        <button onClick={() => setConfirmDelete(true)} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Delete exercise">✕</button>
+        <button onClick={() => setConfirmDelete(true)} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Delete score">✕</button>
       </div>
-      <textarea value={draft.instructions ?? ''} onChange={e => setDraft({ ...draft, instructions: e.target.value })} placeholder="Instructions for the trainee (Markdown)" className={`${input} bg-surface h-16`} />
-      {dirty && <button onClick={() => upsertExercise(draft)} className={primaryBtn}>Save exercise</button>}
+      {showInstructions ? (
+        <textarea defaultValue={exercise.instructions ?? ''} key={exercise.instructions ?? ''} placeholder="Instructions for the trainee (Markdown)"
+          onBlur={e => e.target.value !== (exercise.instructions ?? '') && save({ instructions: e.target.value })}
+          className={`${input} bg-surface h-16`} />
+      ) : (
+        <button onClick={() => setShowInstructions(true)} className="text-[10px] font-bold uppercase text-gray-400 hover:text-[#2E9DF7] ml-1">+ Instructions for the trainee</button>
+      )}
       <ConfirmModal
         open={confirmDelete}
-        title={`Delete "${exercise.title}"?`}
-        message={hasSubmissions ? 'Trainees have already submitted work for this exercise. Their submissions are kept, but this exercise will no longer count toward the module score.' : 'This removes the exercise from the module.'}
+        title={`Delete the score "${exercise.title || 'unnamed'}"?`}
+        message={hasSubmissions ? 'Trainees already submitted work for this score. Their submissions are kept, but it will no longer count toward the skill.' : 'This removes the score from the skill.'}
         confirmLabel="Delete"
-        onConfirm={() => { deleteExercise(exercise.id); setConfirmDelete(false); }}
+        onConfirm={() => { saveWith(deleteExercise(exercise.id)); setConfirmDelete(false); }}
         onCancel={() => setConfirmDelete(false)}
       />
     </div>
   );
 };
 
-const StructureTab: React.FC = () => {
-  const { modules, exercises, assessmentSubmissions, upsertExercise, setModuleWeight, updateModule } = useAppContext();
+const AddScore: React.FC<{ moduleId: string; nextOrder: number; remaining: number }> = ({ moduleId, nextOrder, remaining }) => {
+  const { assignments, upsertExercise } = useAppContext();
+  const options = assignments.filter(a => a.stage === 'A');
+  const [assignmentId, setAssignmentId] = useState('');
+  const [title, setTitle] = useState('');
+  const add = async () => {
+    const ok = await saveWith(upsertExercise({ id: uidEx(), moduleId, assignmentId, title: title.trim(), order: nextOrder, weight: Math.max(0, Math.round(remaining * 100) / 100) }));
+    if (ok) { setTitle(''); setAssignmentId(''); }
+  };
+  if (!options.length) return <p className="text-[10px] text-gray-400">Create an Episode A assignment in "Program outline" first.</p>;
+  return (
+    <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="New score, e.g. SFX" aria-label="New score name" className={`${input} bg-surface`} />
+      <select value={assignmentId} onChange={e => setAssignmentId(e.target.value)} aria-label="Comes from assignment" className={`${input} bg-surface`}>
+        <option value="">From which assignment?</option>
+        {options.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+      </select>
+      <button disabled={!title.trim() || !assignmentId} onClick={add} className={secondaryBtn}>+ Score</button>
+    </div>
+  );
+};
+
+const GradingTab: React.FC = () => {
+  const { modules, exercises, assessmentSubmissions, assessmentConfig, upsertExercise, setModuleWeight, updateModule, deleteModule, programOutline, saveOutline } = useAppContext();
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const mods = episodeAModules(modules);
   if (!mods.length) return <p className={`${card} text-sm text-gray-500`}>Set up the assessment program first (button above).</p>;
+  const epAShare = assessmentConfig.stageWeights.episodeA;
+  const skillTotal = mods.reduce((s, m) => s + (m.episodeAWeight ?? 0), 0);
+  const round = (n: number) => Math.round(n * 100) / 100;
+  // Swap order values with the neighbour (both writes, one toast).
+  const move = (i: number, dir: -1 | 1) => {
+    const a = mods[i], b = mods[i + dir];
+    if (b) saveWith(Promise.all([updateModule(a.id, { order: b.order }), updateModule(b.id, { order: a.order })]));
+  };
+  const toDelete = mods.find(m => m.id === pendingDelete);
   return (
     <div className="space-y-4">
-      {mods.map(m => {
+      <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
+        <p className="text-sm text-gray-600 max-w-2xl">
+          <b>Episode A is {epAShare}% of the final grade.</b> It's made of the skills below, and each skill is made of <b>scores</b>. A score is one 1–5 grade a reviewer gives, based on one assignment.
+        </p>
+        <span className={`text-xs font-black ${Math.abs(skillTotal - 100) < 0.01 ? 'text-leaf' : 'text-ember'}`}>Skills total {round(skillTotal)}% of Episode A</span>
+      </div>
+      {mods.map((m, i) => {
         const ex = exercises.filter(e => e.moduleId === m.id).sort((a, b) => a.order - b.order);
         const total = ex.reduce((s, e) => s + e.weight, 0);
+        const weight = m.episodeAWeight ?? 0;
         return (
-          <div key={m.id} className={card}>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              {/* Renames the module itself (same as Curriculum Management), so
-                  the name shown in "Counts toward module" changes everywhere. */}
-              <label className="flex items-center gap-1 flex-1 min-w-[200px] font-black text-gray-800">
-                {m.label}.
-                <input defaultValue={m.title} key={m.title} aria-label="Module name"
-                  onBlur={e => e.target.value.trim() && e.target.value.trim() !== m.title && updateModule(m.id, { title: e.target.value.trim() })}
-                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                  className={`${input} flex-1 font-black`} />
-              </label>
-              <label className="flex items-center gap-2 text-xs font-bold text-gray-500">Weight in Episode A
-                <input type="number" min={0} step="0.5" defaultValue={m.episodeAWeight ?? 0} key={m.episodeAWeight}
-                  onBlur={e => Number(e.target.value) !== m.episodeAWeight && setModuleWeight(m.id, Number(e.target.value))} className={`${input} w-20`} />%
-              </label>
+          <div key={m.id} className={`${card} ${ex.length === 0 || !m.title.trim() ? 'ring-2 ring-[#F4511E]' : ''}`}>
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col">
+                <button onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move skill up" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▲</button>
+                <button onClick={() => move(i, 1)} disabled={i === mods.length - 1} aria-label="Move skill down" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▼</button>
+              </div>
+              <span className="font-black text-gray-800 whitespace-nowrap">Skill {i + 1}</span>
+              <input defaultValue={m.title} key={m.title} placeholder="Name this skill" aria-label="Skill name"
+                onBlur={e => {
+                  const v = e.target.value.trim();
+                  if (!v) { e.target.value = m.title; return; }
+                  if (v !== m.title) saveWith(updateModule(m.id, { title: v }));
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className={`${input} flex-1 min-w-0 font-black ${m.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
+              <button onClick={() => setPendingDelete(m.id)} disabled={ex.length > 0}
+                title={ex.length > 0 ? 'Delete its scores first' : 'Delete this skill'}
+                className="text-xs font-bold text-gray-400 hover:text-ember disabled:opacity-30 disabled:hover:text-gray-400 whitespace-nowrap">Delete skill</button>
             </div>
-            <div className="space-y-2">
-              {ex.map(e => <ExerciseEditor key={e.id} exercise={e} hasSubmissions={assessmentSubmissions.some(s => s.stage === 'A' && s.target === e.id)} />)}
-            </div>
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-[10px] text-gray-400">Add grading lines from an assignment in "Program outline".</span>
-              <span className={`text-xs font-black ${Math.abs(total - 100) < 0.01 ? 'text-leaf' : 'text-ember'}`}>Line weights total {Math.round(total * 100) / 100}%</span>
+            <label className="flex flex-wrap items-center gap-2 text-xs font-bold text-gray-500 mt-2 mb-4 ml-9">
+              Share of Episode A
+              <input type="number" min={0} step="0.5" defaultValue={weight} key={weight} aria-label="Share of Episode A"
+                onBlur={e => Number(e.target.value) !== weight && saveWith(setModuleWeight(m.id, Number(e.target.value)))}
+                className="w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-medium" />%
+              <span className="text-gray-400">= {round(weight * epAShare / 100)}% of the final grade</span>
+            </label>
+
+            {ex.length > 0 ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-[1fr_1fr_6rem_auto] gap-2 text-[10px] font-bold uppercase text-gray-400 px-3">
+                  <span>Score</span><span>From assignment</span><span>Share of skill</span><span className="w-6" />
+                </div>
+                {ex.map(e => <ScoreRow key={e.id} exercise={e} hasSubmissions={assessmentSubmissions.some(s => s.stage === 'A' && s.target === e.id)} />)}
+              </div>
+            ) : (
+              <p className="text-sm font-bold text-ember mb-2">No scores yet, so no trainee can finish Episode A. Add a score below, or delete this skill.</p>
+            )}
+
+            <div className="mt-3 space-y-2">
+              <AddScore moduleId={m.id} nextOrder={ex.length + 1} remaining={100 - total} />
+              <div className="flex items-center justify-between gap-2">
+                {ex.length > 1 ? (
+                  <button onClick={() => { const shares = splitEvenly(ex.length); saveWith(Promise.all(ex.map((e, j) => upsertExercise({ ...e, weight: shares[j] })))); }}
+                    className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
+                ) : <span />}
+                {ex.length > 0 && (
+                  <span className={`text-xs font-black ${Math.abs(total - 100) < 0.01 ? 'text-leaf' : 'text-ember'}`}>
+                    {Math.abs(total - 100) < 0.01 ? '✓ ' : ''}Scores total {round(total)}%
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         );
       })}
+      <ConfirmModal
+        open={!!toDelete}
+        title={`Delete ${toDelete?.title.trim() ? `"${toDelete.title}"` : 'this skill'}?`}
+        message="The skill is removed from Episode A and from the curriculum. Give its share to the other skills afterwards so they total 100%."
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => {
+          if (toDelete) {
+            // Also take it out of the weekly outline so no "(missing module)" row is left behind.
+            const outline = programOutline && { ...programOutline, weeks: programOutline.weeks.map(w => ({ ...w, items: w.items.filter(it => !(it.kind === 'content' && it.moduleId === toDelete.id)) })) };
+            saveWith(Promise.all([deleteModule(toDelete.id), ...(outline ? [saveOutline(outline)] : [])]));
+          }
+          setPendingDelete(null);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 };
@@ -360,7 +464,7 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
   const [tab, setTab] = useState<Tab>('outline');
   const [setupBusy, setSetupBusy] = useState(false);
   const needsSetup = !assessmentConfigSaved || episodeAModules(modules).length === 0 || !programOutline;
-  const issues = weightIssues(assessmentConfig, modules, exercises);
+  const problems = gradingProblems(assessmentConfig, modules, exercises);
   const trainees = users.filter(u => u.role === 'sound_designer').sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -370,8 +474,8 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
           <div>
             <h4 className="font-black text-gray-800">Set up the assessment program</h4>
             <p className="text-xs text-gray-500 max-w-xl">
-              Creates the Episode A modules (weights 20/20/30/30), the default Week 1–4 outline with its assignments and grading lines, and the grading
-              weights. If you ran setup before, existing exercises are kept and linked to the new assignments. Nothing that already exists is overwritten.
+              Creates the Episode A skills (weights 20/20/30/30), the default Week 1–4 outline with its assignments and scores, and the grading
+              weights. If you ran setup before, existing scores are kept and linked to the new assignments. Nothing that already exists is overwritten.
             </p>
           </div>
           <button disabled={setupBusy} onClick={async () => { setSetupBusy(true); try { await setupAssessmentProgram(); } finally { setSetupBusy(false); } }} className={primaryBtn}>
@@ -379,17 +483,27 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
           </button>
         </div>
       )}
-      {issues.length > 0 && (
-        <div className="bg-rose rounded-[32px] p-5">
-          <p className="text-xs font-black uppercase text-ember mb-1">Weights that don't total 100%</p>
-          <ul className="text-sm text-ember font-bold">{issues.map(i => <li key={i.scope}>{i.scope}: {Math.round(i.total * 100) / 100}%</li>)}</ul>
+      {problems.length > 0 && (
+        <div className="bg-rose rounded-[32px] p-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase text-ember mb-1">⚠ {problems.length} problem{problems.length === 1 ? '' : 's'} with grading</p>
+            <ul className="text-sm text-ember font-bold list-disc pl-5 space-y-0.5">{problems.map(p => <li key={p}>{p}</li>)}</ul>
+          </div>
+          {tab !== 'structure' && <button onClick={() => setTab('structure')} className={primaryBtn}>Fix in Grading</button>}
         </div>
       )}
 
-      <div className="flex gap-2 flex-wrap">
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
-            tab === t.id ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-surface text-gray-500 hover:bg-gray-50'}`}>{t.label}</button>
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        {TAB_GROUPS.map(g => (
+          <div key={g.label}>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 pl-2">{g.label}</p>
+            <div className="flex gap-2 flex-wrap">
+              {g.tabs.map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
+                  tab === t.id ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-surface text-gray-500 hover:bg-gray-50'}`}>{t.label}</button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -407,7 +521,7 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
         </div>
       )}
       {tab === 'outline' && <OutlineEditor onEditModule={onEditModule} />}
-      {tab === 'structure' && <StructureTab />}
+      {tab === 'structure' && <GradingTab />}
       {tab === 'briefs' && <BriefsTab />}
       {tab === 'people' && <PeopleTab />}
     </div>
