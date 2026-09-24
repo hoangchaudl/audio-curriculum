@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ModuleView } from './components/ModuleView';
 import { EngineerDashboard } from './components/EngineerDashboard';
+import { WaitingView } from './components/WaitingView';
 import { ProfileView } from './components/ProfileView';
 import { AuthView } from './components/AuthView';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -43,7 +44,7 @@ const getPageFromHash = (): { view: View; stage?: EpisodeStage; assignmentId?: s
 };
 
 const AppContent = () => {
-  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded, enrollments, programOutline } = useAppContext();
+  const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded, enrollments, ownEnrollmentLoaded, programOutline } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   useApplyTheme(useResolvedTheme(currentUser));
   const initialPage = useRef(getPageFromHash());
@@ -230,10 +231,15 @@ const AppContent = () => {
     return <AuthView />;
   }
 
+  // A sound designer account that isn't enrolled yet waits here instead of
+  // seeing the legacy curriculum (real role, so an admin's preview isn't affected).
+  const awaitingEnrollment = currentUser.role === 'sound_designer' && ownEnrollmentLoaded && !enrollments.some(e => e.id === currentUser.id);
+
   const renderContent = () => {
     if (view === 'profile') {
       return <ProfileView />;
     }
+    if (awaitingEnrollment) return <WaitingView />;
     if (view === 'program') return <ProgramOverview />;
     if (view === 'episode') return <EpisodeView key={episodeStage} stage={episodeStage} />;
     if (view === 'review') return <ReviewerQueue />;

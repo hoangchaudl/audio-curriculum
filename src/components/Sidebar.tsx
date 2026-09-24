@@ -70,7 +70,9 @@ export const Sidebar: React.FC<{
   // With a weekly outline, trainees see only the weeks: a lesson reaches
   // them by being placed in a week (Program outline lists the ones that
   // aren't). Category sections are for everyone else.
-  const sections = weekMode ? [] : [
+  // Not enrolled yet: nothing to browse until the coordinator enrolls them.
+  const awaitingEnrollment = currentUser?.role === 'sound_designer' && !ownEnrollment;
+  const sections = weekMode || awaitingEnrollment ? [] : [
     ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id).sort(byOrder) })),
     // Modules whose category was removed still need to be reachable.
     { key: '__none', title: 'Other', mods: modules.filter(m => !categories.some(c => c.id === m.category)).sort(byOrder) },

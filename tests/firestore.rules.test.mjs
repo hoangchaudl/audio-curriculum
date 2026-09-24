@@ -13,6 +13,7 @@ import {
 
 let env;
 const as = (uid) => env.authenticatedContext(uid).firestore();
+const asEmail = (uid, email) => env.authenticatedContext(uid, { email }).firestore();
 const seed = (fn) => env.withSecurityRulesDisabled((ctx) => fn(ctx.firestore()));
 
 before(async () => {
@@ -126,6 +127,43 @@ describe('videoProgress (mark as done)', () => {
     await assertFails(deleteDoc(doc(as('unlocked'), 'videoProgress/m1_designer')));
     await assertFails(setDoc(doc(as('unlocked'), 'videoProgress/m1_x'), { ...rec, userId: 'designer' }));
     await assertSucceeds(deleteDoc(doc(as('designer'), 'videoProgress/m1_designer')));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('invites', () => {
+  const trainee = {
+    id: 'kim@story.co', email: 'kim@story.co', role: 'sound_designer', startDate: '2026-10-05', podEpisodesRequired: 2,
+    reviewers: { trainer: 'trainer' }, reviewerUids: ['trainer'], createdAt: '2026-10-01', createdBy: 'admin',
+  };
+  const enrollment = { id: 'kim', traineeId: 'kim', startDate: '2026-10-05', podEpisodesRequired: 2, reviewers: { trainer: 'trainer' }, reviewerUids: ['trainer'], createdAt: '2026-10-05' };
+  beforeEach(() => seed(async (db) => {
+    await baseUsers(db);
+    await setDoc(doc(db, 'invites/kim@story.co'), trainee);
+    await setDoc(doc(db, 'invites/pat@story.co'), { id: 'pat@story.co', email: 'pat@story.co', role: 'reviewer', createdAt: '', createdBy: 'admin' });
+  }));
+
+  it('only admins create invites, and never for the admin role', async () => {
+    await assertSucceeds(setDoc(doc(as('admin'), 'invites/new@story.co'), { ...trainee, id: 'new@story.co', email: 'new@story.co' }));
+    await assertFails(setDoc(doc(as('admin'), 'invites/boss@story.co'), { ...trainee, id: 'boss@story.co', role: 'admin' }));
+    await assertFails(setDoc(doc(as('designer'), 'invites/me@story.co'), { ...trainee, id: 'me@story.co' }));
+  });
+  it('the invited person (matching email, any case) reads and deletes only their own invite', async () => {
+    await assertSucceeds(getDoc(doc(asEmail('kim', 'Kim@Story.co'), 'invites/kim@story.co')));
+    await assertFails(getDoc(doc(asEmail('kim', 'kim@story.co'), 'invites/pat@story.co')));
+    await assertSucceeds(deleteDoc(doc(asEmail('kim', 'kim@story.co'), 'invites/kim@story.co')));
+  });
+  it('an invited reviewer signs up with the reviewer role; nobody else can', async () => {
+    await assertSucceeds(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'reviewer' }));
+    await assertFails(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'admin' }));
+    await assertFails(setDoc(doc(asEmail('zed', 'zed@story.co'), 'users/zed'), { id: 'zed', role: 'reviewer' }));
+  });
+  it('an invited trainee enrolls themselves only with the invited settings', async () => {
+    await assertFails(setDoc(doc(asEmail('kim', 'kim@story.co'), 'enrollments/kim'), { ...enrollment, startDate: '2026-09-01' }));
+    await assertFails(setDoc(doc(asEmail('kim', 'kim@story.co'), 'enrollments/kim'), { ...enrollment, reviewerUids: ['trainer', 'kim'] }));
+    await assertFails(setDoc(doc(asEmail('zed', 'zed@story.co'), 'enrollments/zed'), { ...enrollment, id: 'zed', traineeId: 'zed' }));
+    await assertSucceeds(setDoc(doc(asEmail('kim', 'kim@story.co'), 'enrollments/kim'), enrollment));
+    await assertFails(updateDoc(doc(asEmail('kim', 'kim@story.co'), 'enrollments/kim'), { podEpisodesRequired: 1 }));
   });
 });
 
