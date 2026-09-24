@@ -9,7 +9,7 @@ import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { useHasReviewAssignments, useReviewTodoCount } from './assessment/ReviewerQueue';
-import { assignmentApplies, assignmentStatus, dueLabel, weekGroups, weekLabel } from '../assessment/outline';
+import { assignmentApplies, assignmentStatus, dueLabel, programDate, weekGroups, weekLabel } from '../assessment/outline';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -232,6 +232,9 @@ export const Sidebar: React.FC<{
                   const title = row.kind === 'content' ? row.mod.title : row.asg.title;
                   const status = row.kind === 'assignment' ? assignmentStatus(row.asg, currentUser?.id, assessmentSubmissions) : null;
                   const due = row.kind === 'assignment' ? dueLabel(ownEnrollment?.startDate, weekNo, row.asg.dueDay) : '';
+                  // Past its due day and still not submitted.
+                  const dueDate = row.kind === 'assignment' ? programDate(ownEnrollment?.startDate, weekNo, row.asg.dueDay ?? 7) : null;
+                  const overdue = status !== 'submitted' && !!dueDate && dueDate.getTime() + 86400000 <= Date.now();
                   const open = () => {
                     if (row.kind === 'content') setSelectedModuleId(row.mod.id);
                     else { window.location.hash = `#/assignment/${row.asg.id}`; onCloseMobile(); }
@@ -272,10 +275,11 @@ export const Sidebar: React.FC<{
                       {status && (
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0 ${
                           status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]'
+                            : overdue ? 'bg-[#F4511E] text-white'
                             : status === 'draft' ? 'bg-[#2E9DF7]/20 text-navy'
                             : selected ? 'bg-gray-100 text-gray-500' : 'bg-black/10 text-white/90'
                         }`}>
-                          {status === 'submitted' ? '✓ Submitted' : status === 'draft' ? 'Draft' : 'To do'}
+                          {status === 'submitted' ? '✓ Submitted' : overdue ? 'Overdue' : status === 'draft' ? 'Draft' : 'To do'}
                         </span>
                       )}
                     </button>

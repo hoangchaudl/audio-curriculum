@@ -1,4 +1,4 @@
-import { Assignment, AssessmentSubmission, Enrollment, Exercise, OutlineItem, OutlineSection, OutlineWeek, ProgramOutline, VideoProgress } from '../types';
+import { Assignment, AssessmentSubmission, Enrollment, Exercise, Module, OutlineItem, OutlineSection, OutlineWeek, ProgramOutline, VideoProgress } from '../types';
 import { stageSubmissions } from './scoring';
 
 // Where an assignment sits in the outline (1-based week number).
@@ -114,3 +114,39 @@ export const normalizeWeek = (week: OutlineWeek, assignments: Assignment[]): Out
   sections: week.sections ?? [],
   items: weekGroups(week, assignments).flatMap(g => g.items),
 });
+
+export interface Step {
+  kind: 'content' | 'assignment';
+  title: string;
+  hash: string;
+  week: number;
+  due?: Date; // assignments
+}
+
+// What a trainee should do now: every assignment past its due day without
+// a submission, and the first unfinished item in outline order (lessons
+// not done, assignments not submitted). Same order as the sidebar.
+export const nextSteps = (
+  outline: ProgramOutline | null, assignments: Assignment[], modules: Module[], enrollment: Enrollment | undefined,
+  traineeId: string | undefined, videoProgress: VideoProgress[], submissions: AssessmentSubmission[], now = new Date(),
+): { overdue: Step[]; next: Step | null } => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const steps = (outline?.weeks ?? []).flatMap((w, wi) => weekGroups(w, assignments).flatMap(g => g.items).flatMap<{ step: Step; done: boolean; late: boolean }>(it => {
+    if (it.kind === 'content') {
+      const mod = modules.find(m => m.id === it.moduleId);
+      if (!mod) return [];
+      const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === traineeId);
+      return [{ step: { kind: 'content' as const, title: mod.title, hash: `#/module/${mod.id}`, week: wi + 1 }, done, late: false }];
+    }
+    if (it.kind === 'assignment') {
+      const a = assignments.find(x => x.id === it.assignmentId);
+      if (!a || !assignmentApplies(a, enrollment)) return [];
+      const due = programDate(enrollment?.startDate, wi + 1, a.dueDay ?? 7) ?? undefined;
+      const done = assignmentStatus(a, traineeId, submissions) === 'submitted';
+      const late = !done && !!due && due.getTime() + DAY <= now.getTime();
+      return [{ step: { kind: 'assignment' as const, title: a.title, hash: `#/assignment/${a.id}`, week: wi + 1, due }, done, late }];
+    }
+    return [];
+  }));
+  return { overdue: steps.filter(s => s.late).map(s => s.step), next: steps.find(s => !s.done && !s.late)?.step ?? null };
+};
