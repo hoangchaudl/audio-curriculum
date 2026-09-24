@@ -39,7 +39,7 @@ const SubmissionCard: React.FC<{
   onCriterionScore: (criterionId: string, score: 1 | 2 | 3 | 4) => void;
   onGrade: () => void;
 }> = ({ sub, student, grade, module, moduleLabel, score, feedback, criterionScores, onScoreChange, onFeedbackChange, onCriterionScore, onGrade }) => (
-  <div className="bg-white rounded-[32px] p-6 border border-gray-100 shadow-sm flex flex-col gap-4">
+  <div className="bg-surface rounded-[32px] p-6 border border-gray-100 shadow-sm flex flex-col gap-4">
     <div className="flex justify-between items-center gap-2 flex-wrap">
       <div className="flex items-center gap-3">
         {student?.avatarBase64 ? (
@@ -61,14 +61,14 @@ const SubmissionCard: React.FC<{
           </span>
         )}
         {moduleLabel && (
-          <span className="bg-[#E0F2FE] text-[#1E40AF] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+          <span className="bg-sky text-navy px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
             {moduleLabel}
           </span>
         )}
         {sub.status === 'graded' ? (
-          <span className="bg-[#3DDC97]/20 text-[#2A8F62] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Graded</span>
+          <span className="bg-[#3DDC97]/20 text-leaf px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Graded</span>
         ) : (
-          <span className="bg-[#F4511E]/20 text-[#C53914] px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Needs Review</span>
+          <span className="bg-[#F4511E]/20 text-ember px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Needs Review</span>
         )}
       </div>
     </div>
@@ -81,9 +81,9 @@ const SubmissionCard: React.FC<{
     </div>
 
     {sub.status === 'graded' && grade ? (
-      <div className="bg-[#E0F2FE] p-4 rounded-2xl border border-[#2E9DF7]/20 space-y-3">
+      <div className="bg-sky p-4 rounded-2xl border border-[#2E9DF7]/20 space-y-3">
         <div className="flex justify-between">
-          <span className="text-xs font-black text-[#1E40AF]">Score: {grade.score}/4</span>
+          <span className="text-xs font-black text-navy">Score: {grade.score}/4</span>
         </div>
         {module?.rubricCriteria && grade.criterionScores && grade.criterionScores.length > 0 && (
           <RubricTable
@@ -91,7 +91,7 @@ const SubmissionCard: React.FC<{
             selected={Object.fromEntries(grade.criterionScores.map(c => [c.criterionId, c.score]))}
           />
         )}
-        <p className="text-sm text-[#1E40AF] italic">"{grade.feedback}"</p>
+        <p className="text-sm text-navy italic">"{grade.feedback}"</p>
       </div>
     ) : module?.rubricCriteria && module.rubricCriteria.length > 0 ? (
       <div className="border-t pt-4 mt-2 space-y-4">
@@ -230,8 +230,8 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
   };
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#FDFDFB]">
-      <header className="min-h-20 bg-white border-b flex items-center justify-between flex-wrap px-4 md:px-10 py-3 flex-shrink-0 gap-4">
+    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
+      <header className="min-h-20 bg-surface border-b flex items-center justify-between flex-wrap px-4 md:px-10 py-3 flex-shrink-0 gap-4">
         <div className="min-w-0">
           <h2 className="text-2xl font-black text-[#2E9DF7] truncate">
             {tab === 'queue' ? 'Review Queue' : `Module ${mod ? (mod.label || mod.order.toString().padStart(2, '0')) : ''} Tasks`}
@@ -251,7 +251,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
           >
             Review Queue
             {pendingSubmissions.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-[#F4511E] text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+              <span className="absolute -top-2 -right-2 bg-[#F4511E] text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-surface shadow-sm">
                 {pendingSubmissions.length}
               </span>
             )}
@@ -270,7 +270,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
       <div className="flex-1 p-4 md:p-6 lg:p-10 flex flex-col gap-8 overflow-y-auto">
         {tab === 'queue' ? (
           pendingSubmissions.length === 0 ? (
-            <div className="bg-white rounded-[32px] p-10 border border-gray-100 shadow-sm text-center">
+            <div className="bg-surface rounded-[32px] p-10 border border-gray-100 shadow-sm text-center">
               <p className="text-lg font-black text-[#2E9DF7] mb-1">You're all caught up 🎧</p>
               <p className="text-sm text-gray-500 font-medium">Nothing waiting on you across any module right now.</p>
             </div>
@@ -300,9 +300,9 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
           <div className="p-10">Module not found</div>
         ) : (
           <>
-            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+            <div className="bg-surface rounded-[32px] p-8 border border-gray-100 shadow-sm">
               <h3 className="text-lg font-black text-[#2E9DF7] mb-4 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-[#E0F2FE] flex items-center justify-center text-sm">📘</span>
+                <span className="w-8 h-8 rounded-full bg-sky flex items-center justify-center text-sm">📘</span>
                 Module Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -329,7 +329,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                       {groupOutline(mod.outline).map((lesson, i) => (
                         <li key={i}>
                           <div className="flex items-center gap-3 text-sm text-gray-800">
-                            <span className="flex-shrink-0 w-6 h-6 bg-white shadow-sm rounded-full flex items-center justify-center text-[10px] font-black text-[#1E40AF]">
+                            <span className="flex-shrink-0 w-6 h-6 bg-surface shadow-sm rounded-full flex items-center justify-center text-[10px] font-black text-navy">
                               {i + 1}
                             </span>
                             <span className="font-bold">{lesson.title}</span>
@@ -366,7 +366,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
                     </h4>
                     <ul className="space-y-2">
                       {mod.additionalMaterials.map((material, idx) => (
-                        <li key={idx} className="flex flex-col p-3 bg-white rounded-xl shadow-sm border border-gray-100">
+                        <li key={idx} className="flex flex-col p-3 bg-surface rounded-xl shadow-sm border border-gray-100">
                           <div className="flex items-center gap-2">
                             <span className="text-sm">
                               {material.type === 'video' ? '🎥' : material.type === 'book' ? '📖' : '📄'}
@@ -395,9 +395,9 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
               </div>
             </div>
 
-            <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm">
+            <div className="bg-surface rounded-[32px] p-8 border border-gray-100 shadow-sm">
               <h3 className="text-lg font-black text-[#2E9DF7] mb-2 flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-[#E0F2FE] flex items-center justify-center text-sm">📹</span>
+                <span className="w-8 h-8 rounded-full bg-sky flex items-center justify-center text-sm">📹</span>
                 Video Task Tracker
               </h3>
               {videoTask?.title && (
@@ -438,7 +438,7 @@ export const EngineerDashboard: React.FC<{ moduleId: string }> = ({ moduleId }) 
 
             <div className="space-y-6">
               <h3 className="text-lg font-black text-[#F4511E] flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-[#FEE2E2] flex items-center justify-center text-sm text-[#F4511E]">📝</span>
+                <span className="w-8 h-8 rounded-full bg-rose flex items-center justify-center text-sm text-[#F4511E]">📝</span>
                 Student Submissions
               </h3>
 

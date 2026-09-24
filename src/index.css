@@ -4,6 +4,81 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Nunito", "Baloo 2", "Quicksand", ui-sans-serif, system-ui, sans-serif;
+
+  /* Semantic colors - light values here, dark overrides under .dark below.
+     Brand blue/orange/green stay literal in components: they read fine on
+     both themes. */
+  --color-page: #FDFDFB;     /* app background */
+  --color-surface: #ffffff;  /* cards, panels, menus */
+  --color-sky: #E0F2FE;      /* light-blue tint fills */
+  --color-navy: #1E40AF;     /* text on sky tints */
+  --color-pocket: #F5F9FF;   /* "Gadget Pocket" panel */
+  --color-rose: #FEE2E2;     /* error / delete tint */
+  --color-peach: #FFF4ED;    /* orange card tint */
+  --color-mint: #E6FAF1;     /* green card tint */
+  --color-ink: #2D2D2D;      /* body text */
+  --color-leaf: #2A8F62;     /* green text */
+  --color-ember: #C53914;    /* red/orange text */
+  --color-rail: #2E9DF7;     /* sidebar */
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Dark theme: redefine the semantic colors and invert the gray scale, so
+   every bg-gray-50 input / text-gray-800 label flips automatically. */
+.dark {
+  color-scheme: dark;
+  --color-page: #0E1420;
+  --color-surface: #182131;
+  --color-sky: #1B3656;
+  --color-navy: #A9CCFF;
+  --color-pocket: #152033;
+  --color-rose: #3E1F22;
+  --color-peach: #3A2419;
+  --color-mint: #14382A;
+  --color-ink: #E4E8EE;
+  --color-leaf: #5FE0A7;
+  --color-ember: #FF8A65;
+  --color-rail: #173A66;
+
+  --color-gray-50: #121A28;
+  --color-gray-100: #202A3C;
+  --color-gray-200: #2B374C;
+  --color-gray-300: #3A475E;
+  --color-gray-400: #7A869C;
+  --color-gray-500: #97A2B6;
+  --color-gray-600: #B2BCCB;
+  --color-gray-700: #CAD1DC;
+  --color-gray-800: #E1E6EC;
+  --color-gray-900: #F2F4F7;
+}
+
+/* Pins a subtree to the light palette even in dark mode - used where
+   content sits on a fixed bright fill (the white selected-module card, the
+   green/yellow/orange grade card). Must come after .dark to win. */
+.theme-light {
+  color-scheme: light;
+  --color-page: #FDFDFB;
+  --color-surface: #ffffff;
+  --color-sky: #E0F2FE;
+  --color-navy: #1E40AF;
+  --color-ink: #2D2D2D;
+  --color-leaf: #2A8F62;
+  --color-ember: #C53914;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+}
+
+html, body {
+  background: var(--color-page);
 }
 
 /* Tailwind v4 defaults border color to currentColor; restore the soft gray

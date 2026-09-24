@@ -34,6 +34,13 @@ export const initialData: AppState = {
       createdAt: '2026-07-02T10:00:00Z',
     },
   ],
+  // Default categories - ids match the `category` values on the seed
+  // modules below, so existing module documents keep working unchanged.
+  categories: [
+    { id: 'Onboarding', name: 'Onboarding', order: 1, restricted: false },
+    { id: 'Intermediate', name: 'Intermediate', order: 2, restricted: false },
+    { id: 'Advanced', name: 'Advanced', order: 3, restricted: true },
+  ],
   modules: [
     { 
       id: 'mA', order: 1, label: 'A', category: 'Onboarding', title: 'Pro Tools Set Up', description: 'Initial Pro Tools setup.',

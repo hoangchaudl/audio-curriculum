@@ -13,6 +13,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
 import { getNextActionableModule } from './progress';
+import { useApplyTheme, useResolvedTheme } from './theme';
 
 // Modules are addressable via the URL hash (#/module/<id>) so each one has
 // a shareable, bookmarkable link and the browser back/forward buttons work.
@@ -24,6 +25,7 @@ const getModuleIdFromHash = (): string => {
 const AppContent = () => {
   const { currentUser, authLoading, hasSession, authError, logout, modules, submissions, submissionsLoaded } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
+  useApplyTheme(useResolvedTheme(currentUser));
   const [view, setView] = useState<'module' | 'profile'>('module');
 
   // hasSession-but-no-currentUser is a normal, brief gap on every sign-in
@@ -142,7 +144,7 @@ const AppContent = () => {
   // login page for already-signed-in users on every refresh.
   if (authLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#FDFDFB] text-gray-400 font-bold text-sm">
+      <div className="flex h-screen w-full items-center justify-center bg-page text-gray-400 font-bold text-sm">
         Loading...
       </div>
     );
@@ -158,13 +160,13 @@ const AppContent = () => {
   if (hasSession && !currentUser) {
     if (!authError && !profileLoadTimedOut) {
       return (
-        <div className="flex h-screen w-full items-center justify-center bg-[#FDFDFB] text-gray-400 font-bold text-sm">
+        <div className="flex h-screen w-full items-center justify-center bg-page text-gray-400 font-bold text-sm">
           Loading...
         </div>
       );
     }
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#FDFDFB] px-6 text-center">
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-page px-6 text-center">
         <p className="text-sm font-bold text-gray-600 max-w-sm">
           {authError || "You're signed in, but we couldn't load your profile yet."}
         </p>
@@ -214,7 +216,7 @@ const AppContent = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#FDFDFB] text-[#2D2D2D] font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-page text-ink font-sans overflow-hidden">
       <Sidebar
         selectedModuleId={selectedModuleId}
         setSelectedModuleId={(id) => {
@@ -233,11 +235,11 @@ const AppContent = () => {
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="lg:hidden flex items-center gap-3 h-14 px-4 bg-white border-b flex-shrink-0">
+        <div className="lg:hidden flex items-center gap-3 h-14 px-4 bg-surface border-b flex-shrink-0">
           <button
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Open menu"
-            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-[#E0F2FE] text-[#2E9DF7] hover:bg-[#2E9DF7]/20 transition-colors"
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-sky text-[#2E9DF7] hover:bg-[#2E9DF7]/20 transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
               <path d="M3 6h18M3 12h18M3 18h18" />
@@ -252,7 +254,7 @@ const AppContent = () => {
             </span>
             <button
               onClick={() => setPreviewRole(null)}
-              className="bg-white text-[#F4511E] hover:bg-white/90 px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide shadow-sm"
+              className="bg-surface text-[#F4511E] hover:bg-white/90 px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide shadow-sm"
             >
               Return to Admin View
             </button>

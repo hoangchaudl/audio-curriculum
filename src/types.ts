@@ -8,6 +8,22 @@ export interface User {
   pod?: string;
   avatarBase64?: string;
   createdAt: string;
+  // Saved per account so the choice follows the user to every device.
+  // Unset means "follow the OS setting".
+  theme?: 'light' | 'dark';
+  // Ids of restricted categories an admin has opened up for this user.
+  // Only admins can change this (see firestore.rules).
+  unlockedCategories?: string[];
+}
+
+// Admin-managed grouping for modules (shown as sidebar sections). A
+// restricted category is hidden from sound designers unless an admin has
+// unlocked it for them; engineers and admins always see every category.
+export interface Category {
+  id: string;
+  name: string;
+  order: number;
+  restricted: boolean;
 }
 
 export interface Resource {
@@ -33,7 +49,11 @@ export interface Module {
   id: string;
   order: number;
   label?: string;
+  // Category id. Seeded categories use their name as id ('Onboarding', ...).
   category?: string;
+  // Mirrors the category's `restricted` flag. Denormalized onto the module
+  // so firestore.rules can check it per-document (see store.tsx reconcile).
+  restricted?: boolean;
   title: string;
   description: string;
   outline?: string[];
@@ -53,6 +73,9 @@ export interface ModuleVideo {
   type: 'internal' | 'external';
   url: string;
   title: string;
+  // Copied from the owning module so the same read rule can lock videos.
+  category?: string;
+  restricted?: boolean;
 }
 
 export interface Submission {
@@ -98,6 +121,7 @@ export interface VideoProgress {
 export interface AppState {
   currentUser: User | null;
   users: User[];
+  categories: Category[];
   modules: Module[];
   moduleVideos: ModuleVideo[];
   submissions: Submission[];

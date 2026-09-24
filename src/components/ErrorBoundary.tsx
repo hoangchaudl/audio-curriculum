@@ -22,7 +22,7 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.error) {
       return (
-        <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[#FDFDFB] px-6 text-center">
+        <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-page px-6 text-center">
           <p className="text-sm font-bold text-gray-600 max-w-sm">
             Something went wrong displaying this page.
           </p>
