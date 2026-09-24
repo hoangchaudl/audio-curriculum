@@ -1,25 +1,28 @@
 import React from 'react';
 import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
-import { episodeBOutcome, podEpisodeOutcome } from '../../assessment/scoring';
-import { CRITERIA, REVIEWER_SLOTS, STAGE_SLOTS } from '../../assessment/config';
+import { daOutcome, episodeBOutcome, podEpisodeOutcome } from '../../assessment/scoring';
+import { CRITERIA, REVIEWER_SLOTS, STAGE_SLOTS, publicationKey, stageCells } from '../../assessment/config';
 import { ContentBlocks } from './ContentBlocks';
 import { SubmissionPanel } from './SubmissionPanel';
 import { OutcomeBadge, STAGE_LABELS, card, sectionTitle } from './ui';
 import { Assignment } from '../../types';
 import { AssignmentIntro } from './AssignmentIntro';
 
-// Trainee page for Episode B (final test) or one Pod Trial episode.
-export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2'; assignment?: Assignment }> = ({ stage, assignment }) => {
+// Trainee page for a reviewer-table stage: Episode B (final test), one
+// Pod Trial episode, or Audio Description (DA).
+export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment?: Assignment }> = ({ stage, assignment }) => {
   const { currentUser, assessmentConfig } = useAppContext();
   const data = useTraineeData(currentUser?.id);
-  const isB = stage === 'B';
-  const cells = isB ? assessmentConfig.episodeBCells : assessmentConfig.podCells;
+  const isPod = stage === 'P1' || stage === 'P2';
+  const cells = stageCells(assessmentConfig, stage);
   const slots = STAGE_SLOTS[stage].filter(s => cells.some(c => c.slot === s));
-  const published = isB ? !!data.publication?.episodeB : !!data.publication?.pod;
-  const blocks = isB ? assessmentConfig.stageContent?.episodeB : assessmentConfig.stageContent?.pod;
+  const published = !!data.publication?.[publicationKey(stage)];
+  const content = assessmentConfig.stageContent;
+  const blocks = stage === 'B' ? content?.episodeB : stage === 'DA' ? content?.da : content?.pod;
   const notRequired = stage === 'P2' && (data.enrollment?.podEpisodesRequired ?? 1) < 2;
-  const outcome = isB ? episodeBOutcome(data) : podEpisodeOutcome(data, stage === 'P1' ? 1 : 2);
+  const outcome = stage === 'B' ? episodeBOutcome(data) : stage === 'DA' ? daOutcome(data) : podEpisodeOutcome(data, stage === 'P1' ? 1 : 2);
+  const w = assessmentConfig.stageWeights;
   const reviews = data.reviews.filter(r => r.stage === stage && r.status === 'submitted');
 
   const disabledReason = !data.enrollment
@@ -33,8 +36,9 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2'; assignment?: Assi
         <div className="min-w-0">
           <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{assignment?.title ?? STAGE_LABELS[stage]}</h2>
           <p className="text-xs text-gray-400 font-medium mt-1">
-            {isB ? 'Week 3 · 40% of your final grade · work independently on a new full episode'
-              : `Week 4 · Pod Trial is 40% of your final grade${(data.enrollment?.podEpisodesRequired ?? 1) === 2 ? ' (average of both episodes)' : ''}`}
+            {stage === 'B' ? `${w.episodeB}% of your final grade · work independently on a new full episode`
+              : stage === 'DA' ? `${w.da}% of your final grade · recreate a picture-led scene as audio only`
+              : `Pod Trial is ${w.pod}% of your final grade${(data.enrollment?.podEpisodesRequired ?? 1) === 2 ? ' (average of both episodes)' : ''}`}
           </p>
         </div>
         {published && <OutcomeBadge outcome={outcome} />}
@@ -49,7 +53,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2'; assignment?: Assi
             <h3 className={`${sectionTitle} mb-1`}>Grading rubric</h3>
             <p className="text-xs text-gray-500 mb-4">
               Each reviewer scores independently from 1 (Not Ready) to 5 (Strong). The percentages are each cell's share of this stage.
-              {!isB && ' The producer scores SFX and Music against the creative brief.'}
+              {isPod && ' The producer scores SFX and Music against the creative brief.'}
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

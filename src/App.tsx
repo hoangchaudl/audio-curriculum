@@ -28,7 +28,7 @@ const getModuleIdFromHash = (): string => {
 };
 
 type View = 'module' | 'profile' | 'program' | 'review' | 'episode' | 'assignment';
-type EpisodeStage = 'B' | 'P1' | 'P2';
+type EpisodeStage = 'B' | 'P1' | 'P2' | 'DA';
 
 // Non-module pages of the assessment program, also addressable by hash so
 // they're linkable and back/forward works: #/program, #/review, #/episode/B.
@@ -38,7 +38,7 @@ const getPageFromHash = (): { view: View; stage?: EpisodeStage; assignmentId?: s
   if (asg) return { view: 'assignment', assignmentId: decodeURIComponent(asg[1]) };
   if (h === '#/program') return { view: 'program' };
   if (h === '#/review') return { view: 'review' };
-  const m = h.match(/^#\/episode\/(B|P1|P2)$/);
+  const m = h.match(/^#\/episode\/(B|P1|P2|DA)$/);
   return m ? { view: 'episode', stage: m[1] as EpisodeStage } : null;
 };
 

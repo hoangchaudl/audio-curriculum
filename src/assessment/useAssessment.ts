@@ -18,11 +18,11 @@ import {
 import { convertSkillGrading } from './migrate';
 import {
   DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE,
-  STAGE_SLOTS, publicationKey,
+  STAGE_SLOTS, PublicationKey, publicationKey, withConfigDefaults,
   reviewId, submissionId,
 } from './config';
 
-const STAGES: AssessmentStage[] = ['A', 'B', 'P1', 'P2'];
+const STAGES: AssessmentStage[] = ['A', 'B', 'P1', 'P2', 'DA'];
 
 // Subscribes to several queries/docs and merges their rows by id. `key`
 // must change whenever the set of sources should change.
@@ -72,7 +72,7 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   const exercises = useLive<Exercise>(ready ? 'exercises' : null, () => [collection(db, 'exercises')]);
   const configRows = useLive<AssessmentConfig>(ready ? 'config' : null, () => [doc(db, 'assessmentConfig', 'current')]);
   // Falls back to the built-in weights until an admin has set the program up.
-  const config = configRows[0] ?? DEFAULT_ASSESSMENT_CONFIG;
+  const config = configRows[0] ? withConfigDefaults(configRows[0]) : DEFAULT_ASSESSMENT_CONFIG;
   const configSaved = configRows.length > 0;
 
   const assignments = useLive<Assignment>(ready ? 'assignments' : null, () => [collection(db, 'assignments')]);
@@ -179,9 +179,9 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     await setDoc(doc(db, 'enrollments', traineeId), row);
   };
 
-  const setPublication = async (traineeId: string, key: 'episodeA' | 'episodeB' | 'pod', published: boolean) => {
+  const setPublication = async (traineeId: string, key: PublicationKey, published: boolean) => {
     if (!isAdmin) return;
-    const current = allPublications.find(p => p.id === traineeId) ?? { id: traineeId, episodeA: false, episodeB: false, pod: false };
+    const current = allPublications.find(p => p.id === traineeId) ?? { id: traineeId, episodeA: false, episodeB: false, pod: false, da: false };
     await setDoc(doc(db, 'publications', traineeId), { ...current, [key]: published, updatedAt: new Date().toISOString(), updatedBy: uid });
   };
 

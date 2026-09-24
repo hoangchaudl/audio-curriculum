@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../../store';
 import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
-import { CRITERIA, REVIEWER_SLOTS, SCORE_LABELS_5, STAGE_SLOTS, allowedScoreKeys, publicationKey } from '../../assessment/config';
+import { CRITERIA, REVIEWER_SLOTS, SCORE_LABELS_5, STAGE_SLOTS, allowedScoreKeys, gradesFirstComplete, publicationKey, stageCells } from '../../assessment/config';
 import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
 import { STAGE_LABELS, card, input, primaryBtn, secondaryBtn } from './ui';
 
@@ -57,7 +57,9 @@ const useQueue = (): QueueItem[] => {
     const items: QueueItem[] = [];
     for (const e of enrollments) {
       const held = (Object.entries(e.reviewers) as [ReviewerSlot, string][]).filter(([, holder]) => holder === uid).map(([s]) => s);
-      const stages: AssessmentStage[] = ['A', 'B', 'P1', ...(e.podEpisodesRequired === 2 ? ['P2' as const] : [])];
+      const stages: AssessmentStage[] = ['A', 'B', 'P1', ...(e.podEpisodesRequired === 2 ? ['P2' as const] : []),
+        // Audio Description only once the program has a DA assignment.
+        ...(assignments.some(a => a.stage === 'DA') ? ['DA' as const] : [])];
       for (const slot of held) {
         for (const stage of stages.filter(s => STAGE_SLOTS[s].includes(slot))) {
           const own = assessmentSubmissions.filter(s => s.traineeId === e.traineeId);
@@ -101,7 +103,7 @@ const useQueue = (): QueueItem[] => {
 // submission. Pod: a complete version (latest by default). Episode A: any
 // version the trainer picks (latest by default).
 const gradableVersions = (item: QueueItem) => {
-  if (item.stage === 'B') return item.versions.filter(v => v.isComplete).slice(0, 1);
+  if (gradesFirstComplete(item.stage)) return item.versions.filter(v => v.isComplete).slice(0, 1);
   if (item.stage === 'A') return item.versions;
   return item.versions.filter(v => v.isComplete);
 };
@@ -120,10 +122,10 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const keys: string[] = isA ? item.lines.map(l => l.id) : allowedScoreKeys(item.stage, item.slot);
-  const cells = item.stage === 'B' ? assessmentConfig.episodeBCells : assessmentConfig.podCells;
+  const cells = stageCells(assessmentConfig, item.stage);
   const complete = keys.every(k => scores[k]);
   const selected = item.versions.find(v => v.id === submissionId);
-  const laterRevisions = item.stage === 'B' ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
+  const laterRevisions = gradesFirstComplete(item.stage) ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
   const locked = item.published;
 
   const keyLabel = (k: string) => {
@@ -159,9 +161,9 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
     <div className="mt-4 pt-4 border-t space-y-4">
       <div>
         <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">
-          {item.stage === 'B' ? 'Graded version (first complete submission)' : 'Version to grade'}
+          {gradesFirstComplete(item.stage) ? 'Graded version (first complete submission)' : 'Version to grade'}
         </p>
-        {item.stage === 'B' ? (
+        {gradesFirstComplete(item.stage) ? (
           <p className="text-sm font-bold text-gray-700">v{options[0]?.version}</p>
         ) : (
           <select value={submissionId} onChange={e => setSubmissionId(e.target.value)} disabled={locked} className={`${input} w-auto`}>

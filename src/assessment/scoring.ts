@@ -11,7 +11,7 @@ import {
   AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
   Enrollment, Exercise, ReviewerSlot,
 } from '../types';
-import { CRITERIA, REVIEWER_SLOTS, allowedScoreKeys } from './config';
+import { CRITERIA, REVIEWER_SLOTS, allowedScoreKeys, gradesFirstComplete } from './config';
 
 export type AwaitingReason = 'enrollment' | 'assignment' | 'submission' | 'assessment';
 export type Outcome =
@@ -128,7 +128,7 @@ export const episodeAOutcome = (d: TraineeData): Outcome => {
 
 // --- Episode B / Pod Trial (reviewer-table stages) ---------------------
 
-const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2', cells: CellWeight[], name: string): Outcome => {
+const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellWeight[], name: string): Outcome => {
   if (!d.enrollment) return awaiting('enrollment', [name]);
   const slots = [...new Set(cells.map(c => c.slot))];
   const unassigned = slots.filter(s => !d.enrollment!.reviewers[s]);
@@ -136,10 +136,10 @@ const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2', cells: CellW
 
   const complete = stageSubmissions(d.submissions, stage, 'episode').filter(s => s.isComplete);
   if (complete.length === 0) return awaiting('submission', [name]);
-  // Episode B: only a review of the first complete submission counts.
+  // Episode B / DA: only a review of the first complete submission counts.
   // Pod Trial: a review of any complete version of that episode counts.
   const gradedVersion = (r: AssessmentReview) =>
-    stage === 'B' ? r.submissionId === complete[0].id : complete.some(s => s.id === r.submissionId);
+    gradesFirstComplete(stage) ? r.submissionId === complete[0].id : complete.some(s => s.id === r.submissionId);
 
   const missing: string[] = [];
   const parts: { weight: number; value: number }[] = [];
@@ -160,6 +160,8 @@ const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2', cells: CellW
 
 export const episodeBOutcome = (d: TraineeData) => cellStageOutcome(d, 'B', d.config.episodeBCells, 'Episode B');
 
+export const daOutcome = (d: TraineeData) => cellStageOutcome(d, 'DA', d.config.daCells, 'Audio Description');
+
 export const podEpisodeOutcome = (d: TraineeData, episode: 1 | 2) =>
   cellStageOutcome(d, episode === 1 ? 'P1' : 'P2', d.config.podCells, `Pod episode ${episode}`);
 
@@ -178,6 +180,7 @@ export interface FinalResult {
   episodeA: Outcome;
   episodeB: Outcome;
   pod: Outcome;
+  da: Outcome;
   podEpisodes: Outcome[];
   final: Outcome;
   // Only defined once the final score exists.
@@ -188,22 +191,24 @@ export const finalResult = (d: TraineeData): FinalResult => {
   const episodeA = episodeAOutcome(d);
   const episodeB = episodeBOutcome(d);
   const pod = podOutcome(d);
+  const da = daOutcome(d);
   const required = d.enrollment?.podEpisodesRequired ?? 1;
   const podEpisodes = ([1, 2] as const).slice(0, required).map(n => podEpisodeOutcome(d, n));
-  const stages = [episodeA, episodeB, pod];
-  if (stages.some(o => o.status === 'awaiting')) {
-    return { episodeA, episodeB, pod, podEpisodes, final: mergeAwaiting(stages) };
-  }
   const w = d.config.stageWeights;
-  const value = weightedAverage([
-    { weight: w.episodeA, value: (episodeA as { value: number }).value },
-    { weight: w.episodeB, value: (episodeB as { value: number }).value },
-    { weight: w.pod, value: (pod as { value: number }).value },
-  ]);
+  // Stages weighted 0 don't count (and don't hold the final grade back).
+  const stages = [
+    { weight: w.episodeA, outcome: episodeA }, { weight: w.episodeB, outcome: episodeB },
+    { weight: w.pod, outcome: pod }, { weight: w.da ?? 0, outcome: da },
+  ].filter(st => st.weight > 0);
+  const base = { episodeA, episodeB, pod, da, podEpisodes };
+  if (stages.some(st => st.outcome.status === 'awaiting')) {
+    return { ...base, final: mergeAwaiting(stages.map(st => st.outcome)) };
+  }
+  const value = weightedAverage(stages.map(st => ({ weight: st.weight, value: (st.outcome as { value: number }).value })));
   // The benchmark is judged on the score as displayed (2 decimals), so the
   // label always matches the number people see - e.g. equal 33.33/33.33/
   // 33.34 criterion weights can compute 3.4999 for what shows as 3.50.
-  return { episodeA, episodeB, pod, podEpisodes, final: scored(value), meetsBenchmark: roundScore(value) >= d.config.passThreshold - 1e-9 };
+  return { ...base, final: scored(value), meetsBenchmark: roundScore(value) >= d.config.passThreshold - 1e-9 };
 };
 
 // --- Configuration checks (shown to admins) ----------------------------
@@ -218,6 +223,7 @@ export const weightIssues = (config: AssessmentConfig): WeightIssue[] => [
   { scope: 'Final grade stages', total: sum(Object.values(config.stageWeights)) },
   { scope: 'Episode B reviewer table', total: sum(config.episodeBCells.map(c => c.weight)) },
   { scope: 'Pod Trial reviewer table', total: sum(config.podCells.map(c => c.weight)) },
+  ...((config.stageWeights.da ?? 0) > 0 ? [{ scope: 'Audio Description reviewer table', total: sum(config.daCells.map(c => c.weight)) }] : []),
 ].filter(g => !is100(g.total));
 
 // n shares of 100 with 2 decimals; the last one absorbs the rounding

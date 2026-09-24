@@ -58,6 +58,7 @@ export const Sidebar: React.FC<{
         { page: 'episode:B', hash: '#/episode/B', label: 'Episode B – Final Test', icon: '🎬' },
         { page: 'episode:P1', hash: '#/episode/P1', label: ownEnrollment.podEpisodesRequired === 2 ? 'Pod Trial – Episode 1' : 'Pod Trial', icon: '🎧' },
         ...(ownEnrollment.podEpisodesRequired === 2 ? [{ page: 'episode:P2', hash: '#/episode/P2', label: 'Pod Trial – Episode 2', icon: '🎧' }] : []),
+        ...(assignments.some(a => a.stage === 'DA') ? [{ page: 'episode:DA', hash: '#/episode/DA', label: 'Audio Description', icon: '🎙️' }] : []),
       ]),
     ] : []),
     ...(hasReviews ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: '✅' }] : []),

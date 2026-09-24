@@ -12,7 +12,7 @@ const go = (hash: string) => { window.location.hash = hash; };
 export const ProgramOverview: React.FC = () => {
   const { currentUser, assessmentConfig: config, programOutline, assignments, videoProgress } = useAppContext();
   // Stage links go to the matching assignment page when the outline has one.
-  const stageHash = (stage: 'B' | 'P1' | 'P2') => {
+  const stageHash = (stage: 'B' | 'P1' | 'P2' | 'DA') => {
     const a = assignments.find(x => x.stage === stage);
     return a ? `#/assignment/${a.id}` : `#/episode/${stage}`;
   };
@@ -63,13 +63,17 @@ export const ProgramOverview: React.FC = () => {
     </div>
   );
 
-  const stageStatus = (stage: 'B' | 'P1' | 'P2') => {
+  const stageStatus = (stage: 'B' | 'P1' | 'P2' | 'DA') => {
     const v = ownVersions(stage);
     if (!v.length) return 'Not submitted yet';
     return v.some(s => s.isComplete) ? `Complete submission in (${v.length} version${v.length === 1 ? '' : 's'})` : `${v.length} draft version${v.length === 1 ? '' : 's'} – not marked complete`;
   };
 
-  const allPublished = !!(pub?.episodeA && pub?.episodeB && pub?.pod);
+  const sw = config.stageWeights;
+  // Audio Description counts once it has a weight (and an assignment).
+  const hasDA = (sw.da ?? 0) > 0;
+  const allPublished = !!(pub?.episodeA && pub?.episodeB && pub?.pod && (!hasDA || pub?.da));
+  const stageList = [`Episode A (${sw.episodeA}%)`, `Episode B (${sw.episodeB}%)`, `the Pod Trial (${sw.pod}%)`, ...(hasDA ? [`Audio Description (${sw.da}%)`] : [])];
   const schedule = [
     { weeks: 'Weeks 1–2', from: 1, to: 2, what: 'Episode A – build one complete training episode through the Episode A assignments' },
     { weeks: 'Week 3', from: 3, to: 3, what: 'Episode B – Final Episode Test on a different full episode, independently' },
@@ -95,8 +99,8 @@ export const ProgramOverview: React.FC = () => {
             <ul className="grid sm:grid-cols-2 gap-3 text-sm">
               <li className="bg-surface/70 rounded-2xl p-3"><b>📊 Your progress</b><br />How much of the program you've finished: lessons you've watched or marked done, plus assignments you've submitted.</li>
               <li className="bg-surface/70 rounded-2xl p-3"><b>🗓️ Weekly milestones</b><br />What's due each week and by which day. Open an assignment to read the brief and submit your work.</li>
-              <li className="bg-surface/70 rounded-2xl p-3"><b>📝 How you're graded</b><br />Three stages - Episode A ({config.stageWeights.episodeA}%), Episode B ({config.stageWeights.episodeB}%) and the Pod Trial ({config.stageWeights.pod}%). Reviewers score your work from 1 to 5.</li>
-              <li className="bg-surface/70 rounded-2xl p-3"><b>🏁 Final grade</b><br />Your overall score, shown once your coordinator publishes all three stages. The goal is {config.passThreshold} / 5 or higher.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b>📝 How you're graded</b><br />{stageList.length} stages - {stageList.slice(0, -1).join(', ')} and {stageList[stageList.length - 1]}. Reviewers score your work from 1 to 5.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b>🏁 Final grade</b><br />Your overall score, shown once your coordinator publishes every stage. The goal is {config.passThreshold} / 5 or higher.</li>
             </ul>
           </section>
           {(() => {
@@ -191,7 +195,7 @@ export const ProgramOverview: React.FC = () => {
           <div>
             <h3 className={`${sectionTitle} mb-1 px-2`}>How you're graded</h3>
             <p className="text-xs text-gray-400 font-medium mb-3 px-2">Each stage's share of your final grade. Scores appear here once your coordinator publishes them.</p>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className={`grid md:grid-cols-2 ${hasDA ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-6`}>
             <StageCard title="Episode A" weight={config.stageWeights.episodeA} weeks={weeksOf(['A'], 'Weeks 1–2')} published={pub?.episodeA}
               outcome={result.episodeA} status={`${epASubmitted} of ${epA.length} assignments submitted`}>
               <ul className="space-y-1.5">
@@ -219,6 +223,10 @@ export const ProgramOverview: React.FC = () => {
                 {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
               </div>
             </StageCard>
+            {hasDA && (
+              <StageCard title="Audio Description" weight={sw.da} weeks={weeksOf(['DA'], 'DA')} published={pub?.da}
+                outcome={result.da} status={stageStatus('DA')} onOpen={() => go(stageHash('DA'))} />
+            )}
           </div>
           </div>
 
@@ -226,13 +234,13 @@ export const ProgramOverview: React.FC = () => {
             <div>
               <h3 className={sectionTitle}>Final grade</h3>
               <p className="text-xs text-gray-400 font-medium">
-                Episode A × {config.stageWeights.episodeA}% + Episode B × {config.stageWeights.episodeB}% + Pod Trial × {config.stageWeights.pod}% · benchmark {config.passThreshold} / 5
+                Episode A × {sw.episodeA}% + Episode B × {sw.episodeB}% + Pod Trial × {sw.pod}%{hasDA ? ` + Audio Description × ${sw.da}%` : ''} · benchmark {config.passThreshold} / 5
               </p>
             </div>
             {allPublished ? (
               <div className="flex items-center gap-3"><OutcomeBadge outcome={result.final} size="lg" /><BenchmarkChip meets={result.meetsBenchmark} /></div>
             ) : (
-              <p className="text-xs font-bold text-gray-400">Appears once all three stages are published</p>
+              <p className="text-xs font-bold text-gray-400">Appears once every stage is published</p>
             )}
           </section>
         </div>

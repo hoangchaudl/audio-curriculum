@@ -189,10 +189,12 @@ service cloud.firestore {
     }
 
     // Episode A: trainer only. Episode B: trainer + audio engineer.
-    // Pod Trial: all four slots.
+    // Pod Trial: all four slots. Audio Description (DA): trainer, audio
+    // engineer and producer.
     function allowedSlot(stage, slot) {
       return (stage == 'A' && slot == 'trainer') ||
              (stage == 'B' && slot in ['trainer', 'engineer']) ||
+             (stage == 'DA' && slot in ['trainer', 'engineer', 'producer']) ||
              ((stage == 'P1' || stage == 'P2') && slot in ['trainer', 'engineer', 'keySoundDesigner', 'producer']);
     }
 
@@ -203,8 +205,8 @@ service cloud.firestore {
              (allowedSlot(stage, 'producer') && isSlotHolder(traineeId, 'producer'));
     }
 
-    // Score keys each slot may write. The producer never scores technical
-    // criteria (workflow, dialogue).
+    // Score keys each slot may write. In the Pod Trial the producer scores
+    // only SFX and Music; in Audio Description (DA) they score everything.
     function allowedKeys(stage, slot) {
       return stage == 'A' ? ['exercise']
            : ((stage == 'P1' || stage == 'P2') && slot == 'producer') ? ['sfx', 'music']
@@ -226,7 +228,7 @@ service cloud.firestore {
     }
 
     function publicationKey(stage) {
-      return stage == 'A' ? 'episodeA' : (stage == 'B' ? 'episodeB' : 'pod');
+      return stage == 'A' ? 'episodeA' : (stage == 'B' ? 'episodeB' : (stage == 'DA' ? 'da' : 'pod'));
     }
 
     function isPublished(traineeId, stage) {
@@ -278,7 +280,7 @@ service cloud.firestore {
                     exists(/databases/$(database)/documents/enrollments/$(request.auth.uid)) &&
                     request.resource.data.keys().hasOnly(['id', 'traineeId', 'stage', 'target', 'version', 'links', 'note', 'isComplete', 'submittedAt']) &&
                     request.resource.data.id == submissionId &&
-                    request.resource.data.stage in ['A', 'B', 'P1', 'P2'] &&
+                    request.resource.data.stage in ['A', 'B', 'P1', 'P2', 'DA'] &&
                     request.resource.data.version is int && request.resource.data.version >= 1 &&
                     submissionId == request.resource.data.traineeId + '__' + request.resource.data.stage + '__' +
                                     request.resource.data.target + '__v' + string(request.resource.data.version) &&
