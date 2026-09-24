@@ -44,8 +44,8 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
   const stages = [
     { key: 'episodeA' as const, label: 'Episode A', outcome: result.episodeA, weight: w.episodeA },
     { key: 'episodeB' as const, label: 'Episode B', outcome: result.episodeB, weight: w.episodeB },
-    { key: 'pod' as const, label: 'Pod Trial', outcome: result.pod, weight: w.pod },
     { key: 'da' as const, label: 'Audio Description', outcome: result.da, weight: w.da ?? 0 },
+    { key: 'pod' as const, label: 'Pod Trial', outcome: result.pod, weight: w.pod },
   ].filter(st => st.weight > 0);
   const missing = [...new Set(stages.map(st => st.outcome).flatMap(o => (o.status === 'awaiting' ? o.missing : [])))];
 

@@ -73,7 +73,7 @@ export const ProgramOverview: React.FC = () => {
   // Audio Description counts once it has a weight (and an assignment).
   const hasDA = (sw.da ?? 0) > 0;
   const allPublished = !!(pub?.episodeA && pub?.episodeB && pub?.pod && (!hasDA || pub?.da));
-  const stageList = [`Episode A (${sw.episodeA}%)`, `Episode B (${sw.episodeB}%)`, `the Pod Trial (${sw.pod}%)`, ...(hasDA ? [`Audio Description (${sw.da}%)`] : [])];
+  const stageList = [`Episode A (${sw.episodeA}%)`, `Episode B (${sw.episodeB}%)`, ...(hasDA ? [`Audio Description (${sw.da}%)`] : []), `the Pod Trial (${sw.pod}%)`];
   const schedule = [
     { weeks: 'Weeks 1–2', from: 1, to: 2, what: 'Episode A – build one complete training episode through the Episode A assignments' },
     { weeks: 'Week 3', from: 3, to: 3, what: 'Episode B – Final Episode Test on a different full episode, independently' },
@@ -216,6 +216,10 @@ export const ProgramOverview: React.FC = () => {
             </StageCard>
             <StageCard title="Episode B" weight={config.stageWeights.episodeB} weeks={`${weeksOf(['B'], 'Week 3')} · Final Episode Test`} published={pub?.episodeB}
               outcome={result.episodeB} status={stageStatus('B')} onOpen={() => go(stageHash('B'))} />
+            {hasDA && (
+              <StageCard title="Audio Description" weight={sw.da} weeks={weeksOf(['DA'], 'DA')} published={pub?.da}
+                outcome={result.da} status={stageStatus('DA')} onOpen={() => go(stageHash('DA'))} />
+            )}
             <StageCard title="Pod Trial" weight={config.stageWeights.pod} weeks={weeksOf(['P1', 'P2'], 'Week 4')} published={pub?.pod} outcome={result.pod}
               status={required === 2 ? `Ep 1: ${stageStatus('P1')} · Ep 2: ${stageStatus('P2')}` : stageStatus('P1')}>
               <div className="flex flex-wrap gap-2">
@@ -223,10 +227,6 @@ export const ProgramOverview: React.FC = () => {
                 {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
               </div>
             </StageCard>
-            {hasDA && (
-              <StageCard title="Audio Description" weight={sw.da} weeks={weeksOf(['DA'], 'DA')} published={pub?.da}
-                outcome={result.da} status={stageStatus('DA')} onOpen={() => go(stageHash('DA'))} />
-            )}
           </div>
           </div>
 
@@ -234,7 +234,7 @@ export const ProgramOverview: React.FC = () => {
             <div>
               <h3 className={sectionTitle}>Final grade</h3>
               <p className="text-xs text-gray-400 font-medium">
-                Episode A × {sw.episodeA}% + Episode B × {sw.episodeB}% + Pod Trial × {sw.pod}%{hasDA ? ` + Audio Description × ${sw.da}%` : ''} · benchmark {config.passThreshold} / 5
+                Episode A × {sw.episodeA}% + Episode B × {sw.episodeB}%{hasDA ? ` + Audio Description × ${sw.da}%` : ''} + Pod Trial × {sw.pod}% · benchmark {config.passThreshold} / 5
               </p>
             </div>
             {allPublished ? (
