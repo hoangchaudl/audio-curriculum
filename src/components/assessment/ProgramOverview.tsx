@@ -87,6 +87,18 @@ export const ProgramOverview: React.FC = () => {
 
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-6">
+          <section className="bg-sky rounded-[32px] p-6 md:p-8 text-navy">
+            <h3 className="text-lg font-black mb-2">Welcome to your training program</h3>
+            <p className="text-sm font-medium mb-4">
+              Over {programOutline?.weeks.length || 4} weeks you'll learn the StoryCo workflow and prove it on real episodes. This page is your home base - here's what's on it:
+            </p>
+            <ul className="grid sm:grid-cols-2 gap-3 text-sm">
+              <li className="bg-surface/70 rounded-2xl p-3"><b>📊 Your progress</b><br />How much of the program you've finished: lessons you've watched or marked done, plus assignments you've submitted.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b>🗓️ Weekly milestones</b><br />What's due each week and by which day. Open an assignment to read the brief and submit your work.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b>📝 How you're graded</b><br />Three stages - Episode A ({config.stageWeights.episodeA}%), Episode B ({config.stageWeights.episodeB}%) and the Pod Trial ({config.stageWeights.pod}%). Reviewers score your work from 1 to 5.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b>🏁 Final grade</b><br />Your overall score, shown once your coordinator publishes all three stages. The goal is {config.passThreshold} / 5 or higher.</li>
+            </ul>
+          </section>
           {(() => {
             const p = programProgress(programOutline, assignments, data.enrollment, currentUser?.id, videoProgress, data.submissions);
             return p.total > 0 && (
@@ -103,50 +115,6 @@ export const ProgramOverview: React.FC = () => {
               </section>
             );
           })()}
-          <div className="grid md:grid-cols-3 gap-6">
-            <StageCard title="Episode A" weight={config.stageWeights.episodeA} weeks={weeksOf(['A'], 'Weeks 1–2')} published={pub?.episodeA}
-              outcome={result.episodeA} status={`${epASubmitted} of ${epA.length} assignments submitted`}>
-              <ul className="space-y-1.5">
-                {epA.map(a => {
-                  const o = assignmentOutcome(data, a);
-                  return (
-                    <li key={a.id}>
-                      <button onClick={() => go(`#/assignment/${a.id}`)} className="w-full flex items-center justify-between gap-2 text-left bg-gray-50 hover:bg-gray-100 rounded-xl px-3 py-2">
-                        <span className="text-xs font-bold text-gray-700">{a.title}</span>
-                        <span className="text-[10px] font-black text-gray-400 whitespace-nowrap">
-                          {pub?.episodeA ? (o.status === 'scored' ? o.value.toFixed(2) : '–') : `${a.weight ?? 0}%`}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </StageCard>
-            <StageCard title="Episode B" weight={config.stageWeights.episodeB} weeks={`${weeksOf(['B'], 'Week 3')} · Final Episode Test`} published={pub?.episodeB}
-              outcome={result.episodeB} status={stageStatus('B')} onOpen={() => go(stageHash('B'))} />
-            <StageCard title="Pod Trial" weight={config.stageWeights.pod} weeks={weeksOf(['P1', 'P2'], 'Week 4')} published={pub?.pod} outcome={result.pod}
-              status={required === 2 ? `Ep 1: ${stageStatus('P1')} · Ep 2: ${stageStatus('P2')}` : stageStatus('P1')}>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => go(stageHash('P1'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 1 →</button>
-                {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
-              </div>
-            </StageCard>
-          </div>
-
-          <section className={`${card} flex flex-wrap items-center justify-between gap-4`}>
-            <div>
-              <h3 className={sectionTitle}>Final grade</h3>
-              <p className="text-xs text-gray-400 font-medium">
-                Episode A × {config.stageWeights.episodeA}% + Episode B × {config.stageWeights.episodeB}% + Pod Trial × {config.stageWeights.pod}% · benchmark {config.passThreshold} / 5
-              </p>
-            </div>
-            {allPublished ? (
-              <div className="flex items-center gap-3"><OutcomeBadge outcome={result.final} size="lg" /><BenchmarkChip meets={result.meetsBenchmark} /></div>
-            ) : (
-              <p className="text-xs font-bold text-gray-400">Appears once all three stages are published</p>
-            )}
-          </section>
-
           {programOutline?.weeks.length ? (
             <section className={card}>
               <h3 className={`${sectionTitle} mb-1`}>Weekly milestones</h3>
@@ -219,6 +187,54 @@ export const ProgramOverview: React.FC = () => {
             </ol>
           </section>
           )}
+
+          <div>
+            <h3 className={`${sectionTitle} mb-1 px-2`}>How you're graded</h3>
+            <p className="text-xs text-gray-400 font-medium mb-3 px-2">Each stage's share of your final grade. Scores appear here once your coordinator publishes them.</p>
+          <div className="grid md:grid-cols-3 gap-6">
+            <StageCard title="Episode A" weight={config.stageWeights.episodeA} weeks={weeksOf(['A'], 'Weeks 1–2')} published={pub?.episodeA}
+              outcome={result.episodeA} status={`${epASubmitted} of ${epA.length} assignments submitted`}>
+              <ul className="space-y-1.5">
+                {epA.map(a => {
+                  const o = assignmentOutcome(data, a);
+                  return (
+                    <li key={a.id}>
+                      <button onClick={() => go(`#/assignment/${a.id}`)} className="w-full flex items-center justify-between gap-2 text-left bg-gray-50 hover:bg-gray-100 rounded-xl px-3 py-2">
+                        <span className="text-xs font-bold text-gray-700">{a.title}</span>
+                        <span className="text-[10px] font-black text-gray-400 whitespace-nowrap">
+                          {pub?.episodeA ? (o.status === 'scored' ? o.value.toFixed(2) : '–') : `${a.weight ?? 0}%`}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </StageCard>
+            <StageCard title="Episode B" weight={config.stageWeights.episodeB} weeks={`${weeksOf(['B'], 'Week 3')} · Final Episode Test`} published={pub?.episodeB}
+              outcome={result.episodeB} status={stageStatus('B')} onOpen={() => go(stageHash('B'))} />
+            <StageCard title="Pod Trial" weight={config.stageWeights.pod} weeks={weeksOf(['P1', 'P2'], 'Week 4')} published={pub?.pod} outcome={result.pod}
+              status={required === 2 ? `Ep 1: ${stageStatus('P1')} · Ep 2: ${stageStatus('P2')}` : stageStatus('P1')}>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => go(stageHash('P1'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 1 →</button>
+                {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
+              </div>
+            </StageCard>
+          </div>
+          </div>
+
+          <section className={`${card} flex flex-wrap items-center justify-between gap-4`}>
+            <div>
+              <h3 className={sectionTitle}>Final grade</h3>
+              <p className="text-xs text-gray-400 font-medium">
+                Episode A × {config.stageWeights.episodeA}% + Episode B × {config.stageWeights.episodeB}% + Pod Trial × {config.stageWeights.pod}% · benchmark {config.passThreshold} / 5
+              </p>
+            </div>
+            {allPublished ? (
+              <div className="flex items-center gap-3"><OutcomeBadge outcome={result.final} size="lg" /><BenchmarkChip meets={result.meetsBenchmark} /></div>
+            ) : (
+              <p className="text-xs font-bold text-gray-400">Appears once all three stages are published</p>
+            )}
+          </section>
         </div>
       </div>
     </main>
