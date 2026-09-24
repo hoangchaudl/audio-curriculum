@@ -74,9 +74,9 @@ export const Sidebar: React.FC<{
             if (firstUnseen) setSelectedModuleId(firstUnseen.id);
           }}
           title={unseenGradeCount > 0 ? `${unseenGradeCount} new grade${unseenGradeCount === 1 ? '' : 's'} - click to open` : undefined}
-          className="relative w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center flex-shrink-0"
+          className="relative w-10 flex-shrink-0"
         >
-          <div className="w-6 h-6 bg-[#2E9DF7] rounded-full"></div>
+          <img src="/favicon.png" alt="StoryCo" className="w-10 h-auto rounded-md shadow-md" />
           {unseenGradeCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 bg-[#F4511E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
               {unseenGradeCount}
@@ -85,14 +85,8 @@ export const Sidebar: React.FC<{
         </button>
         {!isCollapsed && (
           <h1 className="flex flex-col leading-none">
-            <span className="flex items-center text-white font-black text-lg tracking-tight uppercase">
-              STORY
-              <svg viewBox="0 0 24 24" className="w-4 h-4 -mx-0.5 flex-shrink-0 text-[#3DDC97]" fill="currentColor" aria-hidden="true">
-                <path d="M7 2v11h3v9l7-12h-4l4-8z" />
-              </svg>
-              CO
-            </span>
-            <span className="text-[#E0F2FE] text-[9px] font-extrabold uppercase tracking-[0.2em] mt-0.5">Audio Academy</span>
+            <img src="/storyco-wordmark.png" alt="StoryCo" className="h-4 w-auto self-start" />
+            <span className="text-[#E0F2FE] text-[9px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
           </h1>
         )}
         {isRealAdmin && (
