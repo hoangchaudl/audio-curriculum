@@ -243,7 +243,7 @@ const AppContent = () => {
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
-          <span className="font-black text-sm uppercase tracking-tight text-[#2E9DF7] truncate">Story Co Audio Academy</span>
+          <span className="font-black text-sm uppercase tracking-tight text-[#2E9DF7] truncate">Story Co Audio Training Program</span>
         </div>
         {isRealAdmin && previewRole && (
           <div className="bg-[#F4511E] text-white text-xs font-bold px-6 py-2 shadow-md z-10 flex items-center justify-between flex-shrink-0">
