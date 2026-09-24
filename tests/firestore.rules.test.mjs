@@ -255,6 +255,14 @@ describe('assessment program', () => {
     await assertSucceeds(q('producer'));
     await assertFails(q('ksd'));
   });
+  it('full-time offer decisions are admin-only (the trainee and reviewers cannot read or write them)', async () => {
+    const o = { id: T, decision: 'offered', decidedAt: '2026-10-20', decidedBy: 'admin' };
+    await assertSucceeds(setDoc(doc(as('admin'), `programOutcomes/${T}`), o));
+    await assertSucceeds(getDoc(doc(as('admin'), `programOutcomes/${T}`)));
+    await assertFails(getDoc(doc(as(T), `programOutcomes/${T}`)));
+    await assertFails(getDoc(doc(as('trainer'), `programOutcomes/${T}`)));
+    await assertFails(setDoc(doc(as(T), `programOutcomes/${T}`), o));
+  });
   it('producer can score only SFX and Music', async () => {
     await assertFails(put('producer', rev('P1', 'episode', 'producer', 'producer', 'trainee__P1__episode__v1', FULL)));
     await assertFails(put('producer', rev('P1', 'episode', 'producer', 'producer', 'trainee__P1__episode__v1', { workflow: 4 }, 'draft')));

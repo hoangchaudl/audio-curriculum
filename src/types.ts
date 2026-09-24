@@ -255,6 +255,15 @@ export interface Enrollment {
   createdAt: string;
 }
 
+// The coordinator's end-of-probation decision for a trainee. Admin-only
+// (never readable by the trainee or their reviewers).
+export interface ProgramOutcome {
+  id: string; // trainee uid
+  decision: 'offered' | 'not_offered';
+  decidedAt: string;
+  decidedBy: string;
+}
+
 // Append-only: every revision is a new document; firestore.rules forbid
 // updating or deleting one. Id = `${traineeId}__${stage}__${target}__v${version}`.
 export interface AssessmentSubmission {
