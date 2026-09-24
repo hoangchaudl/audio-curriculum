@@ -44,7 +44,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
       </header>
       <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-4xl mx-auto space-y-6">
-          {video && <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, title: video.title }]} />}
+          {video && <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, title: video.title, start: video.start, end: video.end }]} />}
           {mod.description && <div className={card}><Md>{mod.description}</Md></div>}
           <ContentBlocks blocks={mod.contentBlocks} startDate={startDate} />
           {(mod.objectives?.length || mod.outcomes?.length) ? (

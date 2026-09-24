@@ -84,7 +84,8 @@ export type ContentBlock =
   | { id: string; type: 'schedule'; title?: string; items: { week: number; day?: number; task: string; hours?: number }[] }
   | { id: string; type: 'milestone'; title: string; week: number; day?: number; description?: string }
   | { id: string; type: 'expectation'; text: string }
-  | { id: string; type: 'video'; url: string; title?: string };
+  // start/end: optional clip of a YouTube video, in seconds (see videoClip.ts).
+  | { id: string; type: 'video'; url: string; title?: string; start?: number; end?: number };
 
 export interface ModuleVideo {
   id: string;
@@ -92,6 +93,9 @@ export interface ModuleVideo {
   type: 'internal' | 'external';
   url: string;
   title: string;
+  // Optional clip of a YouTube video, in seconds (see videoClip.ts).
+  start?: number;
+  end?: number;
   // Copied from the owning module so the same read rule can lock videos.
   category?: string;
   restricted?: boolean;

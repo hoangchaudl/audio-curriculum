@@ -1,4 +1,5 @@
 import React from 'react';
+import { clipEmbedQuery, clipLabel } from '../../videoClip';
 import { ContentBlock } from '../../types';
 import { Md, card, dateFor, formatDate, sectionTitle } from './ui';
 
@@ -67,7 +68,7 @@ export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: stri
               <div key={block.id} className="space-y-2">
                 {yt ? (
                   <div className="aspect-video rounded-[32px] overflow-hidden shadow-xl bg-black">
-                    <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${yt}`} title={block.title || 'Video'}
+                    <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${yt}${clipEmbedQuery(block.start, block.end)}`} title={block.title || 'Video'}
                       allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
                   </div>
                 ) : (
@@ -76,7 +77,12 @@ export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: stri
                     <span className="font-bold text-[#2E9DF7] underline">{block.title || block.url}</span>
                   </a>
                 )}
-                {block.title && yt && <p className="text-xs font-bold text-gray-500 px-2">{block.title}</p>}
+                {yt && (block.title || clipLabel(block.start, block.end)) && (
+                  <p className="text-xs font-bold text-gray-500 px-2">
+                    {block.title}
+                    {clipLabel(block.start, block.end) && <span className="ml-2 bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black">▶ {clipLabel(block.start, block.end)}</span>}
+                  </p>
+                )}
               </div>
             );
           }
