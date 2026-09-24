@@ -228,6 +228,18 @@ export const splitEvenly = (n: number): number[] => {
   return Array.from({ length: n }, (_, i) => (i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base));
 };
 
+// Scale shares so they add up to `total`, keeping their proportions
+// (2 decimals; the last absorbs rounding). All zero -> an even split.
+export const scaleShares = (shares: number[], total: number): number[] => {
+  if (!shares.length) return [];
+  const sumNow = shares.reduce((a, b) => a + b, 0);
+  const out = sumNow > 0
+    ? shares.map(v => Math.round((v / sumNow) * total * 100) / 100)
+    : shares.map(() => Math.floor((total / shares.length) * 100) / 100);
+  out[out.length - 1] = Math.round((total - out.slice(0, -1).reduce((a, b) => a + b, 0)) * 100) / 100;
+  return out;
+};
+
 // Everything in the grading setup that would give wrong or stuck results,
 // in plain words for the admin banner.
 export const gradingProblems = (config: AssessmentConfig, assignments: Assignment[], exercises: Exercise[]): string[] => {
