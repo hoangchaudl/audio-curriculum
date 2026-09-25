@@ -79,15 +79,27 @@ export const AssignmentForm: React.FC<{
           </label>
 
           <div className="space-y-2">
-            <p className="text-xs font-bold text-gray-500">Criteria - each is one 1–5 score the trainer gives for this submission</p>
+            <p className="text-xs font-bold text-gray-500">Criteria - each is one 1–5 score the trainer gives for this submission. Describe what each score looks like for that criterion; trainees and reviewers see it as a rubric table.</p>
             {lines.map((l, i) => (
-              <div key={l.id} className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
+              <div key={l.id} className="bg-gray-50 rounded-2xl p-3 space-y-2">
+              <div className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
                 <input value={l.title} onChange={e => setLine(i, { title: e.target.value })} placeholder="What's judged, e.g. Workflow" aria-label="Criterion name"
                   className={`${input} ${l.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
                 <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
                   <input type="number" min={0} step="0.01" value={l.weight} onChange={e => setLine(i, { weight: Number(e.target.value) })} aria-label="Share of assignment" className={input} />%
                 </label>
                 <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove criterion">✕</button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-5">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <label key={n} className="block">
+                    <span className="text-[10px] font-black uppercase text-gray-400">Score {n}</span>
+                    <textarea value={l.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${l.title || 'Criterion'} - score ${n} description`}
+                      onChange={e => { const levels = [1, 2, 3, 4, 5].map(k => (k === n ? e.target.value : l.levels?.[k - 1] ?? '')); setLine(i, { levels }); }}
+                      className={`${input} bg-surface h-24 text-xs`} />
+                  </label>
+                ))}
+              </div>
               </div>
             ))}
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -113,7 +125,11 @@ export const AssignmentForm: React.FC<{
         <button disabled={busy || !a.title.trim() || (a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())))}
           title={a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())) ? 'Give every criterion a name' : undefined} onClick={async () => {
           setBusy(true);
-          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()) }, lines.map((l, i) => ({ ...l, title: l.title.trim(), order: i + 1 }))); } finally { setBusy(false); }
+          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()) }, lines.map((l, i) => {
+            const { levels, ...rest } = l;
+            const clean = (levels ?? []).map(t => t.trim());
+            return { ...rest, title: l.title.trim(), order: i + 1, ...(clean.some(Boolean) ? { levels: clean } : {}) };
+          })); } finally { setBusy(false); }
         }} className={primaryBtn}>Save assignment</button>
         <button onClick={onCancel} className={secondaryBtn}>Cancel</button>
       </div>

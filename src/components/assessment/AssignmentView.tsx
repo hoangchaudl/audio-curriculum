@@ -4,10 +4,9 @@ import { Assignment } from '../../types';
 import { useTraineeData } from '../../assessment/traineeData';
 import { exerciseOutcome } from '../../assessment/scoring';
 import { assignmentLines } from '../../assessment/outline';
-import { SCORE_LABELS_5 } from '../../assessment/config';
 import { SubmissionPanel } from './SubmissionPanel';
 import { EpisodeView } from './EpisodeView';
-import { OutcomeBadge, card, sectionTitle } from './ui';
+import { OutcomeBadge, RubricTable, card, sectionTitle } from './ui';
 import { AssignmentIntro } from './AssignmentIntro';
 
 export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentId }) => {
@@ -66,7 +65,12 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
               })}
               {lines.length === 0 && <li className="text-sm text-gray-400">No criteria set up yet.</li>}
             </ul>
-            <p className="text-[10px] text-gray-400 mt-3">Scale: {[1, 2, 3, 4, 5].map(n => `${n} ${SCORE_LABELS_5[n]}`).join(' · ')}</p>
+            {lines.some(l => l.levels?.some(Boolean)) ? (
+              <div className="mt-4">
+                <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
+                <RubricTable lines={lines} />
+              </div>
+            ) : lines.length > 0 && <p className="text-[10px] text-gray-400 mt-3">Scale: 1 (lowest) to 5 (highest)</p>}
           </section>
 
           <section className={card}>

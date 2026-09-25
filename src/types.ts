@@ -119,6 +119,9 @@ export interface Exercise {
   weight: number;
   // The assignment it scores. Unset = legacy exercise that isn't graded.
   assignmentId?: string;
+  // Rubric: what each score means for this criterion - levels[0] describes
+  // a 1, levels[4] a 5. Unset/empty = no description for that score.
+  levels?: string[];
 }
 
 // Something trainees submit, placed on a day of the program outline.

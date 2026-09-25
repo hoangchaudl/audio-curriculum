@@ -52,6 +52,8 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const laterRevisions = gradesFirstComplete(item.stage) ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
   const locked = item.published;
 
+  // Episode A: the admin's description of score n for this criterion.
+  const levelText = (k: string, n: number) => (isA ? item.lines.find(x => x.id === k)?.levels?.[n - 1] : undefined);
   const keyLabel = (k: string) => {
     if (isA) {
       const l = item.lines.find(x => x.id === k);
@@ -113,14 +115,15 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
         {keys.map(k => (
           <div key={k}>
             <p className="text-xs font-bold text-gray-700 mb-1.5">{keyLabel(k)}</p>
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={keyLabel(k)}>
+            <div className={[1, 2, 3, 4, 5].some(n => levelText(k, n)) ? 'grid gap-1.5 sm:grid-cols-5 text-left' : 'flex flex-wrap gap-1.5'} role="radiogroup" aria-label={keyLabel(k)}>
               {([1, 2, 3, 4, 5] as AssessmentScore[]).map(n => (
                 <button key={n} type="button" role="radio" aria-checked={scores[k] === n} disabled={locked}
                   onClick={() => setScores(s => ({ ...s, [k]: n }))}
-                  className={`px-3 py-2 rounded-xl text-xs font-black transition-colors ${
+                  className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
                     scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
-                  {n} · {SCORE_LABELS_5[n]}
+                  {isA ? n : `${n} · ${SCORE_LABELS_5[n]}`}
+                  {isA && levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
                 </button>
               ))}
             </div>
