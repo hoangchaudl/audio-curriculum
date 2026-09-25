@@ -199,24 +199,28 @@ service cloud.firestore {
 
     // Score keys each slot may write. In the Pod Trial the producer scores
     // only SFX and Music; in Audio Description (DA) they score everything.
-    function allowedKeys(stage, slot) {
-      return stage == 'A' ? ['exercise']
-           : ((stage == 'P1' || stage == 'P2') && slot == 'producer') ? ['sfx', 'music']
+    // Reviewer-table stages: the keys saved on the config by the app
+    // (scoreKeys, derived from the admin's criteria and tables); configs
+    // saved before that fall back to the original four criteria.
+    function legacyKeys(stage, slot) {
+      return ((stage == 'P1' || stage == 'P2') && slot == 'producer') ? ['sfx', 'music']
            : ['workflow', 'dialogue', 'sfx', 'music'];
     }
 
-    function validScore(v) {
-      return v is int && v >= 1 && v <= 5;
+    function allowedKeys(stage, slot) {
+      let path = /databases/$(database)/documents/assessmentConfig/current;
+      let group = stage == 'B' ? 'B' : (stage == 'DA' ? 'DA' : 'P');
+      return stage == 'A' ? ['exercise']
+           : !exists(path) ? legacyKeys(stage, slot)
+           : get(path).data.get('scoreKeys', {}).get(group, {}).get(slot, legacyKeys(stage, slot));
     }
 
     function scoresValid(scores, stage, slot) {
       return scores is map &&
              scores.keys().hasOnly(allowedKeys(stage, slot)) &&
-             (!('exercise' in scores) || validScore(scores.exercise)) &&
-             (!('workflow' in scores) || validScore(scores.workflow)) &&
-             (!('dialogue' in scores) || validScore(scores.dialogue)) &&
-             (!('sfx' in scores) || validScore(scores.sfx)) &&
-             (!('music' in scores) || validScore(scores.music));
+             // Every score is a whole number 1-5 (criteria are admin-defined,
+             // so check the values rather than named keys).
+             scores.values().hasOnly([1, 2, 3, 4, 5]);
     }
 
     function publicationKey(stage) {

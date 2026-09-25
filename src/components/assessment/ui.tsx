@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 
 // Loaded when the first Markdown text is shown, not with the app.
 const Markdown = lazy(() => import('react-markdown'));
-import { AssessmentStage, Exercise } from '../../types';
+import { AssessmentStage } from '../../types';
 import { Outcome, outcomeLabel, roundScore } from '../../assessment/scoring';
 import { SCORE_LABELS_5 } from '../../assessment/config';
 
@@ -129,9 +129,9 @@ export const Md: React.FC<{ children: string }> = ({ children }) => (
 
 export const isHttpUrl = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
-// Rubric table for an assignment's criteria: one row per criterion, one
-// column per score 1-5 with the admin's description of that level.
-export const RubricTable: React.FC<{ lines: Exercise[] }> = ({ lines }) => (
+// Rubric table: one row per criterion, one column per score 1-5 with the
+// admin's description of that level. `note` sits under the name (e.g. its weight).
+export const RubricTable: React.FC<{ lines: { id: string; title: string; levels?: string[]; note?: string }[] }> = ({ lines }) => (
   <div className="overflow-x-auto">
     <table className="w-full text-xs border-separate border-spacing-1 min-w-[640px]">
       <thead>
@@ -143,7 +143,7 @@ export const RubricTable: React.FC<{ lines: Exercise[] }> = ({ lines }) => (
       <tbody>
         {lines.map(l => (
           <tr key={l.id} className="align-top">
-            <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{l.title}<span className="block text-[10px] font-bold opacity-70">{l.weight}%</span></td>
+            <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{l.title}{l.note && <span className="block text-[10px] font-bold opacity-70">{l.note}</span>}</td>
             {[1, 2, 3, 4, 5].map(n => (
               <td key={n} className="bg-gray-50 rounded-xl px-3 py-2 text-gray-700 whitespace-pre-wrap">{l.levels?.[n - 1] || <span className="text-gray-300">–</span>}</td>
             ))}

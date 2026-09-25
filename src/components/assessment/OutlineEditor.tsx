@@ -117,7 +117,7 @@ export const AssignmentForm: React.FC<{
         </div>
       ) : (
         <p className="text-xs text-gray-500 bg-surface rounded-2xl p-3">
-          Graded with the {a.stage === 'B' ? 'Episode B' : a.stage === 'DA' ? 'Audio Description' : 'Pod Trial'} reviewer table - see the <b>Grade formula</b> tab.
+          Graded with the {a.stage === 'B' ? 'Episode B' : a.stage === 'DA' ? 'Audio Description' : 'Pod Trial'} criteria and reviewer table - add criteria, weights and what each score 1–5 means in the <b>Grade formula</b> tab.
         </p>
       )}
 

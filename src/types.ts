@@ -98,7 +98,18 @@ export interface VideoProgress {
 // ===== Assessment program (1-5 scale) =====
 
 export type AssessmentScore = 1 | 2 | 3 | 4 | 5;
-export type CriterionId = 'workflow' | 'dialogue' | 'sfx' | 'music';
+// Reviewer-table criteria ids. The defaults are 'workflow' | 'dialogue' |
+// 'sfx' | 'music'; admins add their own per stage (StageCriterion).
+export type CriterionId = string;
+
+// One criterion of a reviewer-table stage (Episode B, Pod Trial, DA):
+// its name and what each score 1-5 means (levels[0] = score 1).
+export interface StageCriterion {
+  id: CriterionId;
+  title: string;
+  levels?: string[];
+}
+export type CellGroup = 'episodeB' | 'pod' | 'da';
 export type ReviewerSlot = 'trainer' | 'engineer' | 'keySoundDesigner' | 'producer';
 // A = Episode A (graded per exercise), B = Episode B final test,
 // P1/P2 = first/second Pod Trial episode.
@@ -193,6 +204,11 @@ export interface AssessmentConfig {
   // Admin-authored briefs, schedules and milestones for the non-module
   // stages (Episode B final test, Pod Trial).
   stageContent?: { episodeB?: ContentBlock[]; pod?: ContentBlock[]; da?: ContentBlock[] };
+  // Each reviewer-table stage's criteria, in order. Unset = the default four.
+  criteria?: Partial<Record<CellGroup, StageCriterion[]>>;
+  // Derived from the tables on every save (see scoreKeysFor): which score
+  // keys each reviewer writes per stage. firestore.rules reads it.
+  scoreKeys?: Record<'B' | 'P' | 'DA', Partial<Record<ReviewerSlot, string[]>>>;
 }
 
 // One per trainee; doc id = trainee uid. Reviewer slots hold real account

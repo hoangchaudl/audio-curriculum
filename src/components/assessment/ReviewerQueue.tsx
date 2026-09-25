@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { QueueItem, Status, useQueue } from '../../assessment/reviewQueue';
 import { useAppContext } from '../../store';
 import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
-import { CRITERIA, REVIEWER_SLOTS, SCORE_LABELS_5, STAGE_SLOTS, allowedScoreKeys, gradesFirstComplete, publicationKey, stageCells } from '../../assessment/config';
+import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys, gradesFirstComplete, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
 import { STAGE_LABELS, card, input, primaryBtn, secondaryBtn } from './ui';
 
@@ -45,22 +45,23 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const [feedback, setFeedback] = useState(item.review?.feedback ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const keys: string[] = isA ? item.lines.map(l => l.id) : allowedScoreKeys(item.stage, item.slot);
+  const keys: string[] = isA ? item.lines.map(l => l.id) : allowedScoreKeys(item.stage, item.slot, assessmentConfig);
+  const criteria = stageCriteria(assessmentConfig, item.stage);
   const cells = stageCells(assessmentConfig, item.stage);
   const complete = keys.every(k => scores[k]);
   const selected = item.versions.find(v => v.id === submissionId);
   const laterRevisions = gradesFirstComplete(item.stage) ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
   const locked = item.published;
 
-  // Episode A: the admin's description of score n for this criterion.
-  const levelText = (k: string, n: number) => (isA ? item.lines.find(x => x.id === k)?.levels?.[n - 1] : undefined);
+  // The admin's description of score n for this criterion.
+  const levelText = (k: string, n: number) => (isA ? item.lines.find(x => x.id === k) : criteria.find(c => c.id === k))?.levels?.[n - 1];
   const keyLabel = (k: string) => {
     if (isA) {
       const l = item.lines.find(x => x.id === k);
       return `${l?.title ?? 'Criterion'} (${l?.weight ?? 0}% of this assignment)`;
     }
     const w = cells.find(c => c.slot === item.slot && c.criterion === k)?.weight;
-    return `${CRITERIA.find(c => c.id === k)?.label} (${w}%)`;
+    return `${criteria.find(c => c.id === k)?.title ?? k} (${w}%)`;
   };
 
   const save = async (status: AssessmentReview['status']) => {
@@ -72,7 +73,8 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
         await Promise.all(item.lines.map(l => saveReview(item.traineeId, 'A', l.id, item.slot, submissionId,
           scores[l.id] ? { exercise: scores[l.id] } : {}, status, feedback)));
       } else {
-        await saveReview(item.traineeId, item.stage, item.target, item.slot, submissionId, scores as AssessmentReview['scores'], status, feedback);
+        await saveReview(item.traineeId, item.stage, item.target, item.slot, submissionId,
+          Object.fromEntries(keys.flatMap(k => (scores[k] ? [[k, scores[k]]] : []))) as AssessmentReview['scores'], status, feedback);
       }
       if (status === 'submitted') onDone();
     } catch (err) {
@@ -122,8 +124,8 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
                   className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
                     scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
-                  {isA ? n : `${n} · ${SCORE_LABELS_5[n]}`}
-                  {isA && levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
+                  {n}
+                  {levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
                 </button>
               ))}
             </div>

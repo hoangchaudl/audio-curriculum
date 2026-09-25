@@ -17,7 +17,7 @@ import {
 } from '../types';
 import { convertSkillGrading } from './migrate';
 import {
-  DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE,
+  DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE, scoreKeysFor,
   STAGE_SLOTS, PublicationKey, publicationKey, withConfigDefaults,
   reviewId, submissionId,
 } from './config';
@@ -207,7 +207,8 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
 
   const updateAssessmentConfig = async (updates: Partial<Omit<AssessmentConfig, 'id'>>) => {
     if (!isAdmin) return;
-    await setDoc(doc(db, 'assessmentConfig', 'current'), { ...config, ...updates, id: 'current' });
+    const next = { ...config, ...updates, id: 'current' as const };
+    await setDoc(doc(db, 'assessmentConfig', 'current'), { ...next, scoreKeys: scoreKeysFor(next) });
   };
 
   // One-time setup, run explicitly by an admin (never automatically):

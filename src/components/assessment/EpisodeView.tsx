@@ -2,10 +2,10 @@ import React from 'react';
 import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { daOutcome, episodeBOutcome, podEpisodeOutcome } from '../../assessment/scoring';
-import { CRITERIA, REVIEWER_SLOTS, STAGE_SLOTS, publicationKey, stageCells } from '../../assessment/config';
+import { REVIEWER_SLOTS, STAGE_SLOTS, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { ContentBlocks } from './ContentBlocks';
 import { SubmissionPanel } from './SubmissionPanel';
-import { OutcomeBadge, STAGE_LABELS, card, sectionTitle } from './ui';
+import { OutcomeBadge, RubricTable, STAGE_LABELS, card, sectionTitle } from './ui';
 import { Assignment } from '../../types';
 import { AssignmentIntro } from './AssignmentIntro';
 
@@ -17,6 +17,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
   const isPod = stage === 'P1' || stage === 'P2';
   const cells = stageCells(assessmentConfig, stage);
   const slots = STAGE_SLOTS[stage].filter(s => cells.some(c => c.slot === s));
+  const criteria = stageCriteria(assessmentConfig, stage);
   const published = !!data.publication?.[publicationKey(stage)];
   const content = assessmentConfig.stageContent;
   const blocks = stage === 'B' ? content?.episodeB : stage === 'DA' ? content?.da : content?.pod;
@@ -52,7 +53,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
           <section className={card}>
             <h3 className={`${sectionTitle} mb-1`}>Grading rubric</h3>
             <p className="text-xs text-gray-500 mb-4">
-              Each reviewer scores independently from 1 (Not Ready) to 5 (Strong). The percentages are each cell's share of this stage.
+              Each reviewer scores every criterion independently from 1 to 5. The percentages are each cell's share of this stage.
               {isPod && ' The producer scores SFX and Music against the creative brief.'}
             </p>
             <div className="overflow-x-auto">
@@ -64,9 +65,9 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {CRITERIA.map(c => (
+                  {criteria.map(c => (
                     <tr key={c.id}>
-                      <td className="py-2 pr-3 font-bold text-gray-700">{c.label}</td>
+                      <td className="py-2 pr-3 font-bold text-gray-700">{c.title}</td>
                       {slots.map(s => {
                         const w = cells.find(x => x.slot === s && x.criterion === c.id)?.weight;
                         return <td key={s} className="py-2 px-2 text-right font-bold text-gray-600">{w === undefined ? 'N/A' : `${w}%`}</td>;
@@ -76,6 +77,12 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
                 </tbody>
               </table>
             </div>
+            {criteria.some(c => c.levels?.some(Boolean)) && (
+              <div className="mt-5">
+                <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
+                <RubricTable lines={criteria} />
+              </div>
+            )}
           </section>
 
           {published && reviews.some(r => r.feedback) && (

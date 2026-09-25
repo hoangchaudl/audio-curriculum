@@ -327,6 +327,15 @@ describe('assessment program', () => {
     await assertFails(put('producer', rev('B', 'episode', 'producer', 'producer', 'trainee__B__episode__v2', { sfx: 4, music: 4 })));
     await assertSucceeds(put('duy', rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', FULL)));
   });
+  it('admin-defined criteria: reviewers write exactly the keys the config lists for their slot', async () => {
+    await seed(db => setDoc(doc(db, 'assessmentConfig/current'), { id: 'current', scoreKeys: {
+      B: { trainer: ['mix', 'story'], engineer: ['mix'] }, P: {}, DA: {} } }));
+    await assertSucceeds(put('duy', rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', { mix: 4 })));
+    await assertFails(put('duy', rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', FULL))); // old keys no longer allowed
+    await assertFails(put('trainer', rev('B', 'episode', 'trainer', 'trainer', 'trainee__B__episode__v2', { mix: 4 }))); // submitted needs every key
+    await assertSucceeds(put('trainer', rev('B', 'episode', 'trainer', 'trainer', 'trainee__B__episode__v2', { mix: 4, story: 5 })));
+    await assertFails(put('trainer', rev('B', 'episode', 'trainer', 'trainer', 'trainee__B__episode__v2', { mix: 4, story: 3.5 })));
+  });
   it('Audio Description (DA): trainee submits; trainer, engineer and producer score every criterion; KSD cannot', async () => {
     const da = sub('DA', 'episode', 1);
     await assertSucceeds(setDoc(doc(as(T), `assessmentSubmissions/${da.id}`), da));

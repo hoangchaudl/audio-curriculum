@@ -3,7 +3,7 @@ import {
   AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, CriterionId, Enrollment, ReviewerSlot,
 } from '../types';
 import {
-  DEFAULT_ASSESSMENT_CONFIG as CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, allowedScoreKeys, reviewId, submissionId, withConfigDefaults,
+  DEFAULT_ASSESSMENT_CONFIG as CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, allowedScoreKeys, reviewId, scoreKeysFor, submissionId, withConfigDefaults,
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
@@ -412,5 +412,29 @@ describe('Audio Description stage', () => {
     const r = finalResult({ ...everything(5, 3, 4), config: THREE_STAGE });
     // DA unscored but weighted 0: 0.2*5 + 0.4*3 + 0.4*4 = 3.8
     expect(r.final).toEqual({ status: 'scored', value: expect.closeTo(3.8, 10) });
+  });
+});
+
+describe('admin-defined reviewer-table criteria', () => {
+  // Episode B with two custom criteria: the engineer scores only "Mix".
+  const custom = {
+    ...THREE_STAGE,
+    criteria: { episodeB: [{ id: 'mix', title: 'Mix', levels: ['Clipping', '', '', '', 'Broadcast ready'] }, { id: 'story', title: 'Storytelling' }] },
+    episodeBCells: [{ slot: 'trainer' as const, criterion: 'mix', weight: 30 }, { slot: 'trainer' as const, criterion: 'story', weight: 40 }, { slot: 'engineer' as const, criterion: 'mix', weight: 30 }],
+  };
+  it('each reviewer scores the criteria they have a cell for, and the rules get the same keys', () => {
+    expect(allowedScoreKeys('B', 'trainer', custom)).toEqual(['mix', 'story']);
+    expect(allowedScoreKeys('B', 'engineer', custom)).toEqual(['mix']);
+    expect(scoreKeysFor(custom).B).toEqual({ trainer: ['mix', 'story'], engineer: ['mix'] });
+    expect(scoreKeysFor(CONFIG).P.producer).toEqual(['sfx', 'music']);
+  });
+  it('grades the stage from the custom cells', () => {
+    const sb = sub('B', 'episode', 1);
+    const d = data({ config: custom, submissions: [sb], reviews: [
+      review('B', 'episode', 'trainer', { mix: 5, story: 2 }, sb.id), review('B', 'episode', 'engineer', { mix: 4 }, sb.id)] });
+    // (30*5 + 40*2 + 30*4) / 100 = 3.5
+    expect(episodeBOutcome(d)).toEqual({ status: 'scored', value: expect.closeTo(3.5, 10) });
+    const missing = data({ config: custom, submissions: [sb], reviews: [review('B', 'episode', 'trainer', { mix: 5, story: 2 }, sb.id)] });
+    expect(episodeBOutcome(missing)).toMatchObject({ status: 'awaiting', missing: ['Episode B: Audio Engineer – Mix'] });
   });
 });

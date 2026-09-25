@@ -11,7 +11,7 @@ import {
   AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
   Enrollment, Exercise, ReviewerSlot,
 } from '../types';
-import { CRITERIA, REVIEWER_SLOTS, allowedScoreKeys, gradesFirstComplete } from './config';
+import { REVIEWER_SLOTS, allowedScoreKeys, gradesFirstComplete, stageCriteria } from './config';
 
 export type AwaitingReason = 'enrollment' | 'assignment' | 'submission' | 'assessment';
 export type Outcome =
@@ -50,7 +50,6 @@ const weightedAverage = (parts: { weight: number; value: number }[]) => {
 };
 
 const slotLabel = (slot: ReviewerSlot) => REVIEWER_SLOTS.find(s => s.id === slot)?.label ?? slot;
-const criterionLabel = (id: string) => CRITERIA.find(c => c.id === id)?.label ?? id;
 
 const isValidScore = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 5;
 
@@ -149,7 +148,7 @@ const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells
     if (review?.status === 'submitted' && gradedVersion(review) && isValidScore(value)) {
       parts.push({ weight: cell.weight, value });
     } else {
-      missing.push(`${name}: ${slotLabel(cell.slot)} – ${criterionLabel(cell.criterion)}`);
+      missing.push(`${name}: ${slotLabel(cell.slot)} – ${stageCriteria(d.config, stage).find(c => c.id === cell.criterion)?.title ?? cell.criterion}`);
     }
   }
   if (missing.length) return awaiting('assessment', missing);
