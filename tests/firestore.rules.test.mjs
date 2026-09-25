@@ -13,7 +13,10 @@ import {
 
 let env;
 const as = (uid) => env.authenticatedContext(uid).firestore();
-const asEmail = (uid, email) => env.authenticatedContext(uid, { email }).firestore();
+// Invites only match a verified email; asUnverified is someone who typed
+// that address at sign-up but hasn't proved they own the inbox.
+const asEmail = (uid, email) => env.authenticatedContext(uid, { email, email_verified: true }).firestore();
+const asUnverified = (uid, email) => env.authenticatedContext(uid, { email, email_verified: false }).firestore();
 const seed = (fn) => env.withSecurityRulesDisabled((ctx) => fn(ctx.firestore()));
 
 before(async () => {
@@ -85,6 +88,27 @@ describe('category lock (curriculum)', () => {
     await assertSucceeds(setDoc(doc(as('admin'), 'categories/x'), cat));
     await assertSucceeds(getDocs(collection(as('designer'), 'categories')));
   });
+  it('a signed-in account without a profile (uninvited sign-up) reads no program content', async () => {
+    const stranger = as('stranger');
+    await assertFails(getDocs(collection(stranger, 'categories')));
+    await assertFails(getDocs(query(collection(stranger, 'modules'), where('restricted', '==', false))));
+    await assertFails(getDoc(doc(stranger, 'modules/open')));
+    await assertFails(getDocs(collection(stranger, 'assignments')));
+    await assertFails(getDocs(collection(stranger, 'exercises')));
+    await assertFails(getDoc(doc(stranger, 'assessmentConfig/current')));
+    await assertFails(getDoc(doc(stranger, 'programOutline/current')));
+    // Still allowed: sign-up has to check whether the first admin exists.
+    await assertSucceeds(getDoc(doc(stranger, 'config/bootstrap')));
+  });
+  it('users edit only their own name/avatar/theme/pod/read notifications', async () => {
+    const d = as('designer');
+    await assertSucceeds(updateDoc(doc(d, 'users/designer'), { name: 'New name', pod: 'Blue', readNotifications: ['a'] }));
+    await assertFails(updateDoc(doc(d, 'users/designer'), { email: 'admin@story.co' }));
+    await assertFails(updateDoc(doc(d, 'users/designer'), { anything: true }));
+    await assertFails(updateDoc(doc(d, 'users/designer'), { name: 'x'.repeat(101) }));
+    await assertFails(updateDoc(doc(d, 'users/designer'), { avatarBase64: 'x'.repeat(300001) }));
+    await assertFails(updateDoc(doc(d, 'users/unlocked'), { name: 'Hijacked' }));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -128,6 +152,14 @@ describe('videoProgress (mark as done)', () => {
     await assertFails(setDoc(doc(as('unlocked'), 'videoProgress/m1_x'), { ...rec, userId: 'designer' }));
     await assertSucceeds(deleteDoc(doc(as('designer'), 'videoProgress/m1_designer')));
   });
+  it('nobody can take over (overwrite) another trainee\'s record', async () => {
+    const rec = { id: 'm1_designer', moduleId: 'm1', userId: 'designer', watchedAt: '2026-01-01' };
+    await assertSucceeds(setDoc(doc(as('designer'), 'videoProgress/m1_designer'), rec));
+    await assertFails(setDoc(doc(as('unlocked'), 'videoProgress/m1_designer'), { ...rec, userId: 'unlocked' }));
+    // Record ids are always <moduleId>_<own uid>.
+    await assertFails(setDoc(doc(as('unlocked'), 'videoProgress/whatever'), { ...rec, id: 'whatever', userId: 'unlocked' }));
+    await assertSucceeds(setDoc(doc(as('unlocked'), 'videoProgress/m1_unlocked'), { ...rec, id: 'm1_unlocked', userId: 'unlocked' }));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -170,10 +202,23 @@ describe('invites', () => {
     await assertFails(getDoc(doc(asEmail('kim', 'kim@story.co'), 'invites/pat@story.co')));
     await assertSucceeds(deleteDoc(doc(asEmail('kim', 'kim@story.co'), 'invites/kim@story.co')));
   });
+  it('an unverified email can\'t see or use the invite', async () => {
+    const squatter = asUnverified('squat', 'pat@story.co');
+    await assertFails(getDoc(doc(squatter, 'invites/pat@story.co')));
+    await assertFails(setDoc(doc(squatter, 'users/squat'), { id: 'squat', role: 'reviewer', email: 'pat@story.co' }));
+    await assertFails(deleteDoc(doc(squatter, 'invites/pat@story.co')));
+    const kim = asUnverified('kim', 'kim@story.co');
+    await assertFails(setDoc(doc(kim, 'enrollments/kim'), enrollment));
+  });
   it('an invited reviewer signs up with the reviewer role; nobody else can', async () => {
-    await assertSucceeds(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'reviewer' }));
-    await assertFails(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'admin' }));
-    await assertFails(setDoc(doc(asEmail('zed', 'zed@story.co'), 'users/zed'), { id: 'zed', role: 'reviewer' }));
+    await assertSucceeds(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'reviewer', email: 'Pat@story.co' }));
+    await assertFails(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'admin', email: 'pat@story.co' }));
+    await assertFails(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'reviewer', email: 'someone@story.co' }));
+    await assertFails(setDoc(doc(asEmail('zed', 'zed@story.co'), 'users/zed'), { id: 'zed', role: 'reviewer', email: 'zed@story.co' }));
+  });
+  it('an invited trainee creates a trainee profile - not a different role', async () => {
+    await assertSucceeds(setDoc(doc(asEmail('kim', 'kim@story.co'), 'users/kim'), { id: 'kim', role: 'sound_designer', email: 'kim@story.co' }));
+    await assertFails(setDoc(doc(asEmail('kim', 'kim@story.co'), 'users/kim2'), { id: 'kim2', role: 'sound_designer', email: 'kim@story.co' }));
   });
   it('an invited trainee enrolls themselves only with the invited settings', async () => {
     await assertFails(setDoc(doc(asEmail('kim', 'kim@story.co'), 'enrollments/kim'), { ...enrollment, startDate: '2026-09-01' }));
@@ -188,8 +233,9 @@ describe('invites', () => {
 describe('signup roles and first-admin bootstrap', () => {
   beforeEach(() => seed(baseUsers));
 
-  it('new accounts can only create themselves as sound designers', async () => {
-    await assertSucceeds(setDoc(doc(as('new1'), 'users/new1'), { id: 'new1', role: 'sound_designer' }));
+  it('without an invite, new accounts cannot create any profile (invite-only)', async () => {
+    await assertFails(setDoc(doc(as('new1'), 'users/new1'), { id: 'new1', role: 'sound_designer' }));
+    await assertFails(setDoc(doc(asEmail('new1', 'new1@story.co'), 'users/new1'), { id: 'new1', role: 'sound_designer', email: 'new1@story.co' }));
     await assertFails(setDoc(doc(as('new2'), 'users/new2'), { id: 'new2', role: 'admin' }));
     await assertFails(setDoc(doc(as('new3'), 'users/new3'), { id: 'new3', role: 'audio_engineer' }));
     await assertFails(setDoc(doc(as('new4'), 'users/new4'), { id: 'new4', role: 'reviewer' }));
@@ -220,8 +266,8 @@ describe('signup roles and first-admin bootstrap', () => {
     b2.set(doc(second, 'users/second'), { id: 'second', role: 'admin' });
     b2.set(doc(second, 'config/bootstrap'), { adminUid: 'second' });
     await assertFails(b2.commit());
-    await assertSucceeds(setDoc(doc(second, 'users/second'), { id: 'second', role: 'sound_designer' }));
-    await assertFails(updateDoc(doc(second, 'users/second'), { role: 'admin' }));
+    // Invite-only: the losing claimant gets no profile at all without an invite.
+    await assertFails(setDoc(doc(second, 'users/second'), { id: 'second', role: 'sound_designer' }));
   });
 });
 
@@ -277,6 +323,11 @@ describe('assessment program', () => {
     await assertFails(updateDoc(doc(as(T), `assessmentSubmissions/${v1.id}`), { note: 'edited' }));
     await assertFails(deleteDoc(doc(as(T), `assessmentSubmissions/${v1.id}`)));
     await assertFails(deleteDoc(doc(as('admin'), `assessmentSubmissions/${v1.id}`)));
+  });
+  it('an enrolled account whose role was changed away from trainee can no longer submit', async () => {
+    await assertSucceeds(updateDoc(doc(as('admin'), `users/${T}`), { role: 'reviewer' }));
+    const s = sub('A', 'ex1', 2);
+    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${s.id}`), s));
   });
   it('trainees cannot submit for someone else, when unenrolled, or with invalid targets', async () => {
     const other = sub('A', 'ex1', 2, true, 'trainee2');
@@ -372,6 +423,11 @@ describe('assessment program', () => {
   it('a submitted review needs every criterion; drafts may be partial', async () => {
     await assertFails(put('duy', rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', { workflow: 4, dialogue: 4, sfx: 4 })));
     await assertSucceeds(put('duy', rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', { workflow: 4 }, 'draft')));
+  });
+  it('review feedback is capped at 10,000 characters', async () => {
+    const r = rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', FULL);
+    await assertFails(put('duy', { ...r, feedback: 'x'.repeat(10001) }));
+    await assertSucceeds(put('duy', { ...r, feedback: 'Solid dialogue leveling.' }));
   });
   it('reviewers are independent: they cannot read each other\'s reviews', async () => {
     const r = rev('B', 'episode', 'trainer', 'trainer', 'trainee__B__episode__v2', FULL);

@@ -20,7 +20,16 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut,
+  sendEmailVerification,
+  updateProfile,
 } from 'firebase/auth';
+
+// Pod typed at sign-up, kept until the profile can be created (after the
+// email is verified). Best effort: verifying on another device loses it,
+// and the pod can be set from the profile later.
+const pendingPodKey = (uid: string) => `pendingPod:${uid}`;
+
+export type AccountSetupResult = 'done' | 'unverified' | 'no-invite';
 
 interface AppContextType extends AppState, AssessmentApi {
   // True whenever Firebase Auth reports a real signed-in session - even if
@@ -29,6 +38,9 @@ interface AppContextType extends AppState, AssessmentApi {
   // still waiting on / missing profile data" so the UI doesn't just dump
   // someone back on the login form with no explanation.
   hasSession: boolean;
+  // Signed in, but no /users/{uid} profile exists: a new sign-up that still
+  // has to verify its email / be matched to an invite (see AccountSetupView).
+  profileMissing: boolean;
   authLoading: boolean;
   authError: string | null;
   // True once the submissions listener has delivered its first snapshot
@@ -37,7 +49,10 @@ interface AppContextType extends AppState, AssessmentApi {
   // of racing an empty initial array and locking in the wrong default.
   clearAuthError: () => void;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string, role: User['role'], pod?: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, pod?: string) => Promise<boolean>;
+  completeAccountSetup: () => Promise<AccountSetupResult>;
+  claimInvite: () => Promise<AccountSetupResult>;
+  resendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<boolean>;
   logout: () => void;
   markVideoWatched: (moduleId: string) => void;
@@ -107,6 +122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // seed fallback) - the admin reconcile below must never write seed data
   // back over real documents.
   const [ownProfile, setOwnProfile] = useState<User | null>(null);
+  const [profileMissing, setProfileMissing] = useState(false);
   const [roster, setRoster] = useState<User[]>([]);
   const [curriculumFromFirestore, setCurriculumFromFirestore] = useState({ modules: false, videos: false, categories: false });
 
@@ -138,6 +154,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }));
         setCurriculumFromFirestore({ modules: false, videos: false, categories: false });
         setOwnProfile(null);
+        setProfileMissing(false);
         setAuthLoading(false);
         return;
       }
@@ -153,21 +170,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Your own profile. Other people's are private (see firestore.rules);
       // the roster listener below loads only the ones your role may read.
-      unsubscribers.push(onSnapshot(doc(db, 'users', fbUser.uid), (snapshot) => {
+      // A profile this client just created (account setup) shows up locally
+      // before the server has it; the listeners it unlocks would then be
+      // denied by firestore.rules (isMember) and die. So a new profile only
+      // counts once committed - later edits (theme, avatar) apply at once.
+      let onServer = false;
+      unsubscribers.push(onSnapshot(doc(db, 'users', fbUser.uid), { includeMetadataChanges: true }, (snapshot) => {
+        if (!snapshot.metadata.hasPendingWrites) onServer = snapshot.exists();
+        else if (!onServer) return;
         setOwnProfile(snapshot.exists() ? (snapshot.data() as User) : null);
+        setProfileMissing(!snapshot.exists());
         setAuthLoading(false);
       }, onError('users')));
-
-      // Categories: same "empty means not seeded yet, keep the local
-      // fallback" behavior as the curriculum listeners below.
-      unsubscribers.push(onSnapshot(collection(db, 'categories'), (snapshot) => {
-        if (snapshot.empty) return;
-        const categories: Category[] = [];
-        snapshot.forEach(d => categories.push(d.data() as Category));
-        setState(s => ({ ...s, categories }));
-        setCurriculumFromFirestore(f => ({ ...f, categories: true }));
-      }, onError('categories')));
-
     });
 
     return () => {
@@ -212,6 +226,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const unsubs = [
+      // Categories: same "empty means not seeded yet, keep the local
+      // fallback" behavior as the curriculum listeners. Needs a profile
+      // (firestore.rules isMember), hence here and not at sign-in.
+      onSnapshot(collection(db, 'categories'), (snapshot) => {
+        if (snapshot.empty) return;
+        const categories: Category[] = [];
+        snapshot.forEach(d => categories.push(d.data() as Category));
+        setState(s => ({ ...s, categories }));
+        setCurriculumFromFirestore(f => ({ ...f, categories: true }));
+      }, (error) => console.error('Error syncing categories from Firestore:', error)),
       ...listen<Module>('modules', rows => {
         setState(s => ({ ...s, modules: rows ?? initialData.modules }));
         setCurriculumFromFirestore(f => ({ ...f, modules: !!rows }));
@@ -315,38 +339,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const signup = async (
-    name: string,
-    email: string,
-    password: string,
-    role: User['role'],
-    pod?: string
-  ): Promise<boolean> => {
+  // Invite-only sign-up. Creates the Auth account and sends a verification
+  // email; the profile (with the invited role) is created only once the
+  // email is verified - see completeAccountSetup, and firestore.rules,
+  // which match invites to verified emails only. The single exception is
+  // the very first account on a fresh project, which becomes admin.
+  const signup = async (name: string, email: string, password: string, pod?: string): Promise<boolean> => {
     setAuthError(null);
     try {
-      // Create the Firebase Auth account first. The bootstrap check below
-      // reads the `users` collection, and firestore.rules requires being
-      // signed in to read it - so this has to happen only *after*
-      // createUserWithEmailAndPassword has signed the new user in, not before.
+      // Create the Firebase Auth account first: reading config/bootstrap
+      // requires being signed in.
       const credential = await createUserWithEmailAndPassword(auth, email, password);
+      const fbUser = credential.user;
 
-      // Bootstrap rule: the very first signup becomes admin, so the team
-      // always has someone who can administer the platform. firestore.rules
+      // Bootstrap rule: the very first signup becomes admin. firestore.rules
       // only allows a self-created admin profile when it's written together
       // with the one-time /config/bootstrap claim (which can never be
-      // created again) - everyone else can only sign up as a sound
-      // designer, and further role changes must go through an admin.
-      const makeUser = (userRole: User['role']): User => ({
-        id: credential.user.uid,
-        name,
-        email,
-        role: userRole,
-        ...(pod ? { pod } : {}),
-        createdAt: new Date().toISOString(),
-      });
+      // created again).
       const bootstrapRef = doc(db, 'config', 'bootstrap');
       if (!(await getDoc(bootstrapRef)).exists()) {
-        const admin = makeUser('admin');
+        const admin: User = { id: fbUser.uid, name, email, role: 'admin', ...(pod ? { pod } : {}), createdAt: new Date().toISOString() };
         const batch = writeBatch(db);
         batch.set(doc(db, 'users', admin.id), admin);
         batch.set(bootstrapRef, { adminUid: admin.id, claimedAt: admin.createdAt });
@@ -354,31 +366,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           await batch.commit();
           return true;
         } catch {
-          // Someone else claimed bootstrap at the same moment - fall
-          // through and sign up as a regular designer instead.
+          // Someone else claimed bootstrap at the same moment - continue as
+          // a regular (invited) sign-up.
         }
       }
-      // Invited by an admin? Take the invited role, and for a trainee also
-      // create their enrollment with the invited settings - one batch, and
-      // the invite is used up (firestore.rules check it matches).
-      const inviteRef = doc(db, 'invites', email.trim().toLowerCase());
-      const invite = await getDoc(inviteRef).then(snap => (snap.exists() ? snap.data() as Invite : null)).catch(() => null);
-      if (invite) {
-        const invited = makeUser(invite.role);
-        const batch = writeBatch(db);
-        batch.set(doc(db, 'users', invited.id), invited);
-        if (invite.role === 'sound_designer' && invite.startDate) batch.set(doc(db, 'enrollments', invited.id), enrollmentFromInvite(invite, invited.id));
-        batch.delete(inviteRef);
-        await batch.commit();
-        return true;
+
+      await updateProfile(fbUser, { displayName: name.trim() });
+      if (pod?.trim()) {
+        try { localStorage.setItem(pendingPodKey(fbUser.uid), pod.trim()); } catch { /* storage blocked */ }
       }
-      const newUser = makeUser(role === 'admin' ? 'sound_designer' : role);
-      await setDoc(doc(db, 'users', newUser.id), newUser);
+      await sendEmailVerification(fbUser);
       return true;
     } catch (err) {
       setAuthError(friendlyAuthError(err));
       return false;
     }
+  };
+
+  // The invite for the signed-in account's email - but only once that email
+  // is verified. Refreshes the ID token so firestore.rules see the new
+  // email_verified claim right after the person clicks the link.
+  const verifiedInvite = async () => {
+    const fbUser = auth.currentUser;
+    if (!fbUser?.email) return { status: 'no-invite' as const };
+    await fbUser.reload();
+    if (!fbUser.emailVerified) return { status: 'unverified' as const };
+    await fbUser.getIdToken(true);
+    const ref = doc(db, 'invites', fbUser.email.toLowerCase());
+    const snap = await getDoc(ref);
+    return snap.exists() ? { status: 'ok' as const, fbUser, ref, invite: snap.data() as Invite } : { status: 'no-invite' as const };
+  };
+
+  // A new account (no profile yet): create the profile with the invited
+  // role, the trainee's enrollment, and use up the invite - one batch.
+  const completeAccountSetup = async (): Promise<AccountSetupResult> => {
+    const found = await verifiedInvite();
+    if (found.status !== 'ok') return found.status;
+    const { fbUser, ref, invite } = found;
+    const email = fbUser.email!.toLowerCase();
+    let pod: string | null = null;
+    try { pod = localStorage.getItem(pendingPodKey(fbUser.uid)); } catch { /* storage blocked */ }
+    const user: User = {
+      id: fbUser.uid, name: fbUser.displayName || email.split('@')[0], email, role: invite.role,
+      ...(pod ? { pod } : {}), createdAt: new Date().toISOString(),
+    };
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'users', user.id), user);
+    if (invite.role === 'sound_designer' && invite.startDate) batch.set(doc(db, 'enrollments', user.id), enrollmentFromInvite(invite, user.id));
+    batch.delete(ref);
+    await batch.commit();
+    try { localStorage.removeItem(pendingPodKey(fbUser.uid)); } catch { /* storage blocked */ }
+    return 'done';
+  };
+
+  // An existing trainee account invited later: enroll it with the invite's
+  // settings (see WaitingView and the effect further down).
+  const claimInvite = async (): Promise<AccountSetupResult> => {
+    const found = await verifiedInvite();
+    if (found.status !== 'ok') return found.status;
+    const { fbUser, ref, invite } = found;
+    if (invite.role !== 'sound_designer' || !invite.startDate) return 'no-invite';
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'enrollments', fbUser.uid), enrollmentFromInvite(invite, fbUser.uid));
+    batch.delete(ref);
+    await batch.commit();
+    return 'done';
+  };
+
+  const resendVerification = async () => {
+    if (auth.currentUser) await sendEmailVerification(auth.currentUser);
   };
 
   const resetPassword = async (email: string): Promise<boolean> => {
@@ -622,17 +678,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!authUid || currentUser?.role !== 'sound_designer' || !assessment.ownEnrollmentLoaded || ownEnrolled) return;
     if (inviteChecked.current === authUid) return;
     inviteChecked.current = authUid;
-    const email = auth.currentUser?.email?.toLowerCase();
-    if (!email) return;
-    const inviteRef = doc(db, 'invites', email);
-    getDoc(inviteRef).then(async snap => {
-      const invite = snap.exists() ? snap.data() as Invite : null;
-      if (!invite || invite.role !== 'sound_designer' || !invite.startDate) return;
-      const batch = writeBatch(db);
-      batch.set(doc(db, 'enrollments', authUid), enrollmentFromInvite(invite, authUid));
-      batch.delete(inviteRef);
-      await batch.commit();
-    }).catch(error => console.error('Error claiming invite', error));
+    // Unverified emails can't claim (firestore.rules) - WaitingView asks
+    // them to verify and retries from there.
+    if (!auth.currentUser?.emailVerified) return;
+    claimInvite().catch(error => console.error('Error claiming invite', error));
   }, [authUid, currentUser?.role, assessment.ownEnrollmentLoaded, ownEnrolled]);
 
   // Other people's profiles and lesson progress, by role (firestore.rules
@@ -677,11 +726,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         moduleVideos: visibleModuleVideos,
         currentUser,
         hasSession: authUid !== null,
+        profileMissing,
         authLoading,
         authError,
         clearAuthError,
         login,
         signup,
+        completeAccountSetup,
+        claimInvite,
+        resendVerification,
         resetPassword,
         logout,
         markVideoWatched,

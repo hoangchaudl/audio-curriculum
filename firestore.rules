@@ -15,6 +15,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Signed in AND has a profile. Accounts only get a profile through an
+    // invite (or the first-admin bootstrap), so an uninvited sign-up that
+    // never got one can't read any program content.
+    function isMember() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     // Looks up the caller's own profile doc to read their role. Every
     // authenticated user has exactly one /users/{uid} doc, keyed by their
     // Firebase Auth uid (see store.tsx signup()).
@@ -41,15 +48,19 @@ service cloud.firestore {
     // content plus categories unlocked for them. Documents missing the flag
     // are treated as locked until an admin's client backfills it.
     function canReadCurriculum() {
-      return isEngineerOrAdmin() || (isSignedIn() && (
+      return isEngineerOrAdmin() || (isMember() && (
                resource.data.get('restricted', true) == false ||
                resource.data.get('category', '') in callerUnlocked()
              ));
     }
 
     // --- invites (admin invitations by email; doc id = lowercased email) ---
+    // Only a verified email counts: otherwise whoever registers an invited
+    // address first (without owning the inbox) would get the invite.
     function tokenEmail() {
-      return request.auth.token.get('email', '').lower();
+      return request.auth.token.get('email_verified', false) == true
+        ? request.auth.token.get('email', '').lower()
+        : '';
     }
     function hasInvite() {
       return isSignedIn() && tokenEmail() != '' &&
@@ -75,31 +86,36 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isEngineerOrAdmin() || isReviewerOf(userId));
 
-      // New accounts can only create themselves as a sound designer. The
-      // single exception is the very first admin: allowed only when the
-      // one-time /config/bootstrap claim is written in the same batch and
-      // names this user (see store.tsx signup()).
+      // Invite-only: a profile is created with exactly the invited role, by
+      // the verified owner of the invited email. The single exception is
+      // the very first admin: allowed only when the one-time
+      // /config/bootstrap claim is written in the same batch and names this
+      // user (see store.tsx signup()).
       allow create: if isSignedIn()
                     && request.auth.uid == userId
                     && request.resource.data.id == userId
                     && !('unlockedCategories' in request.resource.data)
-                    && (request.resource.data.role == 'sound_designer' ||
-                        // An invited email signs up with the invited role.
-                        (hasInvite() && request.resource.data.role == invite().role) ||
+                    && ((hasInvite() && request.resource.data.role == invite().role &&
+                         request.resource.data.get('email', '').lower() == tokenEmail()) ||
                         (request.resource.data.role == 'admin' &&
                          !exists(/databases/$(database)/documents/config/bootstrap) &&
                          getAfter(/databases/$(database)/documents/config/bootstrap).data.adminUid == request.auth.uid));
 
-      // Users can edit their own profile (name, avatar, theme...) but not
-      // their role or which restricted categories they're allowed into.
-      allow update: if isSignedIn() && (
-                      isAdmin() ||
-                      (request.auth.uid == userId &&
-                       request.resource.data.role == resource.data.role &&
-                       request.resource.data.get('unlockedCategories', []) == resource.data.get('unlockedCategories', []))
-                    );
+      // Users can edit only these fields of their own profile (so never
+      // their role, email, or unlocked categories), within size limits.
+      allow update: if isSignedIn() && (isAdmin() || (request.auth.uid == userId && ownProfileEditOk()));
+
 
       allow delete: if isAdmin();
+    }
+
+    function ownProfileEditOk() {
+      let d = request.resource.data;
+      return d.diff(resource.data).affectedKeys().hasOnly(['name', 'avatarBase64', 'theme', 'readNotifications', 'pod']) &&
+             d.get('name', '') is string && d.get('name', '').size() <= 100 &&
+             d.get('avatarBase64', '') is string && d.get('avatarBase64', '').size() <= 300000 &&
+             d.get('pod', '') is string && d.get('pod', '').size() <= 100 &&
+             d.get('readNotifications', []) is list && d.get('readNotifications', []).size() <= 1000;
     }
 
     // --- config/bootstrap (one-time first-admin claim) ---
@@ -121,7 +137,7 @@ service cloud.firestore {
     // Everyone signed in can read the category list (sidebar sections);
     // only admins create, rename, reorder, lock, or delete them.
     match /categories/{categoryId} {
-      allow read: if isSignedIn();
+      allow read: if isMember();
       allow write: if isAdmin();
     }
 
@@ -162,8 +178,18 @@ service cloud.firestore {
     // admins/engineers for the progress dashboards.
     match /videoProgress/{progressId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isEngineerOrAdmin());
-      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      // One record per (lesson, trainee): id = moduleId_uid, so nobody can
+      // create or take over another person's record.
+      allow create: if isSignedIn() && progressOk(progressId);
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && progressOk(progressId);
       allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    function progressOk(progressId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['id', 'moduleId', 'userId', 'watchedAt']) &&
+             d.userId == request.auth.uid && d.id == progressId &&
+             d.moduleId is string && progressId == d.moduleId + '_' + request.auth.uid;
     }
 
     // ===== Assessment program (1-5 scale) =====
@@ -235,24 +261,24 @@ service cloud.firestore {
     // Program structure and weights: readable by everyone signed in so
     // trainees see their rubric; only admins change them.
     match /assessmentConfig/{configId} {
-      allow read: if isSignedIn();
+      allow read: if isMember();
       allow write: if isAdmin();
     }
 
     match /exercises/{exerciseId} {
-      allow read: if isSignedIn();
+      allow read: if isMember();
       allow write: if isAdmin();
     }
 
     // Assignments and the week-by-week outline: everyone signed in reads
     // them (sidebar, milestones); only admins arrange or change them.
     match /assignments/{assignmentId} {
-      allow read: if isSignedIn();
+      allow read: if isMember();
       allow write: if isAdmin();
     }
 
     match /programOutline/{outlineId} {
-      allow read: if isSignedIn();
+      allow read: if isMember();
       allow write: if isAdmin();
     }
 
@@ -295,6 +321,7 @@ service cloud.firestore {
                   (isSignedIn() && (resource.data.traineeId == request.auth.uid ||
                                     isStageReviewer(resource.data.traineeId, resource.data.stage)));
       allow create: if isSignedIn() && request.resource.data.traineeId == request.auth.uid &&
+                    callerRole() == 'sound_designer' &&
                     exists(/databases/$(database)/documents/enrollments/$(request.auth.uid)) &&
                     request.resource.data.keys().hasOnly(['id', 'traineeId', 'stage', 'target', 'version', 'links', 'note', 'isComplete', 'submittedAt']) &&
                     request.resource.data.id == submissionId &&
@@ -337,6 +364,7 @@ service cloud.firestore {
              allowedSlot(d.stage, d.reviewerSlot) &&
              isSlotHolder(d.traineeId, d.reviewerSlot) &&
              d.status in ['draft', 'submitted'] &&
+             d.get('feedback', '') is string && d.get('feedback', '').size() <= 10000 &&
              scoresValid(d.scores, d.stage, d.reviewerSlot) &&
              (d.status == 'draft' || d.scores.keys().hasAll(allowedKeys(d.stage, d.reviewerSlot))) &&
              submissionMatches(d) &&

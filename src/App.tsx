@@ -10,6 +10,7 @@ import { AdminHeader } from './components/AdminHeader';
 import { NotificationBell } from './components/NotificationBell';
 import { ProfileView } from './components/ProfileView';
 import { AuthView } from './components/AuthView';
+import { AccountSetupView } from './components/AccountSetupView';
 import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
 import { useApplyTheme, useResolvedTheme } from './theme';
@@ -44,7 +45,7 @@ const getPageFromHash = (): { view: View; stage?: EpisodeStage; assignmentId?: s
 };
 
 const AppContent = () => {
-  const { currentUser, authLoading, hasSession, authError, logout, modules, enrollments, ownEnrollmentLoaded } = useAppContext();
+  const { currentUser, authLoading, hasSession, profileMissing, authError, logout, modules, enrollments, ownEnrollmentLoaded } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   useApplyTheme(useResolvedTheme(currentUser));
   const initialPage = useRef(getPageFromHash());
@@ -205,6 +206,10 @@ const AppContent = () => {
       </div>
     );
   }
+
+  // Signed in with no profile at all: a new (invite-only) sign-up that
+  // still has to verify its email and be matched to an invite.
+  if (hasSession && !currentUser && profileMissing && !authError) return <AccountSetupView />;
 
   // Signed in (Firebase Auth confirms a real session) but no matching
   // /users/{uid} profile doc has arrived yet. Almost always this resolves
