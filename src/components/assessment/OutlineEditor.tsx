@@ -3,7 +3,7 @@ import { DEFAULT_WEEK_GOALS } from '../../assessment/config';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
 import { splitEvenly } from '../../assessment/scoring';
-import { DAY_NAMES, assignmentLines, itemDay, normalizeWeek, weekGroups, weekLabel } from '../../assessment/outline';
+import { DAY_NAMES, assignmentLines, itemDay, normalizeWeek, spreadDays, weekGroups, weekLabel } from '../../assessment/outline';
 import { ConfirmModal } from '../ConfirmModal';
 import { card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
 
@@ -186,6 +186,13 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
       for (const k of ['day', 'hours']) if (next[k] === null || next[k] === undefined || Number.isNaN(next[k])) delete next[k];
       return next as OutlineItem;
     }) }));
+  // Gives every lesson without a planned day a recommended one, spreading
+  // them evenly over Mon-Fri in outline order. Lessons already planned stay put.
+  const planUnplanned = (week: OutlineWeek) => {
+    const unplanned = weekGroups(week, assignments).flatMap(g => g.items).filter(i => i.kind === 'content' && !i.day).map(i => i.id);
+    const days = spreadDays(unplanned.length);
+    editWeek(week.id, w => ({ ...w, items: w.items.map(i => (unplanned.includes(i.id) ? { ...i, day: days[unplanned.indexOf(i.id)] } as OutlineItem : i)) }));
+  };
   const addSection = (weekId: string) => editWeek(weekId, w => ({ ...w, sections: [...(w.sections ?? []), { id: uid('sec'), title: 'New section' }] }));
   const renameSection = (weekId: string, sectionId: string, title: string) =>
     editWeek(weekId, w => ({ ...w, sections: (w.sections ?? []).map(sec => (sec.id === sectionId ? { ...sec, title } : sec)) }));
@@ -380,6 +387,15 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
                 <button onClick={() => moveWeek(wi, -1)} disabled={wi === 0} aria-label="Swap with the week before" title="Swap with the week before" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▲</button>
                 <button onClick={() => moveWeek(wi, 1)} disabled={wi === outline.weeks.length - 1} aria-label="Swap with the week after" title="Swap with the week after" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▼</button>
               </div>
+              {(() => {
+                const n = groups.flatMap(g => g.items).filter(i => i.kind === 'content' && !i.day).length;
+                return n > 0 && (
+                  <button onClick={() => planUnplanned(week)} title="Give each lesson without a planned day a recommended day, spread evenly Mon–Fri"
+                    className="text-xs font-bold text-[#2E9DF7] hover:underline">
+                    📅 Plan {n} unplanned lesson{n === 1 ? '' : 's'} across Mon–Fri
+                  </button>
+                );
+              })()}
               {legacyTitle && (
                 <button onClick={() => titleToSection(week, wi)} className="ml-auto text-xs font-bold text-[#2E9DF7] hover:underline">
                   Make "{legacyTitle}" a section of this week

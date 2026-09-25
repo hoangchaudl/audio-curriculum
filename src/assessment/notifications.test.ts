@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Assignment } from '../types';
 import { traineeNotifications } from './notifications';
-import { weekPlan } from './outline';
+import { spreadDays, weekPlan } from './outline';
 
 const assignments: Assignment[] = [
   { id: 'w1', title: 'Week 1 assignment', stage: 'A', materials: [], dueDay: 5 },
@@ -33,6 +33,12 @@ describe('week plan', () => {
     expect(p.anyDay.map(i => i.title)).toEqual(['Lesson m3']);
     // A planned lesson from an earlier day that isn't done shows as late.
     expect(weekPlan(outline, assignments, modules, enrollment, 't', [], [], 0, at('2026-09-23')).days[0].items[0].status).toBe('late');
+    // One day behind is fine: yesterday's lesson is still just to-do.
+    expect(weekPlan(outline, assignments, modules, enrollment, 't', [], [], 0, at('2026-09-22')).days[0].items[0].status).toBe('todo');
+  });
+  it('spreads lessons evenly across Mon-Fri', () => {
+    expect(spreadDays(3)).toEqual([1, 2, 4]);
+    expect(spreadDays(7)).toEqual([1, 1, 2, 3, 3, 4, 5]);
   });
 });
 
@@ -46,6 +52,7 @@ describe('trainee notifications', () => {
   it('flags overdue work, pace, and published results', () => {
     const n = traineeNotifications(outline, assignments, modules, enrollment, 't', [], [], { id: 't', episodeA: true, episodeB: false, pod: false }, at('2026-09-26'));
     expect(n.map(x => x.id)).toEqual(['overdue:#/assignment/w1', 'pace:1', 'published:episodeA']);
+    expect(n.map(x => x.category)).toEqual(['deadlines', 'lessons', 'results']);
     expect(traineeNotifications(outline, assignments, modules, undefined, 't', [], [], undefined)).toEqual([]);
   });
 });
