@@ -3,6 +3,7 @@ import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { Outcome, assignmentCriteria, assignmentOutcome, episodeAAssignments, finalResult } from '../../assessment/scoring';
 import { lessonPace, PACE_CHECK_DAY } from '../../assessment/standing';
+import { BookOpen, CalendarDays, FileText, Flag, GraduationCap, Info, ListTodo, PartyPopper, Play, Target, TriangleAlert } from 'lucide-react';
 import { WeekPlan } from './WeekPlan';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, card, dateFor, formatDate, sectionTitle } from './ui';
 import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextSteps, programProgress, weekLabel } from '../../assessment/outline';
@@ -10,10 +11,10 @@ import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextStep
 const go = (hash: string) => { window.location.hash = hash; };
 
 const TABS = [
-  { id: 'about', label: 'ℹ️ About' },
-  { id: 'today', label: '📌 Today' },
-  { id: 'schedule', label: '🗓️ Schedule' },
-  { id: 'grades', label: '📝 Grades' },
+  { id: 'about', label: 'About', Icon: Info },
+  { id: 'today', label: 'Today', Icon: ListTodo },
+  { id: 'schedule', label: 'Schedule', Icon: CalendarDays },
+  { id: 'grades', label: 'Grades', Icon: GraduationCap },
 ] as const;
 type TabId = typeof TABS[number]['id'];
 
@@ -132,8 +133,8 @@ export const ProgramOverview: React.FC = () => {
             {next ? (
               <>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#2E9DF7]">▶ Up next · Week {next.week}</p>
-                  <p className="text-sm md:text-base font-black text-gray-800 truncate">{next.kind === 'assignment' ? '📝 ' : '📖 '}{next.title}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#2E9DF7]"><Play className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" fill="currentColor" />Up next · Week {next.week}</p>
+                  <p className="text-sm md:text-base font-black text-gray-800 truncate">{next.kind === 'assignment' ? <FileText className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" /> : <BookOpen className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />}{next.title}</p>
                   {next.kind === 'assignment' && next.due && (
                     <p className="text-xs font-bold text-gray-500">
                       Due {when(next.due)}{(() => { const d = daysLeft(next.due); return d === null ? '' : d <= 0 ? ' · today' : d === 1 ? ' · tomorrow' : ` · in ${d} days`; })()}
@@ -145,14 +146,14 @@ export const ProgramOverview: React.FC = () => {
                 </button>
               </>
             ) : (
-              <p className="text-sm font-bold text-leaf">🎉 You've done everything in the program so far - your reviewers will score your work.</p>
+              <p className="text-sm font-bold text-leaf"><PartyPopper className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />You've done everything in the program so far - your reviewers will score your work.</p>
             )}
           </div>
           {progress.total > 0 && (
             <div className="w-full sm:w-72">
               <ProgressBar done={progress.done} total={progress.total} label="Your progress" />
               {pace.length > 0 && (
-                <p className="mt-1.5 text-[10px] font-black uppercase text-ember">⚠ Behind pace - under half of Week {pace[0].week}'s lessons done</p>
+                <p className="mt-1.5 text-[10px] font-black uppercase text-ember"><TriangleAlert className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Behind pace - under half of Week {pace[0].week}'s lessons done</p>
               )}
             </div>
           )}
@@ -165,7 +166,7 @@ export const ProgramOverview: React.FC = () => {
           <section className="space-y-3">
             {pace.length > 0 && (
               <div className="bg-[#F4511E]/10 border-2 border-[#F4511E]/30 rounded-[32px] p-5 space-y-1">
-                <p className="text-xs font-black uppercase text-ember">📖 Behind on lessons</p>
+                <p className="text-xs font-black uppercase text-ember"><BookOpen className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Behind on lessons</p>
                 {pace.map(p => (
                   <p key={p.week} className="text-sm font-bold text-gray-800">
                     {p.current
@@ -178,10 +179,10 @@ export const ProgramOverview: React.FC = () => {
             )}
             {overdue.length > 0 && (
               <div className="bg-rose rounded-[32px] p-5 space-y-2">
-                <p className="text-xs font-black uppercase text-ember">⚠ Overdue - submit as soon as you can</p>
+                <p className="text-xs font-black uppercase text-ember"><TriangleAlert className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Overdue - submit as soon as you can</p>
                 {overdue.map(o => (
                   <button key={o.hash} onClick={() => go(o.hash)} className="w-full flex flex-wrap items-center justify-between gap-2 bg-surface rounded-2xl px-4 py-3 text-left hover:shadow-md transition-shadow">
-                    <span className="text-sm font-bold text-gray-800">📝 {o.title}</span>
+                    <span className="text-sm font-bold text-gray-800"><FileText className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />{o.title}</span>
                     <span className="text-xs font-black text-ember">was due {when(o.due)} · Open →</span>
                   </button>
                 ))}
@@ -193,8 +194,8 @@ export const ProgramOverview: React.FC = () => {
           <div role="tablist" aria-label="My Program sections" className="flex gap-1 bg-surface rounded-full p-1 border border-gray-100 shadow-sm w-fit max-w-full overflow-x-auto">
             {TABS.map(t => (
               <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => chooseTab(t.id)}
-                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-[#2E9DF7] text-white shadow-md' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
-                {t.label}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-[#2E9DF7] text-white shadow-md' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
+                <t.Icon className="w-4 h-4" strokeWidth={2.5} aria-hidden="true" />{t.label}
               </button>
             ))}
           </div>
@@ -230,7 +231,7 @@ export const ProgramOverview: React.FC = () => {
                         </p>
                         {week.goal && (
                           <p className="bg-sky text-navy rounded-2xl px-4 py-3 text-sm font-medium mb-2">
-                            <span className="font-black">🎯 Goal: </span>{week.goal}
+                            <span className="font-black"><Target className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Goal: </span>{week.goal}
                           </p>
                         )}
                         {entries.length === 0 ? <p className="text-xs text-gray-400">Nothing due this week.</p> : (
@@ -242,7 +243,7 @@ export const ProgramOverview: React.FC = () => {
                                     By {dueLabel(start, weekNo, e.day)}
                                   </span>
                                   <div className="min-w-0">
-                                    <p className="text-sm font-bold text-gray-800">{e.hash ? '📝 ' : '🏁 '}{e.title}</p>
+                                    <p className="text-sm font-bold text-gray-800">{e.hash ? <FileText className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" /> : <Flag className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />}{e.title}</p>
                                     {e.description && <p className="text-xs text-gray-500">{e.description}</p>}
                                   </div>
                                 </div>
@@ -353,10 +354,10 @@ export const ProgramOverview: React.FC = () => {
               Over {programOutline?.weeks.length || 4} weeks you'll learn the StoryCo workflow and prove it on real episodes. This page is your home base. <b>Up next</b> and <b>Your progress</b> stay pinned at the top whichever tab you're on; below them are four tabs:
             </p>
             <ul className="grid sm:grid-cols-2 gap-3 text-sm">
-              <li className="bg-surface/70 rounded-2xl p-3"><b>📌 Today</b><br />This week's day-by-day plan: which lessons to do on which day. Slipping a day is fine - a lesson only turns red once you're two days behind.</li>
-              <li className="bg-surface/70 rounded-2xl p-3"><b>🗓️ Schedule</b><br />Every week's goal and what's due by which day. Open an assignment to read the brief and submit your work.</li>
-              <li className="bg-surface/70 rounded-2xl p-3"><b>📝 Grades</b><br />How you're graded: {stageList.length} stages - {stageList.slice(0, -1).join(', ')} and {stageList[stageList.length - 1]}. Reviewers score your work from 1 to 5.</li>
-              <li className="bg-surface/70 rounded-2xl p-3"><b>🏁 Final grade</b><br />Also on Grades: your overall score, shown once your coordinator publishes every stage. The goal is {config.passThreshold} / 5 or higher.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b><ListTodo className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Today</b><br />This week's day-by-day plan: which lessons to do on which day. Slipping a day is fine - a lesson only turns red once you're two days behind.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b><CalendarDays className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Schedule</b><br />Every week's goal and what's due by which day. Open an assignment to read the brief and submit your work.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b><GraduationCap className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Grades</b><br />How you're graded: {stageList.length} stages - {stageList.slice(0, -1).join(', ')} and {stageList[stageList.length - 1]}. Reviewers score your work from 1 to 5.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b><Flag className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Final grade</b><br />Also on Grades: your overall score, shown once your coordinator publishes every stage. The goal is {config.passThreshold} / 5 or higher.</li>
             </ul>
           </section>
           )}

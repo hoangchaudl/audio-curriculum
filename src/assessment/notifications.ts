@@ -9,7 +9,7 @@ export interface Notice {
   id: string;
   tone: 'red' | 'orange' | 'blue' | 'green';
   category: 'deadlines' | 'lessons' | 'results';
-  icon: string;
+  icon: 'alert' | 'assignment' | 'lesson' | 'calendar' | 'check';
   text: string;
   hash: string;
 }
@@ -28,7 +28,7 @@ export const traineeNotifications = (
   if (!enrollment) return [];
   const out: Notice[] = [];
   const { overdue } = nextSteps(outline, assignments, modules, enrollment, traineeId, videoProgress, submissions, now);
-  for (const o of overdue) out.push({ id: `overdue:${o.hash}`, tone: 'red', category: 'deadlines', icon: '⚠', text: `${o.title} is overdue${o.due ? ` (was due ${when(o.due)})` : ''}`, hash: o.hash });
+  for (const o of overdue) out.push({ id: `overdue:${o.hash}`, tone: 'red', category: 'deadlines', icon: 'alert', text: `${o.title} is overdue${o.due ? ` (was due ${when(o.due)})` : ''}`, hash: o.hash });
 
   // Due today or in the next 2 days, not yet submitted.
   const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
@@ -40,11 +40,11 @@ export const traineeNotifications = (
     if (!due) return;
     const days = Math.round((due.getTime() - midnight.getTime()) / DAY);
     if (days < 0 || days > 2) return;
-    out.push({ id: `due:${a.id}`, tone: 'orange', category: 'deadlines', icon: '📝', text: `${a.title} is due ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`} (${when(due)})`, hash: `#/assignment/${a.id}` });
+    out.push({ id: `due:${a.id}`, tone: 'orange', category: 'deadlines', icon: 'assignment', text: `${a.title} is due ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`} (${when(due)})`, hash: `#/assignment/${a.id}` });
   }));
 
   for (const p of lessonPace(outline, assignments, enrollment.startDate, traineeId, videoProgress, now)) {
-    out.push({ id: `pace:${p.week}`, tone: 'orange', category: 'lessons', icon: '📖', text: p.current ? `Week ${p.week}: ${p.done} of ${p.total} lessons done - you're behind pace` : `Week ${p.week} still has ${p.total - p.done} lessons to finish`, hash: '#/program/today' });
+    out.push({ id: `pace:${p.week}`, tone: 'orange', category: 'lessons', icon: 'lesson', text: p.current ? `Week ${p.week}: ${p.done} of ${p.total} lessons done - you're behind pace` : `Week ${p.week} still has ${p.total - p.done} lessons to finish`, hash: '#/program/today' });
   }
 
   // Lessons planned for today and not done yet.
@@ -55,12 +55,12 @@ export const traineeNotifications = (
       it.kind === 'content' && it.day === today.day && !videoProgress.some(v => v.moduleId === it.moduleId && v.userId === traineeId)
         ? [modules.find(m => m.id === it.moduleId)?.title].filter((t): t is string => !!t) : []);
     if (planned.length) {
-      out.push({ id: `today:${localDate(midnight)}`, tone: 'blue', category: 'lessons', icon: '📅', text: `Today's plan: ${planned.length} lesson${planned.length === 1 ? '' : 's'} - ${planned.join(', ')}`, hash: '#/program/today' });
+      out.push({ id: `today:${localDate(midnight)}`, tone: 'blue', category: 'lessons', icon: 'calendar', text: `Today's plan: ${planned.length} lesson${planned.length === 1 ? '' : 's'} - ${planned.join(', ')}`, hash: '#/program/today' });
     }
   }
 
   for (const key of ['episodeA', 'episodeB', 'da', 'pod'] as const) {
-    if (publication?.[key]) out.push({ id: `published:${key}`, tone: 'green', category: 'results', icon: '✅', text: `${STAGE_NAMES[key]} results are published - see your score and feedback`, hash: '#/program/grades' });
+    if (publication?.[key]) out.push({ id: `published:${key}`, tone: 'green', category: 'results', icon: 'check', text: `${STAGE_NAMES[key]} results are published - see your score and feedback`, hash: '#/program/grades' });
   }
   return out;
 };
