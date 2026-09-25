@@ -81,11 +81,36 @@ const AppContent = () => {
     if (fromHash && modules.some(m => m.id === fromHash)) setSelectedModuleId(fromHash);
   }, [currentUser, modules]);
 
+  // Signing out forgets the page you were on, so the next sign-in starts
+  // fresh instead of inheriting the last user's page (and URL).
+  const signedInThisVisit = useRef(false);
+  const hadUser = useRef(false);
+  useEffect(() => {
+    if (currentUser) { hadUser.current = true; return; }
+    if (authLoading || hasSession) return;
+    signedInThisVisit.current = true; // the sign-in screen is showing
+    if (hadUser.current) {
+      hadUser.current = false;
+      setView('module');
+      setSelectedModuleId('');
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [currentUser, authLoading, hasSession]);
+
   // Landing page, once per login, only when the URL didn't already name a
-  // page: trainees start on My Program, reviewers and engineers on their queue.
+  // page: trainees start on My Program, reviewers and engineers on their
+  // queue. Admins who just signed in always start on the dashboard
+  // (Curriculum Management); a refresh keeps the page they're on.
   const landingAppliedForUser = useRef<string | null>(null);
   useEffect(() => {
     if (!currentUser || landingAppliedForUser.current === currentUser.id) return;
+    if (currentUser.role === 'admin' && signedInThisVisit.current) {
+      landingAppliedForUser.current = currentUser.id;
+      setView('module');
+      setSelectedModuleId('');
+      if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+      return;
+    }
     if (window.location.hash.startsWith('#/module/') || getPageFromHash()) { landingAppliedForUser.current = currentUser.id; return; }
     if (currentUser.role === 'reviewer' || currentUser.role === 'audio_engineer') {
       landingAppliedForUser.current = currentUser.id;

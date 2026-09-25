@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
-import { Assignment, CellWeight, ContentBlock, Enrollment, Invite, ReviewerSlot, Role, User } from '../../types';
-import { CRITERIA, PublicationKey, REVIEWER_SLOTS } from '../../assessment/config';
+import { Assignment, CellWeight, ContentBlock, Enrollment, Invite, ReviewerSlot, Role, StageCriterion, User } from '../../types';
+import { CELLS_KEY, PublicationKey, REVIEWER_SLOTS, STAGE_SLOTS, cellGroup, stageCells, stageCriteria } from '../../assessment/config';
 import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, scaleShares, splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentWeek, programProgress } from '../../assessment/outline';
 import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
@@ -9,7 +9,9 @@ import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { AssignmentForm, OutlineEditor } from './OutlineEditor';
-import { BenchmarkChip, OutcomeBadge, ProgressBar, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
+import { BandInputs, RubricPaste } from './RubricTools';
+import { PastedRubric } from '../../assessment/rubricPaste';
+import { BenchmarkChip, OutcomeBadge, ProgressBar, bandLabel, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
 
 type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 // Grouped in the order an admin works: set the program up, add people,
@@ -253,7 +255,8 @@ const InvitePanel: React.FC = () => {
 // --- Grade formula ---------------------------------------------------------------
 // Every number that turns reviewer scores into the final grade, in one place:
 // stage weights + benchmark, each Episode A assignment's weight, and the
-// Episode B / Pod reviewer tables. Criteria are edited on the assignment.
+// Episode B / Pod / DA criteria and reviewer tables. Episode A criteria are
+// edited on each assignment.
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TotalChip: React.FC<{ total: number; label: string }> = ({ total, label }) => {
@@ -262,42 +265,132 @@ const TotalChip: React.FC<{ total: number; label: string }> = ({ total, label })
 };
 const numInput = 'w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-bold';
 
-const ReviewerTable: React.FC<{ title: string; cells: CellWeight[]; onSave: (cells: CellWeight[]) => Promise<void> }> = ({ title, cells, onSave }) => {
-  const slots = REVIEWER_SLOTS.filter(r => cells.some(c => c.slot === r.id));
-  const criteria = CRITERIA.filter(k => cells.some(c => c.criterion === k.id));
+// A reviewer-table stage's criteria and weights. Each row is a criterion
+// (name, and what each score 1-5 means); each cell is how much one
+// reviewer's score on it counts. A blank cell = that reviewer doesn't score it.
+const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ title, stage }) => {
+  const { assessmentConfig: config, updateAssessmentConfig } = useAppContext();
+  const group = cellGroup(stage);
+  const cells = stageCells(config, stage);
+  const criteria = stageCriteria(config, stage);
+  const slots = REVIEWER_SLOTS.filter(r => STAGE_SLOTS[stage].includes(r.id));
+  const [open, setOpen] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<StageCriterion | null>(null);
+  const bands = config.bands?.[group];
+  const save = (next: StageCriterion[], nextCells: CellWeight[] = cells, nextBands = bands) =>
+    saveWith(updateAssessmentConfig({
+      criteria: { ...config.criteria, [group]: next }, [CELLS_KEY[group]]: nextCells,
+      bands: Object.fromEntries(Object.entries({ ...config.bands, [group]: nextBands }).filter(([, b]) => b?.some(Boolean))),
+    }));
+  // Stored without empty descriptions / outcome, and never with undefined fields.
+  const tidy = (c: StageCriterion): StageCriterion => {
+    const { levels, outcome, ...rest } = c;
+    const clean = (levels ?? []).map(t => t.trim());
+    return { ...rest, ...(clean.some(Boolean) ? { levels: clean } : {}), ...(outcome?.trim() ? { outcome: outcome.trim() } : {}) };
+  };
+  const patch = (id: string, change: Partial<StageCriterion>) => save(criteria.map(c => (c.id === id ? tidy({ ...c, ...change }) : c)));
+  // A pasted table replaces the criteria. Existing ones are reused in order
+  // (so scores given stay attached); a row's weighting is split evenly
+  // between the reviewers who score that criterion (all, for a new one).
+  const applyPaste = (r: PastedRubric) => {
+    const next = r.criteria.map((c, i) => tidy({ id: criteria[i]?.id ?? `c_${Date.now().toString(36)}${i}`, title: c.title, levels: c.levels, outcome: c.outcome }));
+    const nextCells = next.flatMap((c, i) => {
+      const had = cells.filter(x => x.criterion === c.id);
+      const who = had.length ? had.map(x => x.slot) : slots.map(s => s.id);
+      const w = r.criteria[i].weight;
+      if (w === undefined) return had.length ? had : who.map(slot => ({ slot, criterion: c.id, weight: 0 }));
+      const shares = splitEvenly(who.length).map(p => round2((p * w) / 100));
+      return who.map((slot, j) => ({ slot, criterion: c.id, weight: shares[j] }));
+    });
+    save(next, nextCells, r.bands ?? bands);
+  };
+  const setCell = (slot: ReviewerSlot, criterion: string, raw: string) => {
+    const rest = cells.filter(c => !(c.slot === slot && c.criterion === criterion));
+    save(criteria, raw === '' ? rest : [...rest, { slot, criterion, weight: Number(raw) }]);
+  };
+  const add = () => {
+    const id = `c_${Date.now().toString(36)}`;
+    save([...criteria, { id, title: 'New criterion' }], [...cells, ...slots.map(r => ({ slot: r.id, criterion: id, weight: 0 }))]);
+    setOpen(id);
+  };
   return (
     <div className={card}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h4 className="font-black text-gray-800">{title}</h4>
         <TotalChip total={cells.reduce((t, c) => t + c.weight, 0)} label="Table total" />
       </div>
-      <p className="text-xs text-gray-500 mb-3">Each cell is how much one reviewer's score on one criterion counts toward this stage.</p>
+      <p className="text-xs text-gray-500 mb-3">
+        Each row is one criterion, scored 1–5. Each cell is how much one reviewer's score on it counts toward this stage; leave a cell blank if that reviewer doesn't score it.
+        Use <b>Describe scores</b> to write what each score means - trainees and reviewers see it as the rubric.
+      </p>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-72"><BandInputs key={(bands ?? []).join('|')} bands={bands} onSave={b => save(criteria, cells, b)} /></div>
+        <RubricPaste onApply={applyPaste} />
+      </div>
       <div className="overflow-x-auto">
-        <table className="text-sm">
-          <thead><tr><th />{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}</tr></thead>
+        <table className="text-sm w-full">
+          <thead><tr><th />{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}<th /></tr></thead>
           <tbody>
             {criteria.map(k => (
-              <tr key={k.id}>
-                <td className="text-xs font-bold text-gray-700 pr-3 py-1">{k.label}</td>
-                {slots.map(r => {
-                  const cell = cells.find(c => c.slot === r.id && c.criterion === k.id);
-                  return (
-                    <td key={r.id} className="px-2 py-1">
-                      {cell ? (
+              <React.Fragment key={k.id}>
+                <tr>
+                  <td className="pr-3 py-1 min-w-52">
+                    <input defaultValue={k.title} key={k.title} aria-label="Criterion name" placeholder="Criterion name"
+                      onBlur={e => { const v = e.target.value.trim(); if (v && v !== k.title) patch(k.id, { title: v }); }}
+                      className="w-full bg-gray-50 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#2E9DF7]" />
+                    <button onClick={() => setOpen(o => (o === k.id ? null : k.id))} className="text-[11px] font-bold text-[#2E9DF7] hover:underline mt-1 ml-1">
+                      {open === k.id ? 'Hide scores' : `Describe scores${k.levels?.some(Boolean) ? ` (${k.levels.filter(Boolean).length}/5)` : ''}`}
+                    </button>
+                    {!cells.some(c => c.criterion === k.id) && <span className="text-[11px] font-bold text-ember ml-2">No reviewer scores this</span>}
+                  </td>
+                  {slots.map(r => {
+                    const cell = cells.find(c => c.slot === r.id && c.criterion === k.id);
+                    return (
+                      <td key={r.id} className="px-2 py-1 align-top">
                         <span className="flex items-center gap-1 text-xs font-bold text-gray-500">
-                          <input type="number" min={0} step="0.5" defaultValue={cell.weight} key={cell.weight} aria-label={`${r.label} – ${k.label}`}
-                            onBlur={e => Number(e.target.value) !== cell.weight && saveWith(onSave(cells.map(c => (c === cell ? { ...c, weight: Number(e.target.value) } : c))))}
+                          <input type="number" min={0} step="0.5" defaultValue={cell?.weight ?? ''} key={cell?.weight ?? 'na'} placeholder="N/A" aria-label={`${r.label} – ${k.title}`}
+                            onBlur={e => { if (e.target.value !== String(cell?.weight ?? '')) setCell(r.id, k.id, e.target.value); }}
                             className={numInput} />%
                         </span>
-                      ) : <span className="text-gray-300">–</span>}
+                      </td>
+                    );
+                  })}
+                  <td className="align-top py-1">
+                    <button onClick={() => setRemoving(k)} disabled={criteria.length === 1} title={criteria.length === 1 ? 'A stage needs at least one criterion' : 'Remove criterion'}
+                      aria-label={`Remove ${k.title}`} className="text-gray-400 hover:text-ember font-bold px-2 py-2 disabled:opacity-30">✕</button>
+                  </td>
+                </tr>
+                {open === k.id && (
+                  <tr>
+                    <td colSpan={slots.length + 2} className="pb-3">
+                      <div className="bg-gray-50 rounded-2xl p-3 space-y-2">
+                      <textarea defaultValue={k.outcome ?? ''} key={k.outcome ?? ''} placeholder="What it assesses, e.g. the module learning outcome (optional)" aria-label={`${k.title} - what it assesses`}
+                        onBlur={e => { if (e.target.value.trim() !== (k.outcome ?? '')) patch(k.id, { outcome: e.target.value }); }}
+                        className={`${input} bg-surface h-14 text-xs`} />
+                      <div className="grid gap-2 sm:grid-cols-5">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <label key={n} className="block">
+                            <span className="text-[10px] font-black uppercase text-gray-400">{n} · {bandLabel(bands, n)}</span>
+                            <textarea defaultValue={k.levels?.[n - 1] ?? ''} key={k.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${k.title} - score ${n} description`}
+                              onBlur={e => { if (e.target.value.trim() !== (k.levels?.[n - 1] ?? '')) patch(k.id, { levels: [1, 2, 3, 4, 5].map(j => (j === n ? e.target.value : k.levels?.[j - 1] ?? '')) }); }}
+                              className={`${input} bg-surface h-24 text-xs`} />
+                          </label>
+                        ))}
+                      </div>
+                      </div>
                     </td>
-                  );
-                })}
-              </tr>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
       </div>
+      <button onClick={add} className={`${secondaryBtn} mt-3`}>+ Criterion</button>
+      <ConfirmModal open={!!removing} title="Remove criterion?" danger confirmLabel="Remove"
+        message={`"${removing?.title}" and its weights and score descriptions will be removed from this table. Scores reviewers already gave for it stay saved but no longer count.`}
+        onConfirm={() => { if (removing) save(criteria.filter(c => c.id !== removing.id), cells.filter(c => c.criterion !== removing.id)); setRemoving(null); }}
+        onCancel={() => setRemoving(null)} />
     </div>
   );
 };
@@ -475,9 +568,9 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
 
       <AssignmentsCard onOpenOutline={onOpenOutline} />
 
-      <ReviewerTable title={`Episode B reviewer table (${w.episodeB}% of final)`} cells={config.episodeBCells} onSave={cells => updateAssessmentConfig({ episodeBCells: cells })} />
-      <ReviewerTable title={`Pod Trial reviewer table (${w.pod}% of final)`} cells={config.podCells} onSave={cells => updateAssessmentConfig({ podCells: cells })} />
-      <ReviewerTable title={`Audio Description (DA) reviewer table (${w.da}% of final)`} cells={config.daCells} onSave={cells => updateAssessmentConfig({ daCells: cells })} />
+      <ReviewerTable title={`Episode B criteria & reviewer table (${w.episodeB}% of final)`} stage="B" />
+      <ReviewerTable title={`Pod Trial criteria & reviewer table (${w.pod}% of final, both episodes)`} stage="P1" />
+      <ReviewerTable title={`Audio Description (DA) criteria & reviewer table (${w.da}% of final)`} stage="DA" />
     </div>
   );
 };

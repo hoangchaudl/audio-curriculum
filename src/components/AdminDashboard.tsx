@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
 import { Module, Resource, Role } from '../types';
 import { AdminHeader } from './AdminHeader';
+import { ClipboardCheck } from 'lucide-react';
 import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -240,8 +241,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <AdminHeader onPreview={onPreview}>
         {hasReviews && (
-          <button onClick={() => { window.location.hash = '#/review'; }} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
-            ✅ Review Queue{reviewTodo ? ` (${reviewTodo})` : ''}
+          <button onClick={() => { window.location.hash = '#/review'; }} className="flex items-center gap-1.5 text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+            <ClipboardCheck className="w-4 h-4" strokeWidth={2.5} aria-hidden="true" />Review Queue{reviewTodo ? ` (${reviewTodo})` : ''}
           </button>
         )}
         <span className="bg-sky text-navy text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap hidden md:inline">

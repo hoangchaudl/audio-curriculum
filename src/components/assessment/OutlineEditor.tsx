@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
+import { BandInputs, RubricPaste } from './RubricTools';
 import { DEFAULT_WEEK_GOALS } from '../../assessment/config';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
 import { splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentLines, itemDay, normalizeWeek, spreadDays, weekGroups, weekLabel } from '../../assessment/outline';
 import { ConfirmModal } from '../ConfirmModal';
-import { card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
+import { bandLabel, card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
 
 const uid = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 // `input` is full-width; the per-item day/week pickers stay compact.
@@ -79,15 +80,38 @@ export const AssignmentForm: React.FC<{
           </label>
 
           <div className="space-y-2">
-            <p className="text-xs font-bold text-gray-500">Criteria - each is one 1–5 score the trainer gives for this submission</p>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <p className="text-xs font-bold text-gray-500 flex-1 min-w-60">Criteria - each is one 1–5 score the trainer gives for this submission. Describe what each score looks like for that criterion; trainees and reviewers see it as a rubric table.</p>
+              <RubricPaste onApply={r => {
+                const even = splitEvenly(r.criteria.length);
+                setLines(r.criteria.map((c, i) => ({ id: lines[i]?.id ?? uid('ex'), assignmentId: a.id, title: c.title, order: i + 1,
+                  weight: c.weight ?? even[i], levels: c.levels, ...(c.outcome ? { outcome: c.outcome } : {}) })));
+                if (r.bands) setA(x => ({ ...x, bands: r.bands }));
+              }} />
+            </div>
+            <BandInputs key={(a.bands ?? []).join('|')} bands={a.bands} onSave={bands => setA(x => ({ ...x, bands }))} />
             {lines.map((l, i) => (
-              <div key={l.id} className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
+              <div key={l.id} className="bg-gray-50 rounded-2xl p-3 space-y-2">
+              <div className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
                 <input value={l.title} onChange={e => setLine(i, { title: e.target.value })} placeholder="What's judged, e.g. Workflow" aria-label="Criterion name"
                   className={`${input} ${l.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
                 <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
                   <input type="number" min={0} step="0.01" value={l.weight} onChange={e => setLine(i, { weight: Number(e.target.value) })} aria-label="Share of assignment" className={input} />%
                 </label>
                 <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove criterion">✕</button>
+              </div>
+              <textarea value={l.outcome ?? ''} onChange={e => setLine(i, { outcome: e.target.value })} placeholder="What it assesses, e.g. the module learning outcome (optional)"
+                aria-label={`${l.title || 'Criterion'} - what it assesses`} className={`${input} bg-surface h-14 text-xs`} />
+              <div className="grid gap-2 sm:grid-cols-5">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <label key={n} className="block">
+                    <span className="text-[10px] font-black uppercase text-gray-400">{n} · {bandLabel(a.bands, n)}</span>
+                    <textarea value={l.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${l.title || 'Criterion'} - score ${n} description`}
+                      onChange={e => { const levels = [1, 2, 3, 4, 5].map(k => (k === n ? e.target.value : l.levels?.[k - 1] ?? '')); setLine(i, { levels }); }}
+                      className={`${input} bg-surface h-24 text-xs`} />
+                  </label>
+                ))}
+              </div>
               </div>
             ))}
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -105,7 +129,7 @@ export const AssignmentForm: React.FC<{
         </div>
       ) : (
         <p className="text-xs text-gray-500 bg-surface rounded-2xl p-3">
-          Graded with the {a.stage === 'B' ? 'Episode B' : a.stage === 'DA' ? 'Audio Description' : 'Pod Trial'} reviewer table - see the <b>Grade formula</b> tab.
+          Graded with the {a.stage === 'B' ? 'Episode B' : a.stage === 'DA' ? 'Audio Description' : 'Pod Trial'} criteria and reviewer table - add criteria, weights and what each score 1–5 means in the <b>Grade formula</b> tab.
         </p>
       )}
 
@@ -113,7 +137,12 @@ export const AssignmentForm: React.FC<{
         <button disabled={busy || !a.title.trim() || (a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())))}
           title={a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())) ? 'Give every criterion a name' : undefined} onClick={async () => {
           setBusy(true);
-          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()) }, lines.map((l, i) => ({ ...l, title: l.title.trim(), order: i + 1 }))); } finally { setBusy(false); }
+          const bands = (a.bands ?? []).map(t => t.trim());
+          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()), bands: a.stage === 'A' && bands.some(Boolean) ? bands : undefined }, lines.map((l, i) => {
+            const { levels, outcome, ...rest } = l;
+            const clean = (levels ?? []).map(t => t.trim());
+            return { ...rest, title: l.title.trim(), order: i + 1, ...(clean.some(Boolean) ? { levels: clean } : {}), ...(outcome?.trim() ? { outcome: outcome.trim() } : {}) };
+          })); } finally { setBusy(false); }
         }} className={primaryBtn}>Save assignment</button>
         <button onClick={onCancel} className={secondaryBtn}>Cancel</button>
       </div>

@@ -98,7 +98,20 @@ export interface VideoProgress {
 // ===== Assessment program (1-5 scale) =====
 
 export type AssessmentScore = 1 | 2 | 3 | 4 | 5;
-export type CriterionId = 'workflow' | 'dialogue' | 'sfx' | 'music';
+// Reviewer-table criteria ids. The defaults are 'workflow' | 'dialogue' |
+// 'sfx' | 'music'; admins add their own per stage (StageCriterion).
+export type CriterionId = string;
+
+// One criterion of a reviewer-table stage (Episode B, Pod Trial, DA):
+// its name and what each score 1-5 means (levels[0] = score 1).
+export interface StageCriterion {
+  id: CriterionId;
+  title: string;
+  levels?: string[];
+  // What the criterion assesses (e.g. the module learning outcome).
+  outcome?: string;
+}
+export type CellGroup = 'episodeB' | 'pod' | 'da';
 export type ReviewerSlot = 'trainer' | 'engineer' | 'keySoundDesigner' | 'producer';
 // A = Episode A (graded per exercise), B = Episode B final test,
 // P1/P2 = first/second Pod Trial episode.
@@ -119,6 +132,11 @@ export interface Exercise {
   weight: number;
   // The assignment it scores. Unset = legacy exercise that isn't graded.
   assignmentId?: string;
+  // Rubric: what each score means for this criterion - levels[0] describes
+  // a 1, levels[4] a 5. Unset/empty = no description for that score.
+  levels?: string[];
+  // What the criterion assesses (e.g. the module learning outcome).
+  outcome?: string;
 }
 
 // Something trainees submit, placed on a day of the program outline.
@@ -135,6 +153,8 @@ export interface Assignment {
   dueDay?: number;
   // Episode A only: this assignment's share of Episode A, in percent.
   weight?: number;
+  // Episode A only: names for scores 1-5 in its rubric (e.g. "Fail (<50)").
+  bands?: string[];
 }
 
 // sectionId: the week section it's grouped under (unset = after the sections).
@@ -190,6 +210,13 @@ export interface AssessmentConfig {
   // Admin-authored briefs, schedules and milestones for the non-module
   // stages (Episode B final test, Pod Trial).
   stageContent?: { episodeB?: ContentBlock[]; pod?: ContentBlock[]; da?: ContentBlock[] };
+  // Each reviewer-table stage's criteria, in order. Unset = the default four.
+  criteria?: Partial<Record<CellGroup, StageCriterion[]>>;
+  // Derived from the tables on every save (see scoreKeysFor): which score
+  // keys each reviewer writes per stage. firestore.rules reads it.
+  scoreKeys?: Record<'B' | 'P' | 'DA', Partial<Record<ReviewerSlot, string[]>>>;
+  // Names for scores 1-5 in each stage's rubric (unset = "Score 1".."Score 5").
+  bands?: Partial<Record<CellGroup, string[]>>;
 }
 
 // One per trainee; doc id = trainee uid. Reviewer slots hold real account

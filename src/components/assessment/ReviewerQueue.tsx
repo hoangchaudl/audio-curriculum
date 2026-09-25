@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { QueueItem, Status, useQueue } from '../../assessment/reviewQueue';
 import { useAppContext } from '../../store';
 import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
-import { CRITERIA, REVIEWER_SLOTS, SCORE_LABELS_5, STAGE_SLOTS, allowedScoreKeys, gradesFirstComplete, publicationKey, stageCells } from '../../assessment/config';
+import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys, cellGroup, gradesFirstComplete, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
-import { STAGE_LABELS, card, input, primaryBtn, secondaryBtn } from './ui';
+import { STAGE_LABELS, bandLabel, card, input, primaryBtn, secondaryBtn } from './ui';
 
 const STATUS_LABELS: Record<Status, string> = {
   'needs-review': 'Needs review',
@@ -33,7 +33,7 @@ const gradableVersions = (item: QueueItem) => {
 };
 
 const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, onDone }) => {
-  const { saveReview, assessmentConfig, modules } = useAppContext();
+  const { saveReview, assessmentConfig, modules, assignments } = useAppContext();
   const isA = item.stage === 'A';
   const options = gradableVersions(item);
   const [submissionId, setSubmissionId] = useState(item.review?.submissionId && options.some(o => o.id === item.review!.submissionId)
@@ -45,20 +45,26 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const [feedback, setFeedback] = useState(item.review?.feedback ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const keys: string[] = isA ? item.lines.map(l => l.id) : allowedScoreKeys(item.stage, item.slot);
+  const keys: string[] = isA ? item.lines.map(l => l.id) : allowedScoreKeys(item.stage, item.slot, assessmentConfig);
+  const criteria = stageCriteria(assessmentConfig, item.stage);
+  // Score names ("Merit (60+)") from the assignment (Episode A) or stage.
+  const bands = isA ? assignments.find(a => a.id === item.lines[0]?.assignmentId)?.bands : assessmentConfig.bands?.[cellGroup(item.stage)];
+  const outcomeOf = (k: string) => (isA ? item.lines.find(x => x.id === k) : criteria.find(c => c.id === k))?.outcome;
   const cells = stageCells(assessmentConfig, item.stage);
   const complete = keys.every(k => scores[k]);
   const selected = item.versions.find(v => v.id === submissionId);
   const laterRevisions = gradesFirstComplete(item.stage) ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
   const locked = item.published;
 
+  // The admin's description of score n for this criterion.
+  const levelText = (k: string, n: number) => (isA ? item.lines.find(x => x.id === k) : criteria.find(c => c.id === k))?.levels?.[n - 1];
   const keyLabel = (k: string) => {
     if (isA) {
       const l = item.lines.find(x => x.id === k);
       return `${l?.title ?? 'Criterion'} (${l?.weight ?? 0}% of this assignment)`;
     }
     const w = cells.find(c => c.slot === item.slot && c.criterion === k)?.weight;
-    return `${CRITERIA.find(c => c.id === k)?.label} (${w}%)`;
+    return `${criteria.find(c => c.id === k)?.title ?? k} (${w}%)`;
   };
 
   const save = async (status: AssessmentReview['status']) => {
@@ -70,7 +76,8 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
         await Promise.all(item.lines.map(l => saveReview(item.traineeId, 'A', l.id, item.slot, submissionId,
           scores[l.id] ? { exercise: scores[l.id] } : {}, status, feedback)));
       } else {
-        await saveReview(item.traineeId, item.stage, item.target, item.slot, submissionId, scores as AssessmentReview['scores'], status, feedback);
+        await saveReview(item.traineeId, item.stage, item.target, item.slot, submissionId,
+          Object.fromEntries(keys.flatMap(k => (scores[k] ? [[k, scores[k]]] : []))) as AssessmentReview['scores'], status, feedback);
       }
       if (status === 'submitted') onDone();
     } catch (err) {
@@ -112,15 +119,18 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
       <div className="space-y-3">
         {keys.map(k => (
           <div key={k}>
-            <p className="text-xs font-bold text-gray-700 mb-1.5">{keyLabel(k)}</p>
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={keyLabel(k)}>
+            <p className="text-xs font-bold text-gray-700">{keyLabel(k)}</p>
+            {outcomeOf(k) && <p className="text-[11px] text-gray-500 whitespace-pre-wrap">{outcomeOf(k)}</p>}
+            <div className="mb-1.5" />
+            <div className={[1, 2, 3, 4, 5].some(n => levelText(k, n)) ? 'grid gap-1.5 sm:grid-cols-5 text-left' : 'flex flex-wrap gap-1.5'} role="radiogroup" aria-label={keyLabel(k)}>
               {([1, 2, 3, 4, 5] as AssessmentScore[]).map(n => (
                 <button key={n} type="button" role="radio" aria-checked={scores[k] === n} disabled={locked}
                   onClick={() => setScores(s => ({ ...s, [k]: n }))}
-                  className={`px-3 py-2 rounded-xl text-xs font-black transition-colors ${
+                  className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
                     scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
-                  {n} · {SCORE_LABELS_5[n]}
+                  {bands?.some(b => b.trim()) ? `${n} · ${bandLabel(bands, n)}` : n}
+                  {levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
                 </button>
               ))}
             </div>

@@ -8,6 +8,7 @@ import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationBell } from './NotificationBell';
+import { ClipboardCheck, ClipboardList } from 'lucide-react';
 import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
 import { assignmentApplies, assignmentStatus, dueLabel, programDate, weekGroups, weekLabel } from '../assessment/outline';
 
@@ -51,7 +52,7 @@ export const Sidebar: React.FC<{
   const reviewTodo = useReviewTodoCount();
   const programLinks = [
     ...(ownEnrollment ? [
-      { page: 'program', hash: '#/program', label: 'My Program', icon: '📋' },
+      { page: 'program', hash: '#/program', label: 'My Program', icon: <ClipboardList className="w-5 h-5" strokeWidth={2.5} /> },
       // With a weekly outline, Episode B and Pod are assignments inside
       // the weeks instead of separate links.
       ...(weekMode ? [] : [
@@ -61,7 +62,7 @@ export const Sidebar: React.FC<{
         ...(assignments.some(a => a.stage === 'DA') ? [{ page: 'episode:DA', hash: '#/episode/DA', label: 'Audio Description', icon: '🎙️' }] : []),
       ]),
     ] : []),
-    ...(hasReviews ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: '✅' }] : []),
+    ...(hasReviews ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: <ClipboardCheck className="w-5 h-5" strokeWidth={2.5} /> }] : []),
   ];
   // Admins load every module; when previewing as a designer, hide what a
   // designer without unlocks couldn't see so the preview is realistic.
@@ -157,7 +158,7 @@ export const Sidebar: React.FC<{
                       active ? 'theme-light bg-surface text-navy font-bold shadow-md' : 'text-white/80 font-semibold hover:bg-white/10'
                     }`}
                   >
-                    <span aria-hidden="true" className="w-6 text-center flex-shrink-0">{link.icon}</span>
+                    <span aria-hidden="true" className="w-6 flex items-center justify-center flex-shrink-0">{link.icon}</span>
                     {!isCollapsed && <span className="leading-tight text-left">{link.label}</span>}
                   </button>
                 );

@@ -1,4 +1,4 @@
-import { AssessmentConfig, AssessmentStage, Assignment, CellWeight, CriterionId, Exercise, ProgramOutline, ReviewerSlot } from '../types';
+import { AssessmentConfig, AssessmentStage, Assignment, CellGroup, CellWeight, CriterionId, Exercise, ProgramOutline, ReviewerSlot, StageCriterion } from '../types';
 
 export const CRITERIA: { id: CriterionId; label: string }[] = [
   { id: 'workflow', label: 'Workflow, Session Organization & Handoff' },
@@ -71,6 +71,20 @@ export const withConfigDefaults = (saved: Partial<AssessmentConfig>): Assessment
 export const stageCells = (config: AssessmentConfig, stage: AssessmentStage): CellWeight[] =>
   stage === 'B' ? config.episodeBCells : stage === 'DA' ? config.daCells : stage === 'A' ? [] : config.podCells;
 
+export const cellGroup = (stage: AssessmentStage): CellGroup => (stage === 'B' ? 'episodeB' : stage === 'DA' ? 'da' : 'pod');
+export const CELLS_KEY: Record<CellGroup, 'episodeBCells' | 'podCells' | 'daCells'> = { episodeB: 'episodeBCells', pod: 'podCells', da: 'daCells' };
+
+// A reviewer-table stage's criteria: the admin's list, or the default four.
+export const stageCriteria = (config: AssessmentConfig, stage: AssessmentStage): StageCriterion[] =>
+  stage === 'A' ? [] : config.criteria?.[cellGroup(stage)] ?? CRITERIA.map(c => ({ id: c.id, title: c.label }));
+
+// Which keys each reviewer scores, per stage: the criteria they have a
+// cell for. Saved on the config so firestore.rules can check reviews.
+export const scoreKeysFor = (config: AssessmentConfig): NonNullable<AssessmentConfig['scoreKeys']> => {
+  const bySlot = (stage: AssessmentStage) => Object.fromEntries(STAGE_SLOTS[stage].map(slot => [slot, allowedScoreKeys(stage, slot, config)]));
+  return { B: bySlot('B'), P: bySlot('P1'), DA: bySlot('DA') };
+};
+
 // Single-submission stages: only the first version marked complete is graded.
 export const gradesFirstComplete = (stage: AssessmentStage) => stage === 'B' || stage === 'DA';
 
@@ -84,10 +98,12 @@ export const STAGE_SLOTS: Record<AssessmentStage, ReviewerSlot[]> = {
   DA: ['trainer', 'engineer', 'producer'],
 };
 
-export const allowedScoreKeys = (stage: AssessmentStage, slot: ReviewerSlot): (CriterionId | 'exercise')[] => {
+// A reviewer scores the stage's criteria they have a table cell for, in
+// criteria order (e.g. the Pod Trial producer: SFX and Music).
+export const allowedScoreKeys = (stage: AssessmentStage, slot: ReviewerSlot, config: AssessmentConfig = DEFAULT_ASSESSMENT_CONFIG): CriterionId[] => {
   if (stage === 'A') return ['exercise'];
-  if ((stage === 'P1' || stage === 'P2') && slot === 'producer') return ['sfx', 'music'];
-  return CRITERIA.map(c => c.id);
+  const cells = stageCells(config, stage);
+  return stageCriteria(config, stage).map(c => c.id).filter(id => cells.some(c => c.slot === slot && c.criterion === id));
 };
 
 export type PublicationKey = 'episodeA' | 'episodeB' | 'pod' | 'da';
