@@ -195,3 +195,53 @@ export const lessonContext = (
     next: flat[i + 1]?.step ?? null,
   };
 };
+
+// Program week (1-based) and day of that week (1-7) for a date, counted
+// from the start date (week 1 day 1 = start date). Before the start: week 0.
+export const programDay = (startDate: string | undefined, now = new Date()): { week: number; day: number } => {
+  if (!startDate) return { week: 0, day: 0 };
+  const dayIndex = Math.floor((now.getTime() - new Date(`${startDate}T00:00:00`).getTime()) / 86400000);
+  return dayIndex < 0 ? { week: 0, day: 0 } : { week: Math.floor(dayIndex / 7) + 1, day: (dayIndex % 7) + 1 };
+};
+
+export type PlanStatus = 'done' | 'todo' | 'late';
+export interface PlanItem { key: string; kind: 'content' | 'assignment' | 'milestone'; title: string; hash: string; status: PlanStatus; hours?: number }
+export interface PlanDay { day: number; date: Date | null; isToday: boolean; items: PlanItem[] }
+
+// One week as a day-by-day plan: lessons on their planned day, assignments
+// on their due day, milestones on theirs. Lessons without a planned day go
+// under `anyDay`. Weekdays always appear; the weekend only when used.
+export const weekPlan = (
+  outline: ProgramOutline | null, assignments: Assignment[], modules: Module[], enrollment: Enrollment | undefined,
+  traineeId: string | undefined, videoProgress: VideoProgress[], submissions: AssessmentSubmission[], weekIndex: number, now = new Date(),
+): { days: PlanDay[]; anyDay: PlanItem[] } => {
+  const week = outline?.weeks[weekIndex];
+  const start = enrollment?.startDate;
+  const today = programDay(start, now);
+  const isPast = (day: number) => weekIndex + 1 < today.week || (weekIndex + 1 === today.week && day < today.day);
+  const entries = week ? weekGroups(week, assignments).flatMap(g => g.items).flatMap<{ day: number | null; item: PlanItem }>(it => {
+    if (it.kind === 'content') {
+      const mod = modules.find(m => m.id === it.moduleId);
+      if (!mod) return [];
+      const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === traineeId);
+      const day = it.day ?? null;
+      return [{ day, item: { key: it.id, kind: 'content', title: mod.title, hash: `#/module/${mod.id}`, hours: it.hours, status: done ? 'done' : day && isPast(day) ? 'late' : 'todo' } }];
+    }
+    if (it.kind === 'assignment') {
+      const a = assignments.find(x => x.id === it.assignmentId);
+      if (!a || !assignmentApplies(a, enrollment)) return [];
+      const day = a.dueDay ?? 7;
+      const done = assignmentStatus(a, traineeId, submissions) === 'submitted';
+      return [{ day, item: { key: it.id, kind: 'assignment', title: a.title, hash: `#/assignment/${a.id}`, status: done ? 'done' : isPast(day) ? 'late' : 'todo' } }];
+    }
+    return [{ day: it.day ?? 7, item: { key: it.id, kind: 'milestone', title: it.title, hash: '', status: isPast(it.day ?? 7) ? 'done' : 'todo' } }];
+  }) : [];
+  const used = new Set(entries.flatMap(e => (e.day ? [e.day] : [])));
+  const days = [1, 2, 3, 4, 5, 6, 7].filter(d => d <= 5 || used.has(d)).map(d => ({
+    day: d,
+    date: programDate(start, weekIndex + 1, d),
+    isToday: today.week === weekIndex + 1 && today.day === d,
+    items: entries.filter(e => e.day === d).map(e => e.item),
+  }));
+  return { days, anyDay: entries.filter(e => e.day === null).map(e => e.item) };
+};

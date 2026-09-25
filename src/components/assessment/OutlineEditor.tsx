@@ -177,6 +177,15 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
       if (asg) saveWith(saveAssignment({ ...asg, dueDay: day }, assignmentLines(exercises, asg.id)));
     } else editWeek(weekId, w => ({ ...w, items: w.items.map(i => (i.id === it.id ? { ...i, day } as OutlineItem : i)) }));
   };
+  // A lesson's planned day (null = any day that week) and estimated hours;
+  // unset values are removed rather than stored empty.
+  const setLessonPlan = (weekId: string, it: OutlineItem, patch: { day?: number | null; hours?: number | null }) =>
+    editWeek(weekId, w => ({ ...w, items: w.items.map(i => {
+      if (i.id !== it.id || i.kind !== 'content') return i;
+      const next: Record<string, unknown> = { ...i, ...patch };
+      for (const k of ['day', 'hours']) if (next[k] === null || next[k] === undefined || Number.isNaN(next[k])) delete next[k];
+      return next as OutlineItem;
+    }) }));
   const addSection = (weekId: string) => editWeek(weekId, w => ({ ...w, sections: [...(w.sections ?? []), { id: uid('sec'), title: 'New section' }] }));
   const renameSection = (weekId: string, sectionId: string, title: string) =>
     editWeek(weekId, w => ({ ...w, sections: (w.sections ?? []).map(sec => (sec.id === sectionId ? { ...sec, title } : sec)) }));
@@ -236,7 +245,19 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
             <p className="text-[10px] font-bold uppercase text-gray-400">{it.kind === 'content' ? 'Content' : it.kind === 'milestone' ? 'Milestone' : 'Assignment'}</p>
             {asg && <p className={`text-[11px] font-bold mt-0.5 ${asg.stage === 'A' && !assignmentLines(exercises, asg.id).length ? 'text-ember' : 'text-gray-600'}`}>{gradingSummary(asg)}</p>}
           </div>
-          {it.kind !== 'content' && (
+          {it.kind === 'content' ? (
+            <>
+              <select value={it.day ?? ''} onChange={e => setLessonPlan(week.id, it, { day: e.target.value ? Number(e.target.value) : null })} aria-label="Planned day" className={smallSelect}>
+                <option value="">Plan: any day</option>
+                {[1, 2, 3, 4, 5, 6, 7].map(d => <option key={d} value={d}>Plan: {dayOption(d)}</option>)}
+              </select>
+              <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                <input type="number" min={0} step="0.5" defaultValue={it.hours ?? ''} key={it.hours ?? ''} placeholder="–" aria-label="Estimated hours"
+                  onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (it.hours ?? null)) setLessonPlan(week.id, it, { hours: v }); }}
+                  className="w-14 bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-[#2E9DF7]" />h
+              </label>
+            </>
+          ) : (
             <select value={day} onChange={e => setDay(week.id, it, Number(e.target.value))} aria-label={it.kind === 'assignment' ? 'Due day' : 'Milestone day'} className={smallSelect}>
               {[1, 2, 3, 4, 5, 6, 7].map(d => <option key={d} value={d}>{it.kind === 'assignment' ? 'Due' : 'By'} {dayOption(d)}</option>)}
             </select>
@@ -327,7 +348,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
     <div className="space-y-4">
       <p className="text-xs text-gray-500 px-2">
         The program is 4 weeks. Inside each week, group content into <b>sections</b> (e.g. "StoryCo General Onboarding") and use ▲▼ to order
-        sections and the items in them - trainees see exactly this in their sidebar. Assignments and milestones also have a due day. Grading lives on each assignment (click Edit).
+        sections and the items in them - trainees see exactly this in their sidebar. Give lessons a planned day (and hours) to build each trainee's day-by-day plan; assignments and milestones have a due day. Grading lives on each assignment (click Edit).
       </p>
       {outline.weeks.slice(0, DEFAULT_WEEK_GOALS.length).some(w => !w.goal) && (
         <div className="bg-[#3DDC97]/15 rounded-2xl px-4 py-3 text-xs text-gray-700 flex flex-wrap items-center justify-between gap-2">

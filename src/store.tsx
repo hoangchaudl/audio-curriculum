@@ -51,6 +51,7 @@ interface AppContextType extends AppState, AssessmentApi {
   upsertModuleVideo: (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title' | 'start' | 'end'>) => void;
   deleteModuleVideo: (moduleId: string) => void;
   updateUserTheme: (theme: 'light' | 'dark') => void;
+  markNotificationsRead: (ids: string[]) => void;
   setUserUnlockedCategories: (userId: string, categoryIds: string[]) => void;
   createCategory: (name: string) => void;
   updateCategory: (categoryId: string, updates: Partial<Pick<Category, 'name' | 'restricted'>>) => void;
@@ -538,6 +539,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Which notifications you've read (ids from assessment/notifications.ts).
+  const markNotificationsRead = async (ids: string[]) => {
+    if (!currentUser) return;
+    try {
+      await setDoc(doc(db, 'users', currentUser.id), { readNotifications: ids }, { merge: true });
+    } catch (error) {
+      console.error('Error saving read notifications', error);
+    }
+  };
+
   // Admin-only (also enforced in firestore.rules): which restricted
   // categories a given user may see.
   const setUserUnlockedCategories = async (userId: string, categoryIds: string[]) => {
@@ -684,6 +695,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         upsertModuleVideo,
         deleteModuleVideo,
         updateUserTheme,
+        markNotificationsRead,
         setUserUnlockedCategories,
         createCategory,
         updateCategory,
