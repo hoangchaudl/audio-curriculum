@@ -10,10 +10,10 @@ import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextStep
 const go = (hash: string) => { window.location.hash = hash; };
 
 const TABS = [
+  { id: 'about', label: 'ℹ️ About' },
   { id: 'today', label: '📌 Today' },
   { id: 'schedule', label: '🗓️ Schedule' },
   { id: 'grades', label: '📝 Grades' },
-  { id: 'about', label: 'ℹ️ About' },
 ] as const;
 type TabId = typeof TABS[number]['id'];
 
@@ -97,6 +97,13 @@ export const ProgramOverview: React.FC = () => {
     return v.some(s => s.isComplete) ? `Complete submission in (${v.length} version${v.length === 1 ? '' : 's'})` : `${v.length} draft version${v.length === 1 ? '' : 's'} – not marked complete`;
   };
 
+  const { overdue, next } = nextSteps(programOutline, assignments, modules, data.enrollment, currentUser?.id, videoProgress, data.submissions);
+  // Mid-week check (see lessonPace): under half this week's lessons by Day 4.
+  const pace = lessonPace(programOutline, assignments, data.enrollment?.startDate, currentUser?.id, videoProgress);
+  const progress = programProgress(programOutline, assignments, data.enrollment, currentUser?.id, videoProgress, data.submissions);
+  const when = (d?: Date) => (d ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '');
+  const daysLeft = (d?: Date) => (d ? Math.ceil((d.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null);
+
   const sw = config.stageWeights;
   // Audio Description counts once it has a weight (and an assignment).
   const hasDA = (sw.da ?? 0) > 0;
@@ -117,8 +124,72 @@ export const ProgramOverview: React.FC = () => {
         </div>
       </header>
 
+      {/* Pinned above the tabs and outside the scroll area, so Up next and
+          progress stay in view on every tab. */}
+      <div className="bg-surface border-b px-4 md:px-10 py-3 flex-shrink-0">
+        <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className="flex-1 min-w-60 flex items-center justify-between gap-3">
+            {next ? (
+              <>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#2E9DF7]">▶ Up next · Week {next.week}</p>
+                  <p className="text-sm md:text-base font-black text-gray-800 truncate">{next.kind === 'assignment' ? '📝 ' : '📖 '}{next.title}</p>
+                  {next.kind === 'assignment' && next.due && (
+                    <p className="text-xs font-bold text-gray-500">
+                      Due {when(next.due)}{(() => { const d = daysLeft(next.due); return d === null ? '' : d <= 0 ? ' · today' : d === 1 ? ' · tomorrow' : ` · in ${d} days`; })()}
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => go(next.hash)} className="flex-shrink-0 bg-[#2E9DF7] text-white font-bold text-xs md:text-sm px-4 py-2 rounded-2xl shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]">
+                  {next.kind === 'assignment' ? 'Open assignment' : 'Start lesson'}
+                </button>
+              </>
+            ) : (
+              <p className="text-sm font-bold text-leaf">🎉 You've done everything in the program so far - your reviewers will score your work.</p>
+            )}
+          </div>
+          {progress.total > 0 && (
+            <div className="w-full sm:w-72">
+              <ProgressBar done={progress.done} total={progress.total} label="Your progress" />
+              {pace.length > 0 && (
+                <p className="mt-1.5 text-[10px] font-black uppercase text-ember">⚠ Behind pace - under half of Week {pace[0].week}'s lessons done</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-6">
+          {(pace.length > 0 || overdue.length > 0) && (
+          <section className="space-y-3">
+            {pace.length > 0 && (
+              <div className="bg-[#F4511E]/10 border-2 border-[#F4511E]/30 rounded-[32px] p-5 space-y-1">
+                <p className="text-xs font-black uppercase text-ember">📖 Behind on lessons</p>
+                {pace.map(p => (
+                  <p key={p.week} className="text-sm font-bold text-gray-800">
+                    {p.current
+                      ? `Week ${p.week}: ${p.done} of ${p.total} lessons done. Try to finish at least half of this week's lessons by Day ${PACE_CHECK_DAY} so you're ready for the assignment.`
+                      : `Week ${p.week} still has ${p.total - p.done} of ${p.total} lessons to finish - catch up so they don't pile up.`}
+                  </p>
+                ))}
+                <p className="text-[11px] text-gray-500">Your coordinator can see this too - reach out if you're stuck.</p>
+              </div>
+            )}
+            {overdue.length > 0 && (
+              <div className="bg-rose rounded-[32px] p-5 space-y-2">
+                <p className="text-xs font-black uppercase text-ember">⚠ Overdue - submit as soon as you can</p>
+                {overdue.map(o => (
+                  <button key={o.hash} onClick={() => go(o.hash)} className="w-full flex flex-wrap items-center justify-between gap-2 bg-surface rounded-2xl px-4 py-3 text-left hover:shadow-md transition-shadow">
+                    <span className="text-sm font-bold text-gray-800">📝 {o.title}</span>
+                    <span className="text-xs font-black text-ember">was due {when(o.due)} · Open →</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+          )}
+
           <div role="tablist" aria-label="My Program sections" className="flex gap-1 bg-surface rounded-full p-1 border border-gray-100 shadow-sm w-fit max-w-full overflow-x-auto">
             {TABS.map(t => (
               <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => chooseTab(t.id)}
@@ -128,81 +199,7 @@ export const ProgramOverview: React.FC = () => {
             ))}
           </div>
 
-          {tab === 'today' && (
-            <>
-            {(() => {
-              const { overdue, next } = nextSteps(programOutline, assignments, modules, data.enrollment, currentUser?.id, videoProgress, data.submissions);
-              const pace = lessonPace(programOutline, assignments, data.enrollment?.startDate, currentUser?.id, videoProgress);
-              const when = (d?: Date) => (d ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '');
-              const daysLeft = (d?: Date) => (d ? Math.ceil((d.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000) : null);
-              return (
-                <section className="space-y-3">
-                  {pace.length > 0 && (
-                    <div className="bg-[#F4511E]/10 border-2 border-[#F4511E]/30 rounded-[32px] p-5 space-y-1">
-                      <p className="text-xs font-black uppercase text-ember">📖 Behind on lessons</p>
-                      {pace.map(p => (
-                        <p key={p.week} className="text-sm font-bold text-gray-800">
-                          {p.current
-                            ? `Week ${p.week}: ${p.done} of ${p.total} lessons done. Try to finish at least half of this week's lessons by Day ${PACE_CHECK_DAY} so you're ready for the assignment.`
-                            : `Week ${p.week} still has ${p.total - p.done} of ${p.total} lessons to finish - catch up so they don't pile up.`}
-                        </p>
-                      ))}
-                      <p className="text-[11px] text-gray-500">Your coordinator can see this too - reach out if you're stuck.</p>
-                    </div>
-                  )}
-                  {overdue.length > 0 && (
-                    <div className="bg-rose rounded-[32px] p-5 space-y-2">
-                      <p className="text-xs font-black uppercase text-ember">⚠ Overdue - submit as soon as you can</p>
-                      {overdue.map(o => (
-                        <button key={o.hash} onClick={() => go(o.hash)} className="w-full flex flex-wrap items-center justify-between gap-2 bg-surface rounded-2xl px-4 py-3 text-left hover:shadow-md transition-shadow">
-                          <span className="text-sm font-bold text-gray-800">📝 {o.title}</span>
-                          <span className="text-xs font-black text-ember">was due {when(o.due)} · Open →</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
-                    {next ? (
-                      <>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-[#2E9DF7]">▶ Up next · Week {next.week}</p>
-                          <p className="text-lg font-black text-gray-800">{next.kind === 'assignment' ? '📝 ' : '📖 '}{next.title}</p>
-                          {next.kind === 'assignment' && next.due && (
-                            <p className="text-xs font-bold text-gray-500">
-                              Due {when(next.due)}{(() => { const d = daysLeft(next.due); return d === null ? '' : d <= 0 ? ' · today' : d === 1 ? ' · tomorrow' : ` · in ${d} days`; })()}
-                            </p>
-                          )}
-                        </div>
-                        <button onClick={() => go(next.hash)} className="bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2.5 rounded-2xl shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]">
-                          {next.kind === 'assignment' ? 'Open assignment' : 'Start lesson'}
-                        </button>
-                      </>
-                    ) : (
-                      <p className="text-sm font-bold text-leaf">🎉 You've done everything in the program so far - your reviewers will score your work.</p>
-                    )}
-                  </div>
-                </section>
-              );
-            })()}
-            <WeekPlan traineeId={currentUser?.id} />
-            {(() => {
-              const p = programProgress(programOutline, assignments, data.enrollment, currentUser?.id, videoProgress, data.submissions);
-              return p.total > 0 && (
-                <section className={card}>
-                  <ProgressBar done={p.done} total={p.total} label="Your progress" size="lg" />
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {p.weeks.filter(w => w.total > 0).map(w => (
-                      <span key={w.id} className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${w.done === w.total ? 'bg-[#3DDC97] text-[#0B3D2A]' : 'bg-gray-100 text-gray-500'}`}>
-                        {w.done === w.total ? '✓ ' : ''}{w.title} · {w.done}/{w.total}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-gray-400 font-medium mt-3">Counts content you've marked done and assignments you've submitted.</p>
-                </section>
-              );
-            })()}
-            </>
-          )}
+          {tab === 'today' && <WeekPlan traineeId={currentUser?.id} />}
 
           {tab === 'schedule' && (
             <>
@@ -353,10 +350,10 @@ export const ProgramOverview: React.FC = () => {
           <section className="bg-sky rounded-[32px] p-6 md:p-8 text-navy">
             <h3 className="text-lg font-black mb-2">Welcome to your training program</h3>
             <p className="text-sm font-medium mb-4">
-              Over {programOutline?.weeks.length || 4} weeks you'll learn the StoryCo workflow and prove it on real episodes. This page is your home base, in four tabs:
+              Over {programOutline?.weeks.length || 4} weeks you'll learn the StoryCo workflow and prove it on real episodes. This page is your home base. <b>Up next</b> and <b>Your progress</b> stay pinned at the top whichever tab you're on; below them are four tabs:
             </p>
             <ul className="grid sm:grid-cols-2 gap-3 text-sm">
-              <li className="bg-surface/70 rounded-2xl p-3"><b>📌 Today</b><br />What needs your attention now: anything overdue, what's up next, this week's day-by-day plan and your overall progress.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b>📌 Today</b><br />This week's day-by-day plan: which lessons to do on which day. Slipping a day is fine - a lesson only turns red once you're two days behind.</li>
               <li className="bg-surface/70 rounded-2xl p-3"><b>🗓️ Schedule</b><br />Every week's goal and what's due by which day. Open an assignment to read the brief and submit your work.</li>
               <li className="bg-surface/70 rounded-2xl p-3"><b>📝 Grades</b><br />How you're graded: {stageList.length} stages - {stageList.slice(0, -1).join(', ')} and {stageList[stageList.length - 1]}. Reviewers score your work from 1 to 5.</li>
               <li className="bg-surface/70 rounded-2xl p-3"><b>🏁 Final grade</b><br />Also on Grades: your overall score, shown once your coordinator publishes every stage. The goal is {config.passThreshold} / 5 or higher.</li>

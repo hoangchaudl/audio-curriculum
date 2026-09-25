@@ -1,11 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppContext } from '../store';
-import { traineeNotifications } from '../assessment/notifications';
+import { Notice, traineeNotifications } from '../assessment/notifications';
 
 const TONE: Record<string, string> = {
   red: 'border-l-[#F4511E]', orange: 'border-l-[#FFA94D]', blue: 'border-l-[#2E9DF7]', green: 'border-l-[#3DDC97]',
 };
+
+const CATEGORIES: { id: 'all' | Notice['category']; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'deadlines', label: '📝 Deadlines' },
+  { id: 'lessons', label: '📖 Lessons' },
+  { id: 'results', label: '✅ Results' },
+];
 
 // 🔔 for trainees: what's overdue, due soon, behind pace, planned today, or
 // newly published. The red count is what they haven't opened or marked
@@ -21,6 +28,7 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
     const value = typeof next === 'function' ? next(open) : next;
     setAnchor(value ? ref.current?.getBoundingClientRect() ?? null : null);
   };
+  const [category, setCategory] = useState<typeof CATEGORIES[number]['id']>('all');
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -39,6 +47,7 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
     assessmentSubmissions.filter(s => s.traineeId === currentUser.id), publications.find(p => p.id === currentUser.id));
   const read = new Set(currentUser.readNotifications ?? []);
   const unread = notices.filter(n => !read.has(n.id));
+  const shown = category === 'all' ? notices : notices.filter(n => n.category === category);
   // Only keep ids that still exist, so the saved list stays small.
   const markRead = (ids: string[]) => markNotificationsRead([...new Set([...notices.map(n => n.id).filter(id => read.has(id)), ...ids])]);
 
@@ -60,11 +69,22 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
             <p className="text-sm font-black text-gray-800">Notifications</p>
             {unread.length > 0 && <button onClick={() => markRead(notices.map(n => n.id))} className="text-xs font-bold text-[#2E9DF7] hover:underline">Mark all read</button>}
           </div>
-          {notices.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-gray-400 text-center">You're all caught up 🎉</p>
+          <div role="tablist" aria-label="Notification types" className="flex gap-1 px-3 py-2 border-b overflow-x-auto">
+            {CATEGORIES.map(c => {
+              const count = (c.id === 'all' ? unread : unread.filter(n => n.category === c.id)).length;
+              return (
+                <button key={c.id} role="tab" aria-selected={category === c.id} onClick={() => setCategory(c.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${category === c.id ? 'bg-[#2E9DF7] text-white' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
+                  {c.label}{count > 0 && <span className="ml-1 font-black">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {shown.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-gray-400 text-center">{notices.length ? 'Nothing here right now' : "You're all caught up 🎉"}</p>
           ) : (
             <ul className="max-h-96 overflow-y-auto">
-              {notices.map(n => (
+              {shown.map(n => (
                 <li key={n.id}>
                   <button onClick={() => { markRead([n.id]); setOpen(false); window.location.hash = n.hash; }}
                     className={`w-full text-left flex gap-3 px-4 py-3 border-l-4 hover:bg-gray-50 ${TONE[n.tone]} ${read.has(n.id) ? 'opacity-60' : ''}`}>

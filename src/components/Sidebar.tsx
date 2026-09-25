@@ -33,7 +33,7 @@ export const Sidebar: React.FC<{
   onCloseMobile: () => void;
 }> = ({ selectedModuleId, activePage, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
   const { modules: allModules, categories, currentUser, logout, updateUserTheme, enrollments, exercises, assessmentSubmissions, programOutline, assignments, videoProgress } = useAppContext();
-  // Weeks the trainee folded away in the sidebar - a per-browser
+  // Weeks (and week sections) the trainee folded away in the sidebar - a per-browser
   // convenience, so localStorage is enough (falls back to all open).
   const [foldedWeeks, setFoldedWeeks] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('foldedWeeks') || '[]'); } catch { return []; }
@@ -189,6 +189,11 @@ export const Sidebar: React.FC<{
           // The week holding the page you're on never folds away.
           const hasSelected = rows.some(r => r.kind === 'content' ? selectedModuleId === r.mod.id : activePage === `assignment:${r.asg.id}`);
           const weekOpen = isCollapsed || hasSelected || !foldedWeeks.includes(week.id);
+          // Sections fold too (same saved list, keyed week|section); the one
+          // holding the page you're on stays open.
+          const sectionKey = (row: WeekRow) => `${week.id}|${row.section ?? ''}`;
+          const sectionOpen = (row: WeekRow) => !hasSections || isCollapsed || !foldedWeeks.includes(sectionKey(row))
+            || rows.some(r => r.section === row.section && (r.kind === 'content' ? selectedModuleId === r.mod.id : activePage === `assignment:${r.asg.id}`));
           return (
             <div key={week.id} className="mb-6">
               {!isCollapsed && (
@@ -229,10 +234,18 @@ export const Sidebar: React.FC<{
                   // Section heading above the first row of each section; loose
                   // items after the sections get "Also this week".
                   const heading = hasSections && (i === 0 || rows[i - 1].section !== row.section) ? (row.section ?? 'Also this week') : null;
+                  const inSection = rows.filter(r => r.section === row.section);
                   return (
                     <React.Fragment key={row.key}>
-                    {heading && <p className="text-white/70 text-[11px] font-black pl-3 pt-2">{heading}</p>}
-                    <button onClick={open} aria-current={selected ? 'page' : undefined}
+                    {heading && (
+                      <button onClick={() => toggleWeek(sectionKey(row))} aria-expanded={sectionOpen(row)}
+                        className="w-full flex items-center gap-1.5 text-white/70 text-[11px] font-black pl-3 pt-2 hover:text-white">
+                        <span aria-hidden="true" className={`transition-transform ${sectionOpen(row) ? 'rotate-90' : ''}`}>›</span>
+                        <span className="text-left">{heading}</span>
+                        <span className="ml-auto pr-2 text-white/50 text-[10px]">{inSection.filter(isDone).length}/{inSection.length}</span>
+                      </button>
+                    )}
+                    {sectionOpen(row) && <button onClick={open} aria-current={selected ? 'page' : undefined}
                       className={`w-full flex items-center justify-between gap-2 p-3 rounded-2xl text-left transition-all ${cls}`}>
                       <span className="flex items-center gap-3 min-w-0">
                         <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
@@ -257,7 +270,7 @@ export const Sidebar: React.FC<{
                           {status === 'submitted' ? '✓ Submitted' : overdue ? 'Overdue' : status === 'draft' ? 'Draft' : 'To do'}
                         </span>
                       )}
-                    </button>
+                    </button>}
                     </React.Fragment>
                   );
                 })}

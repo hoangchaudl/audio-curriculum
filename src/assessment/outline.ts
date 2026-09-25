@@ -204,6 +204,12 @@ export const programDay = (startDate: string | undefined, now = new Date()): { w
   return dayIndex < 0 ? { week: 0, day: 0 } : { week: Math.floor(dayIndex / 7) + 1, day: (dayIndex % 7) + 1 };
 };
 
+// A lesson may slip one day behind its planned day before it shows as late.
+export const LESSON_GRACE_DAYS = 1;
+
+// Recommended day (1-5, Mon-Fri) for each of n lessons, in order, spread evenly.
+export const spreadDays = (n: number): number[] => Array.from({ length: n }, (_, i) => Math.floor((i * 5) / n) + 1);
+
 export type PlanStatus = 'done' | 'todo' | 'late';
 export interface PlanItem { key: string; kind: 'content' | 'assignment' | 'milestone'; title: string; hash: string; status: PlanStatus; hours?: number }
 export interface PlanDay { day: number; date: Date | null; isToday: boolean; items: PlanItem[] }
@@ -218,14 +224,14 @@ export const weekPlan = (
   const week = outline?.weeks[weekIndex];
   const start = enrollment?.startDate;
   const today = programDay(start, now);
-  const isPast = (day: number) => weekIndex + 1 < today.week || (weekIndex + 1 === today.week && day < today.day);
+  const isPast = (day: number, grace = 0) => weekIndex + 1 < today.week || (weekIndex + 1 === today.week && day < today.day - grace);
   const entries = week ? weekGroups(week, assignments).flatMap(g => g.items).flatMap<{ day: number | null; item: PlanItem }>(it => {
     if (it.kind === 'content') {
       const mod = modules.find(m => m.id === it.moduleId);
       if (!mod) return [];
       const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === traineeId);
       const day = it.day ?? null;
-      return [{ day, item: { key: it.id, kind: 'content', title: mod.title, hash: `#/module/${mod.id}`, hours: it.hours, status: done ? 'done' : day && isPast(day) ? 'late' : 'todo' } }];
+      return [{ day, item: { key: it.id, kind: 'content', title: mod.title, hash: `#/module/${mod.id}`, hours: it.hours, status: done ? 'done' : day && isPast(day, LESSON_GRACE_DAYS) ? 'late' : 'todo' } }];
     }
     if (it.kind === 'assignment') {
       const a = assignments.find(x => x.id === it.assignmentId);
