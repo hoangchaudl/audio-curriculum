@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { daOutcome, episodeBOutcome, podEpisodeOutcome } from '../../assessment/scoring';
-import { REVIEWER_SLOTS, STAGE_SLOTS, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
+import { REVIEWER_SLOTS, STAGE_SLOTS, cellGroup, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { ContentBlocks } from './ContentBlocks';
 import { SubmissionPanel } from './SubmissionPanel';
 import { OutcomeBadge, RubricTable, STAGE_LABELS, card, sectionTitle } from './ui';
@@ -77,10 +77,11 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
                 </tbody>
               </table>
             </div>
-            {criteria.some(c => c.levels?.some(Boolean)) && (
+            {criteria.some(c => c.levels?.some(Boolean) || c.outcome) && (
               <div className="mt-5">
                 <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
-                <RubricTable lines={criteria} />
+                <RubricTable lines={criteria.map(c => ({ ...c, note: `${Math.round(cells.filter(x => x.criterion === c.id).reduce((t, x) => t + x.weight, 0) * 100) / 100}%` }))}
+                  bands={assessmentConfig.bands?.[cellGroup(stage)]} />
               </div>
             )}
           </section>

@@ -9,7 +9,9 @@ import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { AssignmentForm, OutlineEditor } from './OutlineEditor';
-import { BenchmarkChip, OutcomeBadge, ProgressBar, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
+import { BandInputs, RubricPaste } from './RubricTools';
+import { PastedRubric } from '../../assessment/rubricPaste';
+import { BenchmarkChip, OutcomeBadge, ProgressBar, bandLabel, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
 
 type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 // Grouped in the order an admin works: set the program up, add people,
@@ -274,14 +276,34 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
   const slots = REVIEWER_SLOTS.filter(r => STAGE_SLOTS[stage].includes(r.id));
   const [open, setOpen] = useState<string | null>(null);
   const [removing, setRemoving] = useState<StageCriterion | null>(null);
-  const save = (next: StageCriterion[], nextCells: CellWeight[] = cells) =>
-    saveWith(updateAssessmentConfig({ criteria: { ...config.criteria, [group]: next }, [CELLS_KEY[group]]: nextCells }));
-  const patch = (id: string, change: Partial<StageCriterion>) => save(criteria.map(c => {
-    if (c.id !== id) return c;
-    const { levels, ...rest } = { ...c, ...change };
+  const bands = config.bands?.[group];
+  const save = (next: StageCriterion[], nextCells: CellWeight[] = cells, nextBands = bands) =>
+    saveWith(updateAssessmentConfig({
+      criteria: { ...config.criteria, [group]: next }, [CELLS_KEY[group]]: nextCells,
+      bands: Object.fromEntries(Object.entries({ ...config.bands, [group]: nextBands }).filter(([, b]) => b?.some(Boolean))),
+    }));
+  // Stored without empty descriptions / outcome, and never with undefined fields.
+  const tidy = (c: StageCriterion): StageCriterion => {
+    const { levels, outcome, ...rest } = c;
     const clean = (levels ?? []).map(t => t.trim());
-    return clean.some(Boolean) ? { ...rest, levels: clean } : rest;
-  }));
+    return { ...rest, ...(clean.some(Boolean) ? { levels: clean } : {}), ...(outcome?.trim() ? { outcome: outcome.trim() } : {}) };
+  };
+  const patch = (id: string, change: Partial<StageCriterion>) => save(criteria.map(c => (c.id === id ? tidy({ ...c, ...change }) : c)));
+  // A pasted table replaces the criteria. Existing ones are reused in order
+  // (so scores given stay attached); a row's weighting is split evenly
+  // between the reviewers who score that criterion (all, for a new one).
+  const applyPaste = (r: PastedRubric) => {
+    const next = r.criteria.map((c, i) => tidy({ id: criteria[i]?.id ?? `c_${Date.now().toString(36)}${i}`, title: c.title, levels: c.levels, outcome: c.outcome }));
+    const nextCells = next.flatMap((c, i) => {
+      const had = cells.filter(x => x.criterion === c.id);
+      const who = had.length ? had.map(x => x.slot) : slots.map(s => s.id);
+      const w = r.criteria[i].weight;
+      if (w === undefined) return had.length ? had : who.map(slot => ({ slot, criterion: c.id, weight: 0 }));
+      const shares = splitEvenly(who.length).map(p => round2((p * w) / 100));
+      return who.map((slot, j) => ({ slot, criterion: c.id, weight: shares[j] }));
+    });
+    save(next, nextCells, r.bands ?? bands);
+  };
   const setCell = (slot: ReviewerSlot, criterion: string, raw: string) => {
     const rest = cells.filter(c => !(c.slot === slot && c.criterion === criterion));
     save(criteria, raw === '' ? rest : [...rest, { slot, criterion, weight: Number(raw) }]);
@@ -301,6 +323,10 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
         Each row is one criterion, scored 1–5. Each cell is how much one reviewer's score on it counts toward this stage; leave a cell blank if that reviewer doesn't score it.
         Use <b>Describe scores</b> to write what each score means - trainees and reviewers see it as the rubric.
       </p>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <div className="flex-1 min-w-72"><BandInputs key={(bands ?? []).join('|')} bands={bands} onSave={b => save(criteria, cells, b)} /></div>
+        <RubricPaste onApply={applyPaste} />
+      </div>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
           <thead><tr><th />{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}<th /></tr></thead>
@@ -337,15 +363,20 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
                 {open === k.id && (
                   <tr>
                     <td colSpan={slots.length + 2} className="pb-3">
-                      <div className="grid gap-2 sm:grid-cols-5 bg-gray-50 rounded-2xl p-3">
+                      <div className="bg-gray-50 rounded-2xl p-3 space-y-2">
+                      <textarea defaultValue={k.outcome ?? ''} key={k.outcome ?? ''} placeholder="What it assesses, e.g. the module learning outcome (optional)" aria-label={`${k.title} - what it assesses`}
+                        onBlur={e => { if (e.target.value.trim() !== (k.outcome ?? '')) patch(k.id, { outcome: e.target.value }); }}
+                        className={`${input} bg-surface h-14 text-xs`} />
+                      <div className="grid gap-2 sm:grid-cols-5">
                         {[1, 2, 3, 4, 5].map(n => (
                           <label key={n} className="block">
-                            <span className="text-[10px] font-black uppercase text-gray-400">Score {n}</span>
+                            <span className="text-[10px] font-black uppercase text-gray-400">{n} · {bandLabel(bands, n)}</span>
                             <textarea defaultValue={k.levels?.[n - 1] ?? ''} key={k.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${k.title} - score ${n} description`}
                               onBlur={e => { if (e.target.value.trim() !== (k.levels?.[n - 1] ?? '')) patch(k.id, { levels: [1, 2, 3, 4, 5].map(j => (j === n ? e.target.value : k.levels?.[j - 1] ?? '')) }); }}
                               className={`${input} bg-surface h-24 text-xs`} />
                           </label>
                         ))}
+                      </div>
                       </div>
                     </td>
                   </tr>

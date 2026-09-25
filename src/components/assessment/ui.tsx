@@ -129,21 +129,32 @@ export const Md: React.FC<{ children: string }> = ({ children }) => (
 
 export const isHttpUrl = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
-// Rubric table: one row per criterion, one column per score 1-5 with the
-// admin's description of that level. `note` sits under the name (e.g. its weight).
-export const RubricTable: React.FC<{ lines: { id: string; title: string; levels?: string[]; note?: string }[] }> = ({ lines }) => (
+// A rubric's name for score n: the admin's band ("Merit (60+)") or "Score n".
+export const bandLabel = (bands: string[] | undefined, n: number) => bands?.[n - 1]?.trim() || `Score ${n}`;
+
+// Rubric table: one row per criterion (with what it assesses and its
+// weighting when set), one column per score 1-5 with the admin's
+// description of that level.
+export const RubricTable: React.FC<{ lines: { id: string; title: string; levels?: string[]; outcome?: string; note?: string }[]; bands?: string[] }> = ({ lines, bands }) => {
+  const outcomes = lines.some(l => l.outcome);
+  const notes = lines.some(l => l.note);
+  return (
   <div className="overflow-x-auto">
-    <table className="w-full text-xs border-separate border-spacing-1 min-w-[640px]">
+    <table className="w-full text-xs border-separate border-spacing-1 min-w-[720px]">
       <thead>
         <tr className="text-[10px] font-black uppercase text-gray-500">
-          <th className="text-left px-2 py-1 w-40">Criterion</th>
-          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1">Score {n}</th>)}
+          <th className="text-left px-2 py-1 w-36">Criterion</th>
+          {outcomes && <th className="text-left px-2 py-1 w-48">What it assesses</th>}
+          {notes && <th className="text-left px-2 py-1">Weighting</th>}
+          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1">{n} · {bandLabel(bands, n)}</th>)}
         </tr>
       </thead>
       <tbody>
         {lines.map(l => (
           <tr key={l.id} className="align-top">
-            <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{l.title}{l.note && <span className="block text-[10px] font-bold opacity-70">{l.note}</span>}</td>
+            <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{l.title}</td>
+            {outcomes && <td className="bg-gray-50 rounded-xl px-3 py-2 text-gray-600 whitespace-pre-wrap">{l.outcome || <span className="text-gray-300">–</span>}</td>}
+            {notes && <td className="bg-gray-50 rounded-xl px-3 py-2 font-black text-gray-600">{l.note}</td>}
             {[1, 2, 3, 4, 5].map(n => (
               <td key={n} className="bg-gray-50 rounded-xl px-3 py-2 text-gray-700 whitespace-pre-wrap">{l.levels?.[n - 1] || <span className="text-gray-300">–</span>}</td>
             ))}
@@ -152,4 +163,5 @@ export const RubricTable: React.FC<{ lines: { id: string; title: string; levels?
       </tbody>
     </table>
   </div>
-);
+  );
+};
