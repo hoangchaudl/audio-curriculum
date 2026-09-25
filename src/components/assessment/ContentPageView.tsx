@@ -1,72 +1,158 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../../store';
 import { ContentBlocks } from './ContentBlocks';
-import { weekLabel } from '../../assessment/outline';
-import { Md, card, sectionTitle } from './ui';
+import { lessonContext, Step } from '../../assessment/outline';
+import { youTubeId } from '../../videoClip';
+import { Md, ProgressBar, card, sectionTitle } from './ui';
 
-// A module shown as a content item in the week-by-week program: reading
-// material only (text, content blocks, optional video, objectives,
-// materials). Submitting happens on the week's assignment pages.
+const go = (hash: string) => { window.location.hash = hash; };
+const MATERIAL_ICON: Record<string, string> = { video: '🎥', book: '📖', article: '📄' };
+
+// A lesson in the week-by-week program: video and lesson text on the left;
+// where it sits in the week, what it teaches and its materials on the
+// right; previous / next at the bottom. Submitting happens on assignment
+// pages.
 export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
-  const { modules, moduleVideos, programOutline, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched } = useAppContext();
+  const { modules, moduleVideos, programOutline, assignments, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched } = useAppContext();
   const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { scrollRef.current?.scrollTo(0, 0); }, [moduleId]);
+  // Videos on this page played to the end (clips count at their end time).
+  const [finished, setFinished] = useState<string[]>([]);
+  useEffect(() => { scrollRef.current?.scrollTo(0, 0); setFinished([]); }, [moduleId]);
 
   const mod = modules.find(m => m.id === moduleId);
-  if (!mod) return <div className="p-10">Content not found</div>;
+  if (!mod) return <div className="p-10">Lesson not found</div>;
 
-  const weekIndex = programOutline?.weeks.findIndex(w => w.items.some(i => i.kind === 'content' && i.moduleId === moduleId)) ?? -1;
+  const enrollment = enrollments.find(e => e.id === currentUser?.id);
+  const ctx = lessonContext(programOutline, assignments, modules, enrollment, currentUser?.id, videoProgress, mod.id);
   const video = moduleVideos.find(v => v.moduleId === mod.id && v.url && v.url !== '#');
-  const startDate = enrollments.find(e => e.id === currentUser?.id)?.startDate;
   const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === currentUser?.id);
-  const list = (title: string, items?: string[]) => items?.length ? (
-    <div>
-      <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 tracking-widest">{title}</h4>
-      <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
-    </div>
-  ) : null;
+
+  // Watching every YouTube video on the page marks the lesson complete
+  // (the button still works for lessons without videos).
+  const videoIds = [
+    ...(video && youTubeId(video.url) ? ['module-video'] : []),
+    ...(mod.contentBlocks ?? []).flatMap(b => (b.type === 'video' && youTubeId(b.url) ? [b.id] : [])),
+  ];
+  const onVideoEnded = (id: string) => {
+    const next = finished.includes(id) ? finished : [...finished, id];
+    setFinished(next);
+    if (!done && videoIds.every(v => next.includes(v))) markVideoWatched(mod.id);
+  };
+
+  const doneButton = (
+    <button
+      onClick={() => (done ? unmarkVideoWatched(mod.id) : markVideoWatched(mod.id))}
+      aria-pressed={done}
+      className={`flex-shrink-0 text-xs font-black uppercase tracking-wide px-5 py-2.5 rounded-full transition-colors ${
+        done ? 'bg-[#3DDC97] text-[#0B3D2A] hover:bg-[#3DDC97]/80' : 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]'
+      }`}
+    >
+      {done ? '✓ Completed' : 'Mark as complete'}
+    </button>
+  );
+
+  const navCard = (step: Step | null, dir: 'prev' | 'next') => step ? (
+    <button onClick={() => go(step.hash)}
+      className={`${card} !p-5 flex-1 min-w-0 text-left hover:shadow-md transition-shadow ${dir === 'next' ? 'sm:text-right' : ''}`}>
+      <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">{dir === 'prev' ? '← Previous' : 'Next →'}</span>
+      <span className="block text-sm font-black text-gray-800 truncate mt-1">{step.kind === 'assignment' ? '📝 ' : ''}{step.title}</span>
+    </button>
+  ) : <span className="flex-1 hidden sm:block" />;
+
+  const bulletList = (items: string[], icon: string) => (
+    <ul className="space-y-2.5">
+      {items.map((x, i) => (
+        <li key={i} className="flex gap-2.5 text-sm text-gray-700 leading-snug">
+          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-sky text-navy text-[10px] font-black flex items-center justify-center mt-0.5">{icon}</span>
+          <span>{x}</span>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
-      <header className="min-h-20 bg-surface border-b flex items-center justify-between gap-4 px-4 md:px-10 py-3 flex-shrink-0">
+      <header className="bg-surface border-b px-4 md:px-10 py-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{mod.title}</h2>
-          {weekIndex >= 0 && <p className="text-xs text-gray-400 font-medium mt-1">{weekLabel(weekIndex)} · content</p>}
+          {ctx && (
+            <p className="text-[11px] font-black uppercase tracking-widest text-[#2E9DF7] truncate">
+              Week {ctx.week}{ctx.section ? ` · ${ctx.section}` : ''}
+              <span className="text-gray-400"> · Lesson {ctx.lessonNumber} of {ctx.lessonCount}</span>
+            </p>
+          )}
+          <h2 className="text-xl md:text-3xl font-black text-gray-800 mt-1">{mod.title}</h2>
         </div>
-        <button
-          onClick={() => (done ? unmarkVideoWatched(mod.id) : markVideoWatched(mod.id))}
-          aria-pressed={done}
-          className={`flex-shrink-0 text-xs font-black uppercase tracking-wide px-4 py-2 rounded-full transition-colors ${
-            done ? 'bg-[#3DDC97] text-[#0B3D2A] hover:bg-[#3DDC97]/80' : 'bg-gray-100 text-gray-600 hover:bg-[#3DDC97]/20 hover:text-leaf'
-          }`}
-        >
-          {done ? '✓ Done' : 'Mark as done'}
-        </button>
+        {doneButton}
       </header>
+
       <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {video && <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, title: video.title, start: video.start, end: video.end }]} />}
-          {mod.description && <div className={card}><Md>{mod.description}</Md></div>}
-          <ContentBlocks blocks={mod.contentBlocks} startDate={startDate} />
-          {(mod.objectives?.length || mod.outcomes?.length) ? (
-            <div className={`${card} grid md:grid-cols-2 gap-6`}>
-              {list('Objectives', mod.objectives)}
-              {list('Learning outcomes', mod.outcomes)}
-            </div>
-          ) : null}
-          {mod.additionalMaterials?.length ? (
-            <div className={card}>
-              <h4 className={`${sectionTitle} mb-3`}>Materials</h4>
-              <ul className="space-y-2">
-                {mod.additionalMaterials.map((m, i) => (
-                  <li key={i} className="bg-gray-50 rounded-2xl p-3 text-sm font-bold text-gray-800">
-                    {m.url ? <a href={m.url} target="_blank" rel="noreferrer" className="underline hover:text-[#2E9DF7]">{m.title}</a> : m.title}
-                    {m.author && <span className="block text-xs font-medium text-gray-500">By {m.author}</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+        <div className="max-w-6xl mx-auto grid gap-6 lg:gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-6 min-w-0">
+            {video && (
+              <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, title: video.title, start: video.start, end: video.end }]} onVideoEnded={onVideoEnded} />
+            )}
+            {mod.description && (
+              <section className={card}>
+                <h3 className={`${sectionTitle} mb-3`}>About this lesson</h3>
+                <div className="text-[15px]"><Md>{mod.description}</Md></div>
+              </section>
+            )}
+            <ContentBlocks blocks={mod.contentBlocks} startDate={enrollment?.startDate} onVideoEnded={onVideoEnded} />
+            {!video && !mod.description && !mod.contentBlocks?.length && (
+              <section className={`${card} text-center text-sm text-gray-400`}>This lesson's material is on its way - check the materials on the right, or move on to the next item.</section>
+            )}
+            {ctx && (ctx.prev || ctx.next) && (
+              <nav className="flex flex-col sm:flex-row gap-4" aria-label="Lesson navigation">
+                {navCard(ctx.prev, 'prev')}
+                {navCard(ctx.next, 'next')}
+              </nav>
+            )}
+          </div>
+
+          <aside className="space-y-6 lg:sticky lg:top-0 self-start">
+            {ctx && (
+              <section className={card}>
+                <ProgressBar done={ctx.lessonsDone} total={ctx.lessonCount} label={`Week ${ctx.week} lessons`} />
+                <p className="text-xs text-gray-500 mt-3">
+                  {done ? '✓ You\'ve completed this lesson.' : videoIds.length ? 'Watch the video to the end to complete this lesson.' : 'Mark this lesson complete when you\'ve finished it.'}
+                </p>
+              </section>
+            )}
+            {mod.objectives?.length ? (
+              <section className={card}>
+                <h3 className={`${sectionTitle} mb-4`}>What you'll learn</h3>
+                {bulletList(mod.objectives, '✓')}
+              </section>
+            ) : null}
+            {mod.outcomes?.length ? (
+              <section className={card}>
+                <h3 className={`${sectionTitle} mb-4`}>By the end, you'll be able to</h3>
+                {bulletList(mod.outcomes, '→')}
+              </section>
+            ) : null}
+            {mod.additionalMaterials?.length ? (
+              <section className={card}>
+                <h3 className={`${sectionTitle} mb-3`}>Materials</h3>
+                <ul className="space-y-2">
+                  {mod.additionalMaterials.map((m, i) => (
+                    <li key={i}>
+                      {m.url ? (
+                        <a href={m.url} target="_blank" rel="noreferrer" className="flex items-start gap-3 bg-gray-50 hover:bg-gray-100 rounded-2xl p-3 text-sm font-bold text-gray-800">
+                          <span aria-hidden="true">{MATERIAL_ICON[m.type] ?? '📄'}</span>
+                          <span className="min-w-0">{m.title}{m.author && <span className="block text-xs font-medium text-gray-500">By {m.author}</span>}</span>
+                        </a>
+                      ) : (
+                        <div className="flex items-start gap-3 bg-gray-50 rounded-2xl p-3 text-sm font-bold text-gray-800">
+                          <span aria-hidden="true">{MATERIAL_ICON[m.type] ?? '📖'}</span>
+                          <span className="min-w-0">{m.title}{m.author && <span className="block text-xs font-medium text-gray-500">By {m.author}</span>}</span>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </aside>
         </div>
       </div>
     </main>

@@ -1,13 +1,13 @@
 import React from 'react';
-import { clipEmbedQuery, clipLabel } from '../../videoClip';
+import { YouTubePlayer } from '../YouTubePlayer';
+import { youTubeId } from '../../videoClip';
 import { ContentBlock } from '../../types';
 import { Md, card, dateFor, formatDate, sectionTitle } from './ui';
 
-const youTubeId = (url: string) => url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/)?.[1] ?? null;
-
 // Renders admin-authored module/stage content. Every block is optional -
 // a module with no video (or no blocks at all) simply renders less.
-export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: string }> = ({ blocks, startDate }) => {
+// onVideoEnded fires when a YouTube video (or its clip) plays to the end.
+export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: string; onVideoEnded?: (blockId: string) => void }> = ({ blocks, startDate, onVideoEnded }) => {
   if (!blocks?.length) return null;
   return (
     <div className="space-y-6">
@@ -68,8 +68,7 @@ export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: stri
               <div key={block.id} className="space-y-2">
                 {yt ? (
                   <div className="aspect-video rounded-[32px] overflow-hidden shadow-xl bg-black">
-                    <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${yt}${clipEmbedQuery(block.start, block.end)}`} title={block.title || 'Video'}
-                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                    <YouTubePlayer videoId={yt} start={block.start} end={block.end} onEnded={() => onVideoEnded?.(block.id)} />
                   </div>
                 ) : (
                   <a href={block.url} target="_blank" rel="noreferrer" className={`${card} flex items-center gap-3 hover:shadow-md transition-shadow`}>
@@ -77,12 +76,7 @@ export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: stri
                     <span className="font-bold text-[#2E9DF7] underline">{block.title || block.url}</span>
                   </a>
                 )}
-                {yt && (block.title || clipLabel(block.start, block.end)) && (
-                  <p className="text-xs font-bold text-gray-500 px-2">
-                    {block.title}
-                    {clipLabel(block.start, block.end) && <span className="ml-2 bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black">▶ {clipLabel(block.start, block.end)}</span>}
-                  </p>
-                )}
+                {block.title && yt && <p className="text-xs font-bold text-gray-500 px-2">{block.title}</p>}
               </div>
             );
           }
