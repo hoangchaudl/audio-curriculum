@@ -53,9 +53,9 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
 
   const navCard = (step: Step | null, dir: 'prev' | 'next') => step ? (
     <button onClick={() => go(step.hash)}
-      className={`${card} !p-5 flex-1 min-w-0 text-left hover:shadow-md transition-shadow ${dir === 'next' ? 'sm:text-right' : ''}`}>
-      <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">{dir === 'prev' ? '← Previous' : 'Next →'}</span>
-      <span className="block text-sm font-black text-gray-800 truncate mt-1">{step.kind === 'assignment' ? '📝 ' : ''}{step.title}</span>
+      className={`${card} group !p-5 flex-1 min-w-0 text-left transition-all hover:!bg-[#2E9DF7] hover:!border-[#2E9DF7] hover:shadow-lg hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-[#2E9DF7]/40 ${dir === 'next' ? 'sm:text-right' : ''}`}>
+      <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white/80">{dir === 'prev' ? '← Previous' : 'Next →'}</span>
+      <span className="block text-sm font-black text-gray-800 truncate mt-1 group-hover:text-white">{step.kind === 'assignment' ? '📝 ' : ''}{step.title}</span>
     </button>
   ) : <span className="flex-1 hidden sm:block" />;
 
