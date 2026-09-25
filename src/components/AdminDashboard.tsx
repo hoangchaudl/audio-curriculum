@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
-import { Module, Resource, RubricCriterion, User } from '../types';
+import { Module, Resource, Role } from '../types';
+import { AdminHeader } from './AdminHeader';
+import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import { ConfirmModal } from './ConfirmModal';
 import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
@@ -14,59 +18,15 @@ import { traineeDataFrom } from '../assessment/traineeData';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 
-// What a module needs before a designer/engineer actually gets value out of
-// it - the lesson text, what it's teaching, what it's teaching toward, and
-// what it's graded against. Video and homework link are deliberately left
-// out: both already have their own "not set yet" states elsewhere (the
-// "Video coming soon" placeholder, the Assignment Materials card only
-// showing when a link exists) instead of being treated as broken.
+// What a lesson needs before a trainee gets value out of it - the lesson
+// text, what it's teaching, and what it's teaching toward. Grading lives on
+// assignments, and a video is optional.
 const getMissingContentFields = (mod: Module): string[] => {
   const missing: string[] = [];
   if (!mod.description?.trim()) missing.push('Content');
   if (!mod.objectives?.length) missing.push('Objectives');
   if (!mod.outcomes?.length) missing.push('Outcomes');
-  if (!mod.rubric?.trim() && !mod.rubricCriteria?.length) missing.push('Rubric');
   return missing;
-};
-
-// Parses a rubric pasted as plain text (e.g. copied out of Notion) into
-// structured criteria. Expected shape per sub-skill:
-//   Rubric (1 = Just Starting · 4 = Strong · 3+ = pass)   <- optional note
-//   Sub-skill 1: DX chain order
-//   Score  What it looks like in the session              <- optional column label
-//   1  Plugins in no deliberate order...
-//   ...
-//   4  Chain is correct and minimal...
-// Lines that don't start a new score are treated as the previous
-// descriptor wrapping onto the next line.
-const parseRubricText = (text: string): { note?: string; criteria: RubricCriterion[] } => {
-  const criteria: RubricCriterion[] = [];
-  let note: string | undefined;
-  let current: RubricCriterion | null = null;
-  let lastLevel = -1;
-  for (const raw of text.split('\n')) {
-    const line = raw.replace(/\*\*/g, '').trim();
-    if (!line) continue;
-    const subMatch = line.match(/^sub-?skill\s*\d*\s*[:.\-]\s*(.+)$/i);
-    const headerMatch = line.match(/^score[\t ]+(.+)/i);
-    const levelMatch = line.match(/^([1-4])[\t.):]\s*(.+)/) || line.match(/^([1-4])\s+(.+)/);
-    if (!current && /^rubric\b/i.test(line)) {
-      const inParens = line.match(/\((.+)\)/);
-      note = (inParens ? inParens[1] : line.replace(/^rubric\s*/i, '')).trim() || undefined;
-    } else if (subMatch) {
-      current = { id: `rc_${criteria.length + 1}_${Date.now()}`, title: subMatch[1].trim(), levels: ['', '', '', ''] };
-      criteria.push(current);
-      lastLevel = -1;
-    } else if (current && headerMatch) {
-      current.scoreLabel = headerMatch[1].trim();
-    } else if (current && levelMatch) {
-      lastLevel = parseInt(levelMatch[1]) - 1;
-      current.levels[lastLevel] = levelMatch[2].trim();
-    } else if (current && lastLevel >= 0) {
-      current.levels[lastLevel] = `${current.levels[lastLevel]} ${line}`.trim();
-    }
-  }
-  return { note, criteria };
 };
 
 // Admins give each material a display title plus an optional link - we still
@@ -102,28 +62,16 @@ const CARD_THEMES = [
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number }> = ({ focusModuleId, focusNonce }) => {
+export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number; onPreview: (role: Role) => void }> = ({ focusModuleId, focusNonce, onPreview }) => {
+  const hasReviews = useHasReviewAssignments();
+  const reviewTodo = useReviewTodoCount();
   const {
-    users, categories, modules, moduleVideos, submissions, grades, videoTasks, enrollments, programOutline, programOutcomes, assessmentConfig,
-    updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo, createVideoTask,
+    users, categories, modules, moduleVideos, enrollments, programOutline, programOutcomes, assessmentConfig,
+    updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo,
     setUserUnlockedCategories,
   } = useAppContext();
   const lockedCategories = sortCategories(categories).filter(c => c.restricted);
-  const [activeTab, setActiveTab] = useState<'designers' | 'engineers' | 'modules' | 'assessment'>('modules');
-
-  // Per-engineer draft for the "assign a video task" form on the Engineers
-  // tab - keyed by engineer id so each card's inputs are independent.
-  const [assignDraft, setAssignDraft] = useState<Record<string, { moduleId: string; title: string }>>({});
-  const getAssignDraft = (engineerId: string) => assignDraft[engineerId] || { moduleId: modules[0]?.id || '', title: '' };
-  const setAssignField = (engineerId: string, field: 'moduleId' | 'title', value: string) => {
-    setAssignDraft(d => ({ ...d, [engineerId]: { ...getAssignDraft(engineerId), [field]: value } }));
-  };
-  const handleAssignTask = (engineerId: string) => {
-    const draft = getAssignDraft(engineerId);
-    if (!draft.moduleId || !draft.title.trim()) return;
-    createVideoTask(engineerId, draft.moduleId, draft.title.trim());
-    setAssignDraft(d => ({ ...d, [engineerId]: { moduleId: draft.moduleId, title: '' } }));
-  };
+  const [activeTab, setActiveTab] = useState<'designers' | 'modules' | 'assessment'>('modules');
 
   const designers = users.filter(u => u.role === 'sound_designer');
   // Probation standing per designer (null = not enrolled), sorted so the
@@ -131,11 +79,30 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const ctx = useAppContext();
   const roster = designers.map(designer => ({
     designer,
-    standing: enrollments.some(e => e.id === designer.id) ? traineeStanding(traineeDataFrom(ctx, designer.id), programOutline) : null,
+    standing: enrollments.some(e => e.id === designer.id) ? traineeStanding(traineeDataFrom(ctx, designer.id), programOutline, ctx.videoProgress) : null,
   })).sort((a, b) => STATUS_ORDER.indexOf(a.standing?.status ?? 'not_enrolled') - STATUS_ORDER.indexOf(b.standing?.status ?? 'not_enrolled') || a.designer.name.localeCompare(b.designer.name));
   const behind = roster.filter(r => r.standing?.status === 'behind');
   const awaitingDecision = roster.filter(r => (r.standing?.status === 'passed' || r.standing?.status === 'not_passed') && !programOutcomes.some(o => o.id === r.designer.id));
   const engineers = users.filter(u => u.role === 'audio_engineer');
+  // The retired 1-4 homework system's data (read-only archive), as a JSON
+  // download - see firestore.rules.
+  const [exporting, setExporting] = useState(false);
+  const exportLegacy = async () => {
+    setExporting(true);
+    try {
+      const read = async (name: string) => (await getDocs(collection(db, name))).docs.map(d => d.data());
+      const data = { exportedAt: new Date().toISOString(), submissions: await read('submissions'), grades: await read('grades'), videoTasks: await read('videoTasks') };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const a = Object.assign(document.createElement('a'), { href: url, download: `legacy-homework-${data.exportedAt.slice(0, 10)}.json` });
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Legacy export failed', error);
+      alert('Could not export the legacy data - check your connection and try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const [editingModule, setEditingModule] = useState<string | null>(null);
   const [moduleQuery, setModuleQuery] = useState('');
@@ -146,22 +113,15 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const [outcomesText, setOutcomesText] = useState('');
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [outlineText, setOutlineText] = useState('');
-  const [rubricCriteria, setRubricCriteria] = useState<RubricCriterion[]>([]);
-  const [rubricPaste, setRubricPaste] = useState('');
   const [videoType, setVideoType] = useState<'internal' | 'external'>('external');
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [videoClip, setVideoClip] = useState<{ start?: number; end?: number }>({});
 
   // Replaces the native confirm()/alert() popups previously used for
-  // destructive/role actions (delete module, promote/demote) with the
-  // app's own branded modal, rendered once at the bottom of this component.
-  const [pendingConfirm, setPendingConfirm] = useState<
-    | { kind: 'delete-module'; mod: Module }
-    | { kind: 'promote'; user: User }
-    | { kind: 'demote'; user: User }
-    | null
-  >(null);
+  // destructive actions (delete a lesson) with the app's own branded
+  // modal, rendered once at the bottom of this component.
+  const [pendingConfirm, setPendingConfirm] = useState<{ kind: 'delete-module'; mod: Module } | null>(null);
 
   const handleEditClick = (mod: any) => {
     setEditingModule(mod.id);
@@ -170,9 +130,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     setOutcomesText((mod.outcomes || []).join('\n'));
     setMaterials(materialsToRows(mod.additionalMaterials));
     setOutlineText((mod.outline || []).join('\n'));
-    setRubricCriteria(mod.rubricCriteria || []);
-    setRubricPaste('');
-    setRubricParseError(null);
     const video = moduleVideos.find(v => v.moduleId === mod.id);
     setVideoType(video?.type || 'external');
     setVideoTitle(video?.title || '');
@@ -194,7 +151,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       return;
     }
     if (editingModule) setIsEditDirty(true);
-  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materials, rubricCriteria, videoType, videoTitle, videoUrl, videoClip]);
+  }, [editingModule, editForm, objectivesText, outcomesText, outlineText, materials, videoType, videoTitle, videoUrl, videoClip]);
 
   const [discardConfirmAction, setDiscardConfirmAction] = useState<(() => void) | null>(null);
   const requestEditChange = (action: () => void) => {
@@ -245,7 +202,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         additionalMaterials: rowsToMaterials(materials),
         // Drop sub-skills the admin left completely blank rather than saving
         // empty tables.
-        rubricCriteria: rubricCriteria.filter(c => c.title.trim() || c.levels.some(l => l.trim())),
       }));
       if (videoUrl.trim()) {
         upsertModuleVideo(editingModule, { type: videoType, url: videoUrl.trim(), title: videoTitle.trim() || 'Module Video', ...videoClip });
@@ -261,31 +217,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const patchMaterial = (idx: number, patch: Partial<MaterialRow>) =>
     setMaterials(materials.map((m, i) => (i === idx ? { ...m, ...patch } : m)));
 
-  const addCriterion = () =>
-    setRubricCriteria([...rubricCriteria, { id: `rc_${rubricCriteria.length + 1}_${Date.now()}`, title: '', levels: ['', '', '', ''] }]);
-  const removeCriterion = (idx: number) => setRubricCriteria(rubricCriteria.filter((_, i) => i !== idx));
-  const patchCriterion = (idx: number, patch: Partial<RubricCriterion>) =>
-    setRubricCriteria(rubricCriteria.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
-  const setCriterionLevel = (idx: number, levelIdx: number, value: string) =>
-    setRubricCriteria(rubricCriteria.map((c, i) => {
-      if (i !== idx) return c;
-      const levels = [...c.levels] as RubricCriterion['levels'];
-      levels[levelIdx] = value;
-      return { ...c, levels };
-    }));
-
-  const [rubricParseError, setRubricParseError] = useState<string | null>(null);
-  const handleImportRubric = () => {
-    const { note, criteria } = parseRubricText(rubricPaste);
-    if (criteria.length === 0) {
-      setRubricParseError('Could not find any "Sub-skill N: ..." sections in the pasted text.');
-      return;
-    }
-    setRubricParseError(null);
-    setRubricCriteria(criteria);
-    if (note) setEditForm({ ...editForm, rubricNote: note });
-    setRubricPaste('');
-  };
 
   // Curriculum tab: modules grouped under their category (sidebar order),
   // filtered by the search box / "needs work" toggle. Modules whose category
@@ -307,19 +238,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
-      <header className="border-b bg-surface px-4 md:px-10 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-2xl font-black text-[#2E9DF7]">Director Dashboard</h2>
-            <p className="text-xs text-gray-400 font-medium">Curriculum, designers, and engineers at a glance.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="bg-sky text-navy text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap">
-              {designers.length} Designers / {engineers.length} Engineers / {modules.length} Modules
-            </span>
-          </div>
-        </div>
-      </header>
+      <AdminHeader onPreview={onPreview}>
+        {hasReviews && (
+          <button onClick={() => { window.location.hash = '#/review'; }} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+            ✅ Review Queue{reviewTodo ? ` (${reviewTodo})` : ''}
+          </button>
+        )}
+        <span className="bg-sky text-navy text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap hidden md:inline">
+          {designers.length} Designers · {engineers.length} Engineers · {modules.length} Lessons
+        </span>
+      </AdminHeader>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
         {/* Alerts for coordinators, on every tab: who's falling behind, and
@@ -377,16 +305,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             {behind.length > 0 && <span className="ml-2 bg-[#F4511E] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{behind.length}</span>}
           </button>
           <button
-            onClick={() => setActiveTab('engineers')}
-            className={`px-6 py-2 rounded-full font-bold transition-all ${
-              activeTab === 'engineers'
-                ? 'bg-[#F4511E] text-white shadow-md'
-                : 'bg-surface text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            Audio Engineers
-          </button>
-          <button
             onClick={() => setActiveTab('assessment')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'assessment'
@@ -420,118 +338,12 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {roster.map(({ designer, standing }, i) => (
                 <DesignerCard key={designer.id} designer={designer} standing={standing} accent={CARD_THEMES[i % CARD_THEMES.length].accent}
-                  lockedCategories={lockedCategories} onPromote={() => setPendingConfirm({ kind: 'promote', user: designer })} />
+                  lockedCategories={lockedCategories} />
               ))}
             </div>
           </div>
         )}
 
-        {activeTab === 'engineers' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
-                🎬 Engineer Video Tasks
-              </h3>
-              <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-leaf">
-                <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
-              </span>
-            </div>
-            <div className="grid gap-6 md:grid-cols-2">
-              {engineers.map((engineer, i) => {
-                const theme = CARD_THEMES[i % CARD_THEMES.length];
-                const assignedTasks = videoTasks.filter(vt => vt.engineerId === engineer.id);
-                const completedCount = assignedTasks.filter(vt => vt.status === 'completed').length;
-                const totalCount = assignedTasks.length;
-
-                return (
-                  <div key={engineer.id} className="rounded-[32px] border border-gray-100 shadow-sm overflow-hidden bg-surface flex flex-col">
-                    <div className="relative p-5 pb-12" style={{ background: theme.bg }}>
-                      <div
-                        className="w-14 h-14 rounded-full border-4 border-surface shadow-md flex items-center justify-center text-white font-black text-sm relative"
-                        style={{ background: theme.accent }}
-                      >
-                        {getInitials(engineer.name)}
-                      </div>
-                    </div>
-
-                    <div className="relative -mt-7 mx-4 mb-4 bg-surface rounded-3xl shadow-md p-4 flex-1 flex flex-col gap-4">
-                      <div className="flex justify-between items-center gap-2">
-                        <div>
-                          <h4 className="font-black text-base leading-tight">{engineer.name}</h4>
-                          <p className="text-xs text-gray-500 font-bold">{engineer.email}</p>
-                        </div>
-                        <div className="px-3 py-1.5 rounded-2xl flex-shrink-0" style={{ background: theme.bg, color: theme.accent }}>
-                          <span className="font-black text-sm">{completedCount} / {totalCount}</span>
-                          <span className="text-[9px] font-black uppercase tracking-wide ml-1.5 opacity-70">Done</span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => setPendingConfirm({ kind: 'demote', user: engineer })}
-                        className="self-start text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-50 px-3 py-1 rounded-full hover:bg-sky hover:text-navy transition-colors"
-                      >
-                        Move to Designer
-                      </button>
-
-                      <div className="space-y-2.5">
-                        {assignedTasks.map(task => (
-                          <div key={task.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl gap-2">
-                            <div>
-                              <p className="font-bold text-sm">{task.title}</p>
-                              <p className="text-xs text-gray-500 font-medium">Assigned: {new Date(task.assignedAt).toLocaleDateString()}</p>
-                              {task.status === 'completed' && task.videoUrl && (
-                                <a href={task.videoUrl} target="_blank" rel="noreferrer" className="inline-block mt-2 text-xs font-black text-gray-800 bg-[#2E9DF7]/20 px-3 py-1 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors">
-                                  ▶ Watch Video
-                                </a>
-                              )}
-                            </div>
-                            <div className="flex-shrink-0">
-                              {task.status === 'completed' && <span className="bg-[#3DDC97]/20 text-leaf px-2.5 py-1 rounded-full text-[10px] font-black uppercase">Completed</span>}
-                              {task.status === 'in_progress' && <span className="bg-[#2E9DF7]/20 text-navy px-2.5 py-1 rounded-full text-[10px] font-black uppercase">In Progress</span>}
-                              {task.status === 'pending' && <span className="bg-gray-200 text-gray-600 px-2.5 py-1 rounded-full text-[10px] font-black uppercase">Pending</span>}
-                            </div>
-                          </div>
-                        ))}
-                        {assignedTasks.length === 0 && (
-                          <p className="text-sm text-gray-400 italic text-center py-4 font-semibold">No video tasks assigned.</p>
-                        )}
-                      </div>
-
-                      <div className="pt-3 border-t space-y-2">
-                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-wide">Assign a Video Task</p>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <select
-                            value={getAssignDraft(engineer.id).moduleId}
-                            onChange={(e) => setAssignField(engineer.id, 'moduleId', e.target.value)}
-                            className="flex-1 bg-gray-50 rounded-lg p-2 text-xs font-medium"
-                          >
-                            {modules.sort((a, b) => a.order - b.order).map(mod => (
-                              <option key={mod.id} value={mod.id}>{mod.label || mod.order.toString().padStart(2, '0')} — {mod.title}</option>
-                            ))}
-                          </select>
-                          <input
-                            type="text"
-                            value={getAssignDraft(engineer.id).title}
-                            onChange={(e) => setAssignField(engineer.id, 'title', e.target.value)}
-                            placeholder="Task title, e.g. Record intro walkthrough"
-                            className="flex-1 bg-gray-50 rounded-lg p-2 text-xs font-medium"
-                          />
-                          <button
-                            onClick={() => handleAssignTask(engineer.id)}
-                            disabled={!getAssignDraft(engineer.id).title.trim()}
-                            className="bg-[#2E9DF7] text-white font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-2xl transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 whitespace-nowrap shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
-                          >
-                            + Assign
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
         {activeTab === 'modules' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -686,120 +498,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-4">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <p className="text-xs font-black text-gray-500 uppercase">Grading Rubric (sub-skills)</p>
-                          <button
-                            onClick={addCriterion}
-                            className="bg-sky text-[#2E9DF7] font-bold uppercase text-[10px] tracking-wide px-3 py-1.5 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors"
-                          >
-                            + Add Sub-skill
-                          </button>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Scale Note</label>
-                          <input
-                            type="text"
-                            value={editForm.rubricNote || ''}
-                            onChange={(e) => setEditForm({ ...editForm, rubricNote: e.target.value })}
-                            placeholder="1 = Just Starting · 4 = Strong · 3+ = pass"
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
-                          />
-                        </div>
-                        {rubricCriteria.map((criterion, ci) => (
-                          <div key={criterion.id} className="rounded-xl p-3 space-y-2 bg-gray-50">
-                            <div className="flex gap-2 items-center">
-                              <span className="flex-shrink-0 text-[10px] font-black uppercase text-gray-400">Sub-skill {ci + 1}</span>
-                              <input
-                                type="text"
-                                value={criterion.title}
-                                onChange={(e) => patchCriterion(ci, { title: e.target.value })}
-                                placeholder="Title, e.g. DX chain order"
-                                className="flex-1 bg-surface rounded-xl p-2.5 text-sm font-bold focus:ring-2 focus:ring-[#3DDC97] transition-all"
-                              />
-                              <input
-                                type="text"
-                                value={criterion.scoreLabel || ''}
-                                onChange={(e) => patchCriterion(ci, { scoreLabel: e.target.value })}
-                                placeholder="Column label, e.g. What it looks like on playback"
-                                className="flex-1 bg-surface rounded-xl p-2.5 text-xs font-medium focus:ring-2 focus:ring-[#3DDC97] transition-all"
-                              />
-                              <button
-                                onClick={() => removeCriterion(ci)}
-                                className="flex-shrink-0 text-[10px] font-bold uppercase text-ember bg-rose px-2.5 py-2 rounded-full hover:bg-[#F4511E] hover:text-white transition-colors"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                            {criterion.levels.map((level, li) => (
-                              <div key={li} className="flex gap-2 items-start">
-                                <span className="flex-shrink-0 w-6 h-6 bg-surface border-2 border-surface shadow-sm rounded-full flex items-center justify-center text-[10px] font-black text-gray-600 mt-1.5">
-                                  {li + 1}
-                                </span>
-                                <textarea
-                                  value={level}
-                                  onChange={(e) => setCriterionLevel(ci, li, e.target.value)}
-                                  placeholder={`What a score of ${li + 1} looks like...`}
-                                  className="flex-1 bg-surface rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all h-14"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Import from pasted text</label>
-                          <textarea
-                            value={rubricPaste}
-                            onChange={(e) => { setRubricPaste(e.target.value); setRubricParseError(null); }}
-                            placeholder={'Paste from Notion, e.g.:\nRubric (1 = Just Starting · 4 = Strong · 3+ = pass)\nSub-skill 1: DX chain order\nScore\tWhat it looks like in the session\n1\tPlugins in no deliberate order...\n2\t...'}
-                            className={`w-full bg-gray-50 border-2 rounded-xl p-3 text-xs focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24 ${rubricParseError ? 'border-ember' : ''}`}
-                          />
-                          <button
-                            onClick={handleImportRubric}
-                            disabled={!rubricPaste.trim()}
-                            className="mt-2 bg-sky text-navy font-bold uppercase text-[10px] tracking-wide px-4 py-2 rounded-full hover:bg-[#2E9DF7] hover:text-white transition-colors disabled:bg-gray-100 disabled:text-gray-400"
-                          >
-                            Parse & Fill Sub-skills
-                          </button>
-                          {rubricParseError ? (
-                            <p className="text-[10px] text-ember font-bold mt-1">{rubricParseError}</p>
-                          ) : (
-                            <p className="text-[10px] text-gray-400 mt-1">Replaces the sub-skills above with what's parsed from the pasted text. Nothing is saved until you hit Save Changes.</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plain-text Rubric (legacy fallback)</label>
-                          <textarea
-                            value={editForm.rubric || ''}
-                            onChange={(e) => setEditForm({ ...editForm, rubric: e.target.value })}
-                            placeholder={'Only shown when no sub-skills are defined above.'}
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-16"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Homework Link (Drive folder)</label>
-                          <input
-                            type="text"
-                            value={editForm.homeworkLink || ''}
-                            onChange={(e) => setEditForm({ ...editForm, homeworkLink: e.target.value })}
-                            placeholder="https://drive.google.com/..."
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Homework Description</label>
-                          <input
-                            type="text"
-                            value={editForm.homeworkDescription || ''}
-                            onChange={(e) => setEditForm({ ...editForm, homeworkDescription: e.target.value })}
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
-                          />
-                        </div>
-                      </div>
-
                       <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Content blocks (rich text, schedule, milestones, expectations, optional video)</label>
                         <ContentBlocksEditor
@@ -961,33 +659,21 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         <div className="bg-surface text-gray-400 text-[11px] font-bold uppercase tracking-wide px-6 py-3 rounded-full flex flex-wrap gap-x-8 gap-y-1 justify-center shadow-sm border border-gray-100">
           <span>{designers.length} designers tracked</span>
           <span>{engineers.length} engineers tracked</span>
-          <span>{submissions.length} legacy submissions</span>
-          <span>{grades.length} legacy grades (1–4)</span>
+          <button onClick={exportLegacy} disabled={exporting} className="uppercase tracking-wide hover:text-[#2E9DF7] disabled:opacity-50"
+            title="The retired 1–4 homework system: submissions, grades and engineer video tasks (read-only archive)">
+            {exporting ? 'Exporting…' : '⬇ Export legacy 1–4 data'}
+          </button>
         </div>
       </div>
 
       <ConfirmModal
         open={pendingConfirm !== null}
-        title={
-          pendingConfirm?.kind === 'delete-module' ? `Delete "${pendingConfirm.mod.title}"?` :
-          pendingConfirm?.kind === 'promote' ? `Promote ${pendingConfirm.user.name}?` :
-          pendingConfirm?.kind === 'demote' ? `Move ${pendingConfirm.user.name} back to Sound Designer?` : ''
-        }
-        message={
-          pendingConfirm?.kind === 'delete-module'
-            ? "This removes the module and its video for everyone - existing submissions/grades for it are kept but will no longer show curriculum details."
-            : pendingConfirm?.kind === 'promote'
-            ? `${pendingConfirm.user.name} will be able to view and grade every designer's submissions.`
-            : pendingConfirm?.kind === 'demote'
-            ? `${pendingConfirm.user.name} will lose access to the roster and grading tools.`
-            : ''
-        }
-        confirmLabel={pendingConfirm?.kind === 'delete-module' ? 'Delete' : pendingConfirm?.kind === 'promote' ? 'Promote' : 'Move'}
-        danger={pendingConfirm?.kind === 'delete-module'}
+        title={pendingConfirm ? `Delete "${pendingConfirm.mod.title}"?` : ''}
+        message="This removes the lesson and its video for everyone. Take it out of the weekly outline too if it's placed there. Assignment submissions and scores aren't affected."
+        confirmLabel="Delete"
+        danger
         onConfirm={() => {
-          if (pendingConfirm?.kind === 'delete-module') saveWith(deleteModule(pendingConfirm.mod.id));
-          else if (pendingConfirm?.kind === 'promote') updateUserRole(pendingConfirm.user.id, 'audio_engineer');
-          else if (pendingConfirm?.kind === 'demote') updateUserRole(pendingConfirm.user.id, 'sound_designer');
+          if (pendingConfirm) saveWith(deleteModule(pendingConfirm.mod.id));
           setPendingConfirm(null);
         }}
         onCancel={() => setPendingConfirm(null)}

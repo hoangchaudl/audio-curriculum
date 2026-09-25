@@ -3,7 +3,7 @@
 // unit-tested (scoring.test.ts) and every screen agrees on the result.
 //
 // Rules implemented here:
-// - New scores are 1-5. Legacy 1-4 `grades` are never read.
+// - Scores are 1-5.
 // - Missing data yields an explicit "awaiting" outcome, never a zero.
 // - Reviewer table cell weights already include the criterion weight and
 //   are applied once (never multiplied by a criterion weight again).

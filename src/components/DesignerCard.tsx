@@ -31,8 +31,7 @@ export const DesignerCard: React.FC<{
   standing: Standing | null; // null = not enrolled
   accent: string;
   lockedCategories: Category[];
-  onPromote: () => void;
-}> = ({ designer, standing, accent, lockedCategories, onPromote }) => {
+}> = ({ designer, standing, accent, lockedCategories }) => {
   const ctx = useAppContext();
   const { assessmentConfig: config, programOutline, assignments, videoProgress, assessmentSubmissions, programOutcomes, setProgramOutcome,
     setUserUnlockedCategories } = ctx;
@@ -147,7 +146,6 @@ export const DesignerCard: React.FC<{
         </div>
       )}
 
-      <button onClick={onPromote} className="self-start text-[10px] font-bold uppercase text-gray-400 hover:text-navy">Promote to Audio Engineer</button>
 
       <ConfirmModal
         open={confirm !== null}

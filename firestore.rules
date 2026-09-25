@@ -139,49 +139,20 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- submissions (homework) ---
-    // A sound designer can create/update only their own submissions.
-    // Engineers/admins can read all submissions (needed to review/grade) and
-    // may update the status field when grading, but can't rewrite someone
-    // else's driveLink.
+    // --- legacy 1-4 homework system (retired) ---
+    // Old homework submissions, 1-4 grades and engineer video tasks are kept
+    // only as an archive: admins can read them (to export), nobody writes.
     match /submissions/{submissionId} {
-      allow read: if isSignedIn();
-
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-
-      allow update: if isSignedIn() && (
-                      // owner can resubmit/update their own not-yet-graded work
-                      (resource.data.userId == request.auth.uid && resource.data.status != 'graded') ||
-                      // engineer/admin marking it graded
-                      isEngineerOrAdmin()
-                    );
-
-      // Owner can pull back their own work before it's graded (lets them fix
-      // a bad link and resend); admins can remove any submission.
-      allow delete: if isAdmin() ||
-                      (isSignedIn() && resource.data.userId == request.auth.uid && resource.data.status != 'graded');
+      allow read: if isAdmin();
+      allow write: if false;
     }
-
-    // --- grades ---
-    // Only engineers/admins can create grades, and only under their own
-    // engineerId. Everyone signed in can read grades (designers need to see
-    // their own feedback; dashboards need to compute averages).
     match /grades/{gradeId} {
-      allow read: if isSignedIn();
-      allow create: if isEngineerOrAdmin() && request.resource.data.engineerId == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
     }
-
-    // --- videoTasks (engineer training video assignments) ---
-    // Admins assign/manage tasks; the assigned engineer can update their own
-    // task's status/videoUrl.
     match /videoTasks/{taskId} {
-      allow read: if isSignedIn();
-      allow create, delete: if isAdmin();
-      allow update: if isSignedIn() && (
-                      isAdmin() ||
-                      resource.data.engineerId == request.auth.uid
-                    );
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // --- videoProgress (a trainee finished a lesson / its video) ---

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { browserLocalPersistence, indexedDBLocalPersistence, initializeAuth } from 'firebase/auth';
 
 // Note: Firebase web config (including apiKey) is NOT a secret - it's safe to
 // ship in client code by design. The actual security boundary is (a) Firebase
@@ -23,4 +23,8 @@ export const db = getFirestore(app, "ai-studio-c456c147-46b9-4e54-85ab-b4d0cb0f1
 // Email/Password sign-in to be enabled once in the Firebase console:
 // Firebase Console -> Build -> Authentication -> Sign-in method -> Email/Password -> Enable.
 // (Needs project admin/owner access - not something the app can do for you.)
-export const auth = getAuth(app);
+//
+// initializeAuth instead of getAuth: same saved sessions (IndexedDB, then
+// localStorage - existing sign-ins carry over) without bundling the popup /
+// redirect sign-in code the app never uses.
+export const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });

@@ -2,8 +2,7 @@ import React from 'react';
 import { useAppContext } from '../store';
 
 // Shown to a sound designer who has an account but isn't enrolled in the
-// program yet (e.g. signed up without an invite), instead of the legacy
-// curriculum. Enrollment appears live, so this page is replaced the moment
+// program yet (e.g. signed up without an invite). Enrollment appears live, so this page is replaced the moment
 // a coordinator enrolls them.
 export const WaitingView: React.FC = () => {
   const { currentUser } = useAppContext();
