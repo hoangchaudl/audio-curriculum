@@ -150,3 +150,48 @@ export const nextSteps = (
   }));
   return { overdue: steps.filter(s => s.late).map(s => s.step), next: steps.find(s => !s.done && !s.late)?.step ?? null };
 };
+
+export interface LessonContext {
+  week: number;
+  section: string | null;
+  lessonNumber: number; // among this week's lessons
+  lessonCount: number;
+  lessonsDone: number;
+  prev: Step | null;
+  next: Step | null;
+}
+
+// Where a lesson sits in the outline, for its page: week, section,
+// "Lesson 2 of 16", and the items before and after it in sidebar order
+// (lessons and assignments, across weeks).
+export const lessonContext = (
+  outline: ProgramOutline | null, assignments: Assignment[], modules: Module[], enrollment: Enrollment | undefined,
+  traineeId: string | undefined, videoProgress: VideoProgress[], moduleId: string,
+): LessonContext | null => {
+  const flat = (outline?.weeks ?? []).flatMap((w, wi) => weekGroups(w, assignments).flatMap(g => g.items.flatMap<{ step: Step; moduleId: string | null; section: string | null }>(it => {
+    if (it.kind === 'content') {
+      const mod = modules.find(m => m.id === it.moduleId);
+      return mod ? [{ step: { kind: 'content' as const, title: mod.title, hash: `#/module/${mod.id}`, week: wi + 1 }, moduleId: mod.id, section: g.section?.title ?? null }] : [];
+    }
+    if (it.kind === 'assignment') {
+      const a = assignments.find(x => x.id === it.assignmentId);
+      return a && assignmentApplies(a, enrollment)
+        ? [{ step: { kind: 'assignment' as const, title: a.title, hash: `#/assignment/${a.id}`, week: wi + 1 }, moduleId: null, section: g.section?.title ?? null }]
+        : [];
+    }
+    return [];
+  })));
+  const i = flat.findIndex(x => x.moduleId === moduleId);
+  if (i < 0) return null;
+  const here = flat[i];
+  const weekLessons = flat.filter(x => x.moduleId && x.step.week === here.step.week);
+  return {
+    week: here.step.week,
+    section: here.section,
+    lessonNumber: weekLessons.findIndex(x => x.moduleId === moduleId) + 1,
+    lessonCount: weekLessons.length,
+    lessonsDone: weekLessons.filter(x => videoProgress.some(v => v.moduleId === x.moduleId && v.userId === traineeId)).length,
+    prev: flat[i - 1]?.step ?? null,
+    next: flat[i + 1]?.step ?? null,
+  };
+};

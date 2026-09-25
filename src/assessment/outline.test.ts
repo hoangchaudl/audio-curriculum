@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Assignment, OutlineItem } from '../types';
-import { itemDay, nextSteps, normalizeWeek, programProgress, sortByDay, weekGroups } from './outline';
+import { itemDay, lessonContext, nextSteps, normalizeWeek, programProgress, sortByDay, weekGroups } from './outline';
 
 const asg: Assignment[] = [{ id: 'a1', title: 'A', stage: 'A', materials: [], dueDay: 3 }, { id: 'a2', title: 'B', stage: 'A', materials: [] }];
 
@@ -99,5 +99,25 @@ describe('next steps', () => {
     expect(r.next?.title).toBe('Week 2 assignment');
     const submitted = [{ id: 's', traineeId: 't', stage: 'A' as const, target: 'w1', version: 1, isComplete: true, links: [], submittedAt: '' }];
     expect(nextSteps(outline, assignments, modules, enrollment, 't', [watched('m1'), watched('m2')], submitted, at('2026-09-26')).overdue).toEqual([]);
+  });
+});
+
+describe('lesson context', () => {
+  const assignments: Assignment[] = [{ id: 'w1', title: 'Week 1 assignment', stage: 'A', materials: [], dueDay: 5 }];
+  const modules = ['m1', 'm2', 'm3'].map((id, i) => ({ id, order: i, title: `Lesson ${id}`, description: '', category: 'x' }));
+  const outline = { id: 'current' as const, weeks: [
+    { id: 'k1', title: 'Week 1', sections: [{ id: 's1', title: 'Onboarding' }], items: [
+      { id: 'a', kind: 'content' as const, moduleId: 'm1', sectionId: 's1' }, { id: 'b', kind: 'content' as const, moduleId: 'm2', sectionId: 's1' },
+      { id: 'c', kind: 'assignment' as const, assignmentId: 'w1' },
+    ] },
+    { id: 'k2', title: 'Week 2', items: [{ id: 'd', kind: 'content' as const, moduleId: 'm3' }] },
+  ] };
+  it('gives the section, lesson number and neighbours in sidebar order', () => {
+    const c = lessonContext(outline, assignments, modules, undefined, 't', [{ id: 'x', moduleId: 'm1', userId: 't', watchedAt: '' }], 'm2')!;
+    expect([c.week, c.section, c.lessonNumber, c.lessonCount, c.lessonsDone]).toEqual([1, 'Onboarding', 2, 2, 1]);
+    expect([c.prev?.title, c.next?.title, c.next?.kind]).toEqual(['Lesson m1', 'Week 1 assignment', 'assignment']);
+    const last = lessonContext(outline, assignments, modules, undefined, 't', [], 'm3')!;
+    expect([last.week, last.section, last.prev?.title, last.next]).toEqual([2, null, 'Week 1 assignment', null]);
+    expect(lessonContext(outline, assignments, modules, undefined, 't', [], 'nope')).toBeNull();
   });
 });
