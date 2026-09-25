@@ -7,6 +7,7 @@ import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { WaitingView } from './components/WaitingView';
 import { AdminHeader } from './components/AdminHeader';
+import { NotificationBell } from './components/NotificationBell';
 import { ProfileView } from './components/ProfileView';
 import { AuthView } from './components/AuthView';
 import { AppProvider, useAppContext } from './store';
@@ -286,6 +287,7 @@ const AppContent = () => {
             </svg>
           </button>
           <span className="font-black text-sm uppercase tracking-tight text-[#2E9DF7] truncate">Story Co Audio Training Program</span>
+          <div className="ml-auto"><NotificationBell align="right" light /></div>
         </div>
         {isRealAdmin && previewRole && (
           <div className="bg-[#F4511E] text-white text-xs font-bold px-6 py-2 shadow-md z-10 flex items-center justify-between flex-shrink-0">

@@ -3,6 +3,7 @@ import { useAppContext } from '../../store';
 import { useTraineeData } from '../../assessment/traineeData';
 import { Outcome, assignmentCriteria, assignmentOutcome, episodeAAssignments, finalResult } from '../../assessment/scoring';
 import { lessonPace, PACE_CHECK_DAY } from '../../assessment/standing';
+import { WeekPlan } from './WeekPlan';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, card, dateFor, formatDate, sectionTitle } from './ui';
 import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextSteps, programProgress, weekLabel } from '../../assessment/outline';
 
@@ -152,6 +153,8 @@ export const ProgramOverview: React.FC = () => {
               </section>
             );
           })()}
+
+          <WeekPlan traineeId={currentUser?.id} />
 
           {/* The page guide opens by default on the first visit, then folds away. */}
           <details open={!welcomeSeen} onToggle={e => { if (!(e.target as HTMLDetailsElement).open) markWelcomeSeen(); }} className="bg-sky rounded-[32px] p-6 md:p-8 text-navy group">

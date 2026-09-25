@@ -16,6 +16,8 @@ export interface User {
   // Ids of restricted categories an admin has opened up for this user.
   // Only admins can change this (see firestore.rules).
   unlockedCategories?: string[];
+  // Notification ids this user has read (see assessment/notifications.ts).
+  readNotifications?: string[];
 }
 
 // Admin-managed grouping for modules (shown as sidebar sections). A
@@ -137,7 +139,8 @@ export interface Assignment {
 
 // sectionId: the week section it's grouped under (unset = after the sections).
 export type OutlineItem = (
-  | { id: string; kind: 'content'; moduleId: string; day?: number }
+  // day: the planned day for a lesson (1-7; unset = any day that week); hours: estimated time.
+  | { id: string; kind: 'content'; moduleId: string; day?: number; hours?: number }
   | { id: string; kind: 'assignment'; assignmentId: string }
   | { id: string; kind: 'milestone'; title: string; day?: number; description?: string }
 ) & { sectionId?: string };

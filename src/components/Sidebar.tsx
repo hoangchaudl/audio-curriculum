@@ -7,6 +7,7 @@ type WeekRow = ({ key: string; kind: 'content'; mod: Module } | { key: string; k
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
+import { NotificationBell } from './NotificationBell';
 import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
 import { assignmentApplies, assignmentStatus, dueLabel, programDate, weekGroups, weekLabel } from '../assessment/outline';
 
@@ -118,6 +119,7 @@ export const Sidebar: React.FC<{
             <span className="text-[#E0F2FE] text-[9px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
           </h1>
         )}
+        {!isCollapsed && <div className="ml-auto hidden lg:block"><NotificationBell /></div>}
         {isRealAdmin && (
           <button
             onClick={onToggleCollapse}
