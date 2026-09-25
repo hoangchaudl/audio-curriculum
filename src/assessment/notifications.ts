@@ -43,7 +43,7 @@ export const traineeNotifications = (
   }));
 
   for (const p of lessonPace(outline, assignments, enrollment.startDate, traineeId, videoProgress, now)) {
-    out.push({ id: `pace:${p.week}`, tone: 'orange', icon: '📖', text: p.current ? `Week ${p.week}: ${p.done} of ${p.total} lessons done - you're behind pace` : `Week ${p.week} still has ${p.total - p.done} lessons to finish`, hash: '#/program' });
+    out.push({ id: `pace:${p.week}`, tone: 'orange', icon: '📖', text: p.current ? `Week ${p.week}: ${p.done} of ${p.total} lessons done - you're behind pace` : `Week ${p.week} still has ${p.total - p.done} lessons to finish`, hash: '#/program/today' });
   }
 
   // Lessons planned for today and not done yet.
@@ -54,12 +54,12 @@ export const traineeNotifications = (
       it.kind === 'content' && it.day === today.day && !videoProgress.some(v => v.moduleId === it.moduleId && v.userId === traineeId)
         ? [modules.find(m => m.id === it.moduleId)?.title].filter((t): t is string => !!t) : []);
     if (planned.length) {
-      out.push({ id: `today:${localDate(midnight)}`, tone: 'blue', icon: '📅', text: `Today's plan: ${planned.length} lesson${planned.length === 1 ? '' : 's'} - ${planned.join(', ')}`, hash: '#/program' });
+      out.push({ id: `today:${localDate(midnight)}`, tone: 'blue', icon: '📅', text: `Today's plan: ${planned.length} lesson${planned.length === 1 ? '' : 's'} - ${planned.join(', ')}`, hash: '#/program/today' });
     }
   }
 
   for (const key of ['episodeA', 'episodeB', 'da', 'pod'] as const) {
-    if (publication?.[key]) out.push({ id: `published:${key}`, tone: 'green', icon: '✅', text: `${STAGE_NAMES[key]} results are published - see your score and feedback`, hash: '#/program' });
+    if (publication?.[key]) out.push({ id: `published:${key}`, tone: 'green', icon: '✅', text: `${STAGE_NAMES[key]} results are published - see your score and feedback`, hash: '#/program/grades' });
   }
   return out;
 };

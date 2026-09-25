@@ -37,7 +37,7 @@ const getPageFromHash = (): { view: View; stage?: EpisodeStage; assignmentId?: s
   const h = window.location.hash;
   const asg = h.match(/^#\/assignment\/(.+)$/);
   if (asg) return { view: 'assignment', assignmentId: decodeURIComponent(asg[1]) };
-  if (h === '#/program') return { view: 'program' };
+  if (h === '#/program' || h.startsWith('#/program/')) return { view: 'program' };
   if (h === '#/review') return { view: 'review' };
   const m = h.match(/^#\/episode\/(B|P1|P2|DA)$/);
   return m ? { view: 'episode', stage: m[1] as EpisodeStage } : null;
