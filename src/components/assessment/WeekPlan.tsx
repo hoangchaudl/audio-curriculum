@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BookOpen, Check, FileText, Flag, Target } from 'lucide-react';
 import { useAppContext } from '../../store';
 import { PlanItem, programDay, weekPlan } from '../../assessment/outline';
 import { card, sectionTitle } from './ui';
@@ -28,11 +29,11 @@ export const WeekPlan: React.FC<{ traineeId: string | undefined }> = ({ traineeI
       : it.status === 'done' ? 'bg-gray-50 text-gray-400 line-through decoration-2'
       : it.status === 'late' ? 'bg-[#F4511E]/10 text-ember'
       : 'bg-sky text-navy';
-    const icon = it.kind === 'assignment' ? (it.status === 'done' ? '✓' : '📝') : it.kind === 'milestone' ? '🏁' : it.status === 'done' ? '✓' : '▶';
+    const Icon = it.status === 'done' && it.kind !== 'milestone' ? Check : it.kind === 'assignment' ? FileText : it.kind === 'milestone' ? Flag : BookOpen;
     return (
       <button key={it.key} onClick={() => go(it.hash)} disabled={!it.hash}
         className={`w-full text-left rounded-xl px-2.5 py-2 text-xs font-bold leading-snug transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-md ${tone}`}>
-        <span aria-hidden="true">{icon} </span>{it.title}
+        <Icon className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />{it.title}
         {it.hours ? <span className="block text-[10px] font-black opacity-70 no-underline">{it.hours} h</span> : null}
         {it.kind === 'assignment' && it.status !== 'done' && <span className="block text-[10px] font-black opacity-80">{it.status === 'late' ? 'Overdue' : 'Due'}</span>}
       </button>
@@ -55,7 +56,7 @@ export const WeekPlan: React.FC<{ traineeId: string | undefined }> = ({ traineeI
           <button onClick={() => setWeekIndex(i => i + 1)} disabled={weekIndex === weeks - 1} aria-label="Next week" className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-sky hover:text-navy disabled:opacity-30 font-black">›</button>
         </div>
       </div>
-      {week.goal && <p className="text-xs text-gray-600 mb-4"><b>🎯 Goal:</b> {week.goal}</p>}
+      {week.goal && <p className="text-xs text-gray-600 mb-4"><b><Target className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Goal:</b> {week.goal}</p>}
 
       <div className={`grid gap-2 grid-cols-1 ${days.length === 7 ? 'sm:grid-cols-4 lg:grid-cols-7' : days.length === 6 ? 'sm:grid-cols-3 lg:grid-cols-6' : 'sm:grid-cols-5'}`}>
         {days.map(d => (

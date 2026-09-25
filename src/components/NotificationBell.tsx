@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Bell, BookOpen, CalendarDays, CircleCheck, FileText, TriangleAlert } from 'lucide-react';
 import { useAppContext } from '../store';
 import { Notice, traineeNotifications } from '../assessment/notifications';
 
@@ -7,11 +8,14 @@ const TONE: Record<string, string> = {
   red: 'border-l-[#F4511E]', orange: 'border-l-[#FFA94D]', blue: 'border-l-[#2E9DF7]', green: 'border-l-[#3DDC97]',
 };
 
-const CATEGORIES: { id: 'all' | Notice['category']; label: string }[] = [
+const ICONS: Record<Notice['icon'], typeof Bell> = { alert: TriangleAlert, assignment: FileText, lesson: BookOpen, calendar: CalendarDays, check: CircleCheck };
+const ICON_TONE: Record<string, string> = { red: 'text-[#F4511E]', orange: 'text-[#FFA94D]', blue: 'text-[#2E9DF7]', green: 'text-[#3DDC97]' };
+
+const CATEGORIES: { id: 'all' | Notice['category']; label: string; Icon?: typeof Bell }[] = [
   { id: 'all', label: 'All' },
-  { id: 'deadlines', label: '📝 Deadlines' },
-  { id: 'lessons', label: '📖 Lessons' },
-  { id: 'results', label: '✅ Results' },
+  { id: 'deadlines', label: 'Deadlines', Icon: FileText },
+  { id: 'lessons', label: 'Lessons', Icon: BookOpen },
+  { id: 'results', label: 'Results', Icon: CircleCheck },
 ];
 
 // 🔔 for trainees: what's overdue, due soon, behind pace, planned today, or
@@ -54,8 +58,8 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)} aria-label={`Notifications${unread.length ? ` (${unread.length} unread)` : ''}`} aria-expanded={open}
-        className={`relative w-9 h-9 rounded-full flex items-center justify-center text-lg transition-colors ${light ? 'bg-sky hover:bg-[#2E9DF7]/20' : 'bg-white/20 hover:bg-white/30'}`}>
-        <span aria-hidden="true">🔔</span>
+        className={`relative w-9 h-9 rounded-full flex items-center justify-center transition-colors ${light ? 'bg-sky hover:bg-[#2E9DF7]/20' : 'bg-white/20 hover:bg-white/30'}`}>
+        <Bell className={`w-[18px] h-[18px] ${light ? 'text-[#2E9DF7]' : 'text-white'}`} strokeWidth={2.5} aria-hidden="true" />
         {unread.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-[#F4511E] text-white text-[10px] font-black min-w-5 h-5 px-1 rounded-full flex items-center justify-center border-2 border-surface">
             {unread.length}
@@ -74,8 +78,8 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
               const count = (c.id === 'all' ? unread : unread.filter(n => n.category === c.id)).length;
               return (
                 <button key={c.id} role="tab" aria-selected={category === c.id} onClick={() => setCategory(c.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${category === c.id ? 'bg-[#2E9DF7] text-white' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
-                  {c.label}{count > 0 && <span className="ml-1 font-black">{count}</span>}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${category === c.id ? 'bg-[#2E9DF7] text-white' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
+                  {c.Icon && <c.Icon className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />}{c.label}{count > 0 && <span className="ml-1 font-black">{count}</span>}
                 </button>
               );
             })}
@@ -88,7 +92,7 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
                 <li key={n.id}>
                   <button onClick={() => { markRead([n.id]); setOpen(false); window.location.hash = n.hash; }}
                     className={`w-full text-left flex gap-3 px-4 py-3 border-l-4 hover:bg-gray-50 ${TONE[n.tone]} ${read.has(n.id) ? 'opacity-60' : ''}`}>
-                    <span aria-hidden="true">{n.icon}</span>
+                    {React.createElement(ICONS[n.icon], { className: `w-4 h-4 mt-0.5 flex-shrink-0 ${ICON_TONE[n.tone]}`, strokeWidth: 2.5, 'aria-hidden': true })}
                     <span className={`text-sm leading-snug ${read.has(n.id) ? 'text-gray-500' : 'text-gray-800 font-bold'}`}>{n.text}</span>
                   </button>
                 </li>

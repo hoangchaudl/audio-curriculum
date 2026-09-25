@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CalendarPlus } from 'lucide-react';
 import { DEFAULT_WEEK_GOALS } from '../../assessment/config';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
@@ -392,7 +393,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
                 return n > 0 && (
                   <button onClick={() => planUnplanned(week)} title="Give each lesson without a planned day a recommended day, spread evenly Mon–Fri"
                     className="text-xs font-bold text-[#2E9DF7] hover:underline">
-                    📅 Plan {n} unplanned lesson{n === 1 ? '' : 's'} across Mon–Fri
+                    <CalendarPlus className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Plan {n} unplanned lesson{n === 1 ? '' : 's'} across Mon–Fri
                   </button>
                 );
               })()}
