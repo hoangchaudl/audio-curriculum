@@ -47,12 +47,10 @@ export const AuthView: React.FC = () => {
         setError('Password must be at least 6 characters');
         return;
       }
-      // Self-service signup is always Sound Designer - Audio Engineer and
-      // Admin accounts are provisioned by an existing admin (see
-      // AdminDashboard's role control) rather than chosen at signup, so a
-      // new account can't grant itself grading/roster access.
+      // Invite-only: the role comes from the admin's invite for this email,
+      // applied once the email is verified (see AccountSetupView).
       setSubmitting(true);
-      const success = await signup(name, email, password, 'sound_designer', pod);
+      const success = await signup(name, email, password, pod);
       setSubmitting(false);
       if (!success) {
         setError('Error creating account');
@@ -202,8 +200,8 @@ export const AuthView: React.FC = () => {
                       placeholder="e.g. Neon Synthesis"
                     />
                   </div>
-                  <p className="text-[10px] text-gray-400 leading-relaxed">
-                    Signing up creates a Sound Designer account. Audio Engineer access is granted by an admin afterward.
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Sign-up is by invitation. Use the exact email address your coordinator invited - we'll send it a verification link.
                   </p>
                   <p className="text-[10px] text-gray-400 leading-relaxed">
                     By creating an account, you agree to StoryCo's Terms of Service and Privacy Policy.
