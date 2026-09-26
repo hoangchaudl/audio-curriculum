@@ -95,6 +95,30 @@ export const Sidebar: React.FC<{
 
   const isCollapsed = isRealAdmin && collapsed;
 
+  // Below lg the sidebar is an off-canvas drawer. Closed, it's only slid
+  // off screen, so make it inert (no tabbing into invisible links). Open,
+  // move focus into it and let Escape close it.
+  const asideRef = useRef<HTMLElement>(null);
+  const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => setDesktop(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  // (A ref, so a new onCloseMobile each render doesn't re-run the effect
+  // and pull focus back to the top of the drawer.)
+  const closeRef = useRef(onCloseMobile);
+  closeRef.current = onCloseMobile;
+  useEffect(() => {
+    if (!mobileOpen || desktop) return;
+    // First control that's actually shown (some are desktop-only).
+    [...(asideRef.current?.querySelectorAll<HTMLElement>('button, a[href]') ?? [])].find(el => el.getClientRects().length > 0)?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen, desktop]);
+
   return (
     <>
       {mobileOpen && (
@@ -104,7 +128,7 @@ export const Sidebar: React.FC<{
           aria-hidden="true"
         />
       )}
-      <aside className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-rail flex flex-col p-4 shadow-xl overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside ref={asideRef} inert={!desktop && !mobileOpen} className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-rail flex flex-col p-4 shadow-xl overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       {/* Decorative "Doraemon" Ring/Collar Detail at bottom */}
       <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#F4511E] rounded-full opacity-20 pointer-events-none"></div>
 
@@ -117,7 +141,7 @@ export const Sidebar: React.FC<{
           <h1 className="flex flex-col leading-none">
             <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-4 w-auto self-start dark:hidden" />
             <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-4 w-auto self-start hidden dark:block" />
-            <span className="text-[#E0F2FE] text-[9px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
+            <span className="text-[#E0F2FE] text-[10px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
           </h1>
         )}
         {!isCollapsed && <div className="ml-auto hidden lg:block"><NotificationBell /></div>}
@@ -255,14 +279,14 @@ export const Sidebar: React.FC<{
                         </span>
                         <span className="leading-tight">
                           {row.kind === 'assignment' && (
-                            <span className={`block text-[9px] font-black uppercase tracking-widest ${selected ? 'text-ember' : 'text-[#FFB59C]'}`}>📝 Assignment</span>
+                            <span className={`block text-[10px] font-black uppercase tracking-widest ${selected ? 'text-ember' : 'text-[#FFB59C]'}`}>📝 Assignment</span>
                           )}
                           {title}
                           {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : row.kind === 'assignment' ? 'text-white' : 'text-white/60'}`}>Due {due}</span>}
                         </span>
                       </span>
                       {status && (
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0 ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0 ${
                           status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]'
                             : overdue ? 'bg-[#F4511E] text-white'
                             : status === 'draft' ? 'bg-[#2E9DF7]/20 text-navy'

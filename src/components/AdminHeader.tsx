@@ -28,7 +28,7 @@ export const AdminHeader: React.FC<{ onPreview: (role: Role) => void; onBack?: (
         <div className="leading-none">
           <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-4 w-auto dark:hidden" />
           <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-4 w-auto hidden dark:block" />
-          <span className="block text-[#2E9DF7] text-[9px] font-extrabold uppercase tracking-[0.08em] mt-1">Audio Training Program · Director</span>
+          <span className="block text-[#2E9DF7] text-[10px] font-extrabold uppercase tracking-[0.08em] mt-1">Audio Training Program · Director</span>
         </div>
       </div>
       {onBack && <button onClick={onBack} className="text-sm font-bold text-[#2E9DF7] hover:underline">← Dashboard</button>}
