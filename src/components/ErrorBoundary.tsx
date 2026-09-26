@@ -3,12 +3,7 @@ import React from 'react';
 // Last-resort catch for render/commit crashes anywhere in the app. Without
 // this, any uncaught error unmounts the entire React root and leaves a
 // blank white page with no way forward but a manual refresh.
-//
-// The project has no @types/react (React resolves as untyped JS), so the
-// inherited class members used here are declared explicitly instead of
-// coming from React.Component's (unavailable) typings.
-export class ErrorBoundary extends React.Component {
-  declare props: { children?: React.ReactNode };
+export class ErrorBoundary extends React.Component<{ children?: React.ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
 
   static getDerivedStateFromError(error: Error) {
