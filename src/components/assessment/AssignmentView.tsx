@@ -68,7 +68,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
             {lines.some(l => l.levels?.some(Boolean) || l.outcome) ? (
               <div className="mt-4">
                 <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
-                <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} />
+                <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} bandsVi={assignment.bandsVi} />
               </div>
             ) : lines.length > 0 && <p className="text-[10px] text-gray-400 mt-3">Scale: 1 (lowest) to 5 (highest)</p>}
           </section>

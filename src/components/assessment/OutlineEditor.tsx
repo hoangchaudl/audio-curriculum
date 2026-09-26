@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
-import { BandInputs, RubricPaste } from './RubricTools';
+import { BandInputs, RubricPaste, VietnameseStatus } from './RubricTools';
+import { withVietnamese } from '../../assessment/rubricPaste';
 import { DEFAULT_WEEK_GOALS } from '../../assessment/config';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
@@ -85,10 +86,21 @@ export const AssignmentForm: React.FC<{
               <RubricPaste onApply={r => {
                 const even = splitEvenly(r.criteria.length);
                 setLines(r.criteria.map((c, i) => ({ id: lines[i]?.id ?? uid('ex'), assignmentId: a.id, title: c.title, order: i + 1,
-                  weight: c.weight ?? even[i], levels: c.levels, ...(c.outcome ? { outcome: c.outcome } : {}) })));
+                  weight: c.weight ?? even[i], levels: c.levels, ...(c.outcome ? { outcome: c.outcome } : {}), ...(lines[i]?.vi ? { vi: lines[i].vi } : {}) })));
                 if (r.bands) setA(x => ({ ...x, bands: r.bands }));
               }} />
+              {lines.length > 0 && (
+                <RubricPaste vietnamese={lines.length} onApply={r => {
+                  const next = withVietnamese(lines, r);
+                  if (next) setLines(next);
+                  if (r.bands) setA(x => ({ ...x, bandsVi: r.bands }));
+                }} />
+              )}
             </div>
+            <VietnameseStatus done={lines.filter(l => l.vi).length} total={lines.length} onRemove={() => {
+              setLines(lines.map(({ vi: _vi, ...l }) => l));
+              setA(({ bandsVi: _b, ...x }) => x);
+            }} />
             <BandInputs key={(a.bands ?? []).join('|')} bands={a.bands} onSave={bands => setA(x => ({ ...x, bands }))} />
             {lines.map((l, i) => (
               <div key={l.id} className="bg-gray-50 rounded-2xl p-3 space-y-2">
