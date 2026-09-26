@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
 import { Assignment, CellWeight, ContentBlock, Enrollment, Invite, ReviewerSlot, Role, StageCriterion, User } from '../../types';
 import { CELLS_KEY, PublicationKey, REVIEWER_SLOTS, STAGE_SLOTS, cellGroup, parseSetting, stageCells, stageCriteria } from '../../assessment/config';
-import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, scaleShares, splitEvenly } from '../../assessment/scoring';
+import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, reviewSummaries, scaleShares, splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentWeek, programProgress } from '../../assessment/outline';
 import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
 import { useTraineeData } from '../../assessment/traineeData';
@@ -11,7 +11,7 @@ import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { AssignmentForm, OutlineEditor } from './OutlineEditor';
 import { BandInputs, RubricPaste } from './RubricTools';
 import { PastedRubric } from '../../assessment/rubricPaste';
-import { BenchmarkChip, OutcomeBadge, ProgressBar, bandLabel, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
+import { BenchmarkChip, OutcomeBadge, ProgressBar, STAGE_LABELS, bandLabel, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
 
 type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 // Grouped in the order an admin works: set the program up, add people,
@@ -33,8 +33,31 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 // --- Tracking ---------------------------------------------------------------
 
+// Every reviewer's scores and feedback for one trainee - what the trainee
+// will see once a stage is published - so the coordinator can check them first.
+const ReviewBreakdown: React.FC<{ traineeId: string }> = ({ traineeId }) => {
+  const { users, exercises, assignments, assessmentConfig } = useAppContext();
+  const summaries = reviewSummaries(useTraineeData(traineeId).reviews, exercises, assignments, assessmentConfig);
+  if (!summaries.length) return <p className="text-xs text-gray-500">No reviews yet.</p>;
+  return (
+    <ul className="grid gap-2">
+      {summaries.map(s => (
+        <li key={s.key} className="bg-gray-50 rounded-2xl p-3 text-xs space-y-1">
+          <p className="font-black text-gray-700">
+            {STAGE_LABELS[s.stage]}{s.title ? ` · ${s.title}` : ''} · {REVIEWER_SLOTS.find(x => x.id === s.slot)?.label} ({users.find(u => u.id === s.reviewerUid)?.name ?? 'unknown account'})
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] uppercase ${s.status === 'draft' ? 'bg-sky text-navy' : 'bg-[#3DDC97]/20 text-leaf'}`}>{s.status === 'draft' ? 'Draft' : 'Submitted'}</span>
+          </p>
+          <p className="text-gray-600">{s.scores.map(x => `${x.label}: ${x.score}`).join(' · ') || 'No scores yet'}</p>
+          {s.feedback ? <p className="text-navy bg-sky rounded-xl p-2 whitespace-pre-wrap">{s.feedback}</p> : <p className="text-gray-500">No feedback written.</p>}
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
   const { users, setPublication, programOutline, assignments, videoProgress, assessmentConfig } = useAppContext();
+  const [showReviews, setShowReviews] = useState(false);
   const data = useTraineeData(enrollment.traineeId);
   const progress = programProgress(programOutline, assignments, enrollment, enrollment.traineeId, videoProgress, data.submissions);
   const result = finalResult(data);
@@ -72,6 +95,12 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
         </div>
       </div>
       <div className="mb-4"><ProgressBar done={progress.done} total={progress.total} /></div>
+      <div className="mb-4">
+        <button onClick={() => setShowReviews(o => !o)} aria-expanded={showReviews} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">
+          {showReviews ? 'Hide' : 'Check'} reviewers' scores & feedback before publishing
+        </button>
+        {showReviews && <div className="mt-2"><ReviewBreakdown traineeId={enrollment.traineeId} /></div>}
+      </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {stages.map(s => (
           <div key={s.key} className="bg-gray-50 rounded-2xl p-3 space-y-2">

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { QueueItem, Status, useQueue } from '../../assessment/reviewQueue';
 import { useAppContext } from '../../store';
 import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
 import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys, cellGroup, gradesFirstComplete, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
 import { assignmentWeek, daysLate } from '../../assessment/outline';
-import { STAGE_LABELS, bandLabel, card, input, primaryBtn, secondaryBtn } from './ui';
+import { STAGE_LABELS, bandLabel, card, input, notifySave, primaryBtn, secondaryBtn } from './ui';
 
 const STATUS_LABELS: Record<Status, string> = {
   'needs-review': 'Needs review',
@@ -56,6 +56,30 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const selected = item.versions.find(v => v.id === submissionId);
   const laterRevisions = gradesFirstComplete(item.stage) ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
   const locked = item.published;
+
+  // Keyboard scoring: 1-5 scores the highlighted criterion (the first
+  // unscored one, or the one last clicked) and moves on to the next
+  // unscored one; Ctrl/Cmd+Enter submits. Digits typed into the feedback
+  // box stay text.
+  const [active, setActive] = useState<string | null>(null);
+  const current = locked ? null : active ?? keys.find(k => !scores[k]) ?? null;
+  useEffect(() => {
+    if (locked) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (complete && submissionId && !busy) { e.preventDefault(); save('submitted'); }
+        return;
+      }
+      if ((e.target as HTMLElement).closest('textarea, input, select')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || !/^[1-5]$/.test(e.key) || !current) return;
+      e.preventDefault();
+      const next = { ...scores, [current]: Number(e.key) as AssessmentScore };
+      setScores(next);
+      setActive(keys.slice(keys.indexOf(current) + 1).find(k => !next[k]) ?? null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   // Handed in after the due day? (Episode A items are per assignment; the
   // other stages have one assignment each.)
   const assignment = assignments.find(a => (isA ? a.id === item.target : a.stage === item.stage));
@@ -83,6 +107,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
         ? item.lines.map(l => ({ target: l.id, scores: scores[l.id] ? { exercise: scores[l.id] } : {} }))
         : [{ target: item.target, scores: Object.fromEntries(keys.flatMap(k => (scores[k] ? [[k, scores[k]]] : []))) as AssessmentReview['scores'] }];
       await saveReview(item.traineeId, item.stage, targets, item.slot, submissionId, status, feedback);
+      notifySave(true);
       if (status === 'submitted') onDone();
     } catch (err) {
       console.error(err);
@@ -122,15 +147,16 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
       </div>
 
       <div className="space-y-3">
+        {!locked && <p className="text-[11px] text-gray-500">Tip: press 1–5 to score the highlighted criterion · Ctrl/⌘+Enter submits</p>}
         {keys.map(k => (
-          <div key={k}>
+          <div key={k} className={`rounded-2xl p-2 -m-2 ${k === current ? 'ring-2 ring-[#2E9DF7]/60' : ''}`} onFocus={() => setActive(k)}>
             <p className="text-xs font-bold text-gray-700">{keyLabel(k)}</p>
             {outcomeOf(k) && <p className="text-[11px] text-gray-500 whitespace-pre-wrap">{outcomeOf(k)}</p>}
             <div className="mb-1.5" />
             <div className={[1, 2, 3, 4, 5].some(n => levelText(k, n)) ? 'grid gap-1.5 sm:grid-cols-5 text-left' : 'flex flex-wrap gap-1.5'} role="radiogroup" aria-label={keyLabel(k)}>
               {([1, 2, 3, 4, 5] as AssessmentScore[]).map(n => (
                 <button key={n} type="button" role="radio" aria-checked={scores[k] === n} disabled={locked}
-                  onClick={() => setScores(s => ({ ...s, [k]: n }))}
+                  onClick={() => { setScores(s => ({ ...s, [k]: n })); setActive(null); }}
                   className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
                     scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
@@ -173,6 +199,16 @@ export const ReviewerQueue: React.FC = () => {
   const visible = filter === 'todo' ? items.filter(i => i.status === 'needs-review' || i.status === 'draft') : items;
   const todoCount = items.filter(i => i.status === 'needs-review' || i.status === 'draft').length;
 
+  // After a submit, open the next thing to review right away (from the list
+  // as it was - the submitted item drops out of "To review").
+  const openNext = (key: string) => {
+    const at = visible.findIndex(i => i.key === key);
+    const todo = visible.filter(i => i.key !== key && (i.status === 'needs-review' || i.status === 'draft'));
+    const next = todo.find(i => visible.indexOf(i) > at) ?? todo[0];
+    setOpen(next?.key ?? null);
+    if (next) requestAnimationFrame(() => document.getElementById(`review-${next.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <header className="min-h-20 bg-surface border-b flex items-center justify-between flex-wrap gap-4 px-4 md:px-10 py-3 flex-shrink-0">
@@ -195,7 +231,7 @@ export const ReviewerQueue: React.FC = () => {
           {items.length === 0 && <p className={`${card} text-sm font-bold text-gray-500 text-center`}>You haven't been assigned to review any trainees yet.</p>}
           {items.length > 0 && visible.length === 0 && <p className={`${card} text-sm font-bold text-gray-500 text-center`}>You're all caught up 🎧</p>}
           {visible.map(item => (
-            <article key={item.key} className={card}>
+            <article key={item.key} id={`review-${item.key}`} className={card}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
@@ -213,7 +249,7 @@ export const ReviewerQueue: React.FC = () => {
                   )}
                 </div>
               </div>
-              {open === item.key && <ReviewPanel key={savedStamp(item)} item={item} onDone={() => setOpen(null)} />}
+              {open === item.key && <ReviewPanel key={savedStamp(item)} item={item} onDone={() => openNext(item.key)} />}
             </article>
           ))}
         </div>

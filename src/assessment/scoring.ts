@@ -273,3 +273,49 @@ export const gradingProblems = (config: AssessmentConfig, assignments: Assignmen
 // Each reviewer's total share of a stage (e.g. Episode B: trainer 50, engineer 50).
 export const slotTotals = (cells: CellWeight[]) =>
   cells.reduce<Partial<Record<ReviewerSlot, number>>>((acc, c) => ({ ...acc, [c.slot]: (acc[c.slot] ?? 0) + c.weight }), {});
+
+// Each reviewer's scores and feedback, as the coordinator checks them before
+// publishing: one entry per (Episode A assignment | stage) and reviewer
+// slot. An Episode A assignment's grading lines are separate reviews with
+// the same feedback, so they're combined into one entry.
+export interface ReviewSummary {
+  key: string;
+  stage: AssessmentStage;
+  title: string; // assignment title for Episode A, '' for the other stages
+  slot: ReviewerSlot;
+  reviewerUid: string;
+  status: AssessmentReview['status'];
+  scores: { label: string; score: number }[];
+  feedback?: string;
+}
+
+const STAGE_ORDER: AssessmentStage[] = ['A', 'B', 'DA', 'P1', 'P2'];
+
+export const reviewSummaries = (
+  reviews: AssessmentReview[], exercises: Exercise[], assignments: Assignment[], config: AssessmentConfig,
+): ReviewSummary[] => {
+  const out = new Map<string, ReviewSummary>();
+  // Program order: stage, then (Episode A) assignment, reviewer slot, and
+  // the criterion's position within its assignment.
+  const lineOf = (r: AssessmentReview) => (r.stage === 'A' ? exercises.find(e => e.id === r.target) : undefined);
+  const asgIndex = (r: AssessmentReview) => assignments.findIndex(a => a.id === lineOf(r)?.assignmentId);
+  const slotIndex = (r: AssessmentReview) => REVIEWER_SLOTS.findIndex(s => s.id === r.reviewerSlot);
+  const sorted = [...reviews].sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage)
+    || asgIndex(a) - asgIndex(b) || slotIndex(a) - slotIndex(b) || (lineOf(a)?.order ?? 0) - (lineOf(b)?.order ?? 0));
+  for (const r of sorted) {
+    const line = r.stage === 'A' ? exercises.find(e => e.id === r.target) : undefined;
+    const asg = line?.assignmentId ? assignments.find(a => a.id === line.assignmentId) : undefined;
+    const key = r.stage === 'A' ? `A|${asg?.id ?? r.target}|${r.reviewerSlot}` : `${r.stage}|${r.reviewerSlot}`;
+    const entry = out.get(key) ?? {
+      key, stage: r.stage, title: r.stage === 'A' ? asg?.title ?? line?.title ?? r.target : '',
+      slot: r.reviewerSlot, reviewerUid: r.reviewerUid, status: r.status, scores: [], ...(r.feedback ? { feedback: r.feedback } : {}),
+    };
+    if (r.status === 'draft') entry.status = 'draft';
+    const criteria = stageCriteria(config, r.stage);
+    for (const [k, v] of Object.entries(r.scores)) {
+      if (v) entry.scores.push({ label: r.stage === 'A' ? line?.title ?? r.target : criteria.find(c => c.id === k)?.title ?? k, score: v });
+    }
+    out.set(key, entry);
+  }
+  return [...out.values()];
+};

@@ -7,7 +7,7 @@ import {
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
-  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares,
+  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -436,5 +436,26 @@ describe('admin-defined reviewer-table criteria', () => {
     expect(episodeBOutcome(d)).toEqual({ status: 'scored', value: expect.closeTo(3.5, 10) });
     const missing = data({ config: custom, submissions: [sb], reviews: [review('B', 'episode', 'trainer', { mix: 5, story: 2 }, sb.id)] });
     expect(episodeBOutcome(missing)).toMatchObject({ status: 'awaiting', missing: ['Episode B: Audio Engineer – Mix'] });
+  });
+});
+
+describe('review summaries (coordinator check before publishing)', () => {
+  const r = (stage: AssessmentStage, target: string, slot: ReviewerSlot, scores: AssessmentReview['scores'], extra: Partial<AssessmentReview> = {}): AssessmentReview => ({
+    id: reviewId(T, stage, target, slot), traineeId: T, stage, target, reviewerSlot: slot, reviewerUid: `u_${slot}`,
+    submissionId: 's', scores, status: 'submitted', updatedAt: '', ...extra,
+  });
+  it('combines an Episode A assignment\'s lines into one entry, stages in program order', () => {
+    const out = reviewSummaries([
+      r('B', 'episode', 'engineer', { workflow: 4, dialogue: 3, sfx: 4, music: 5 }, { feedback: 'Good mix' }),
+      r('A', 'epA_m2_ex1', 'trainer', { exercise: 3 }, { feedback: 'Watch levels', status: 'draft' }),
+      r('A', 'epA_m1_ex1', 'trainer', { exercise: 4 }, { feedback: 'Watch levels' }),
+    ], DEFAULT_CRITERIA, DEFAULT_ASSIGNMENTS, CONFIG);
+    expect(out.map(s => [s.stage, s.title, s.status, s.feedback])).toEqual([
+      ['A', 'Week 1 assignment: dialogue session', 'draft', 'Watch levels'],
+      ['B', '', 'submitted', 'Good mix'],
+    ]);
+    // Criteria in their assignment order (Workflow is line 1), whatever order the reviews came in.
+    expect(out[0].scores).toEqual([{ label: 'Workflow & session organization', score: 4 }, { label: 'Dialogue sync & leveling', score: 3 }]);
+    expect(out[1].scores[0]).toEqual({ label: 'Workflow, Session Organization & Handoff', score: 4 });
   });
 });
