@@ -143,8 +143,8 @@ export const AuthView: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Full Name</label>
-                  <input
+                  <label htmlFor="auth-full-name" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Full Name</label>
+                  <input id="auth-full-name" autoComplete="name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -155,8 +155,8 @@ export const AuthView: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email Address</label>
-                <input
+                <label htmlFor="auth-email-address" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email Address</label>
+                <input id="auth-email-address" autoComplete="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -168,14 +168,14 @@ export const AuthView: React.FC = () => {
               {mode !== 'reset' && (
                 <div>
                   <div className="flex items-center justify-between mb-1 ml-1 mr-1">
-                    <label className="block text-xs font-bold text-gray-500 uppercase">Password</label>
+                    <label htmlFor="auth-password" className="block text-xs font-bold text-gray-500 uppercase">Password</label>
                     {mode === 'signin' && (
                       <button type="button" onClick={() => switchMode('reset')} className="text-xs font-bold text-[#2E9DF7] hover:underline">
                         Forgot password?
                       </button>
                     )}
                   </div>
-                  <input
+                  <input id="auth-password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -191,8 +191,8 @@ export const AuthView: React.FC = () => {
               {mode === 'signup' && (
                 <>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Pod (Optional)</label>
-                    <input
+                    <label htmlFor="auth-pod-optional" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Pod (Optional)</label>
+                    <input id="auth-pod-optional"
                       type="text"
                       value={pod}
                       onChange={(e) => setPod(e.target.value)}

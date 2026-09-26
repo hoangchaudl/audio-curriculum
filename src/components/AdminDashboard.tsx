@@ -436,8 +436,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                     <div className="space-y-4">
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
-                          <select
+                          <label htmlFor="module-category" className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
+                          <select id="module-category"
                             value={editForm.category || sortCategories(categories)[0]?.id || ''}
                             onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                             className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
@@ -449,8 +449,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Order</label>
-                          <input
+                          <label htmlFor="module-order" className="block text-xs font-bold text-gray-500 uppercase mb-1">Order</label>
+                          <input id="module-order"
                             type="number"
                             value={editForm.order ?? ''}
                             onChange={(e) => setEditForm({ ...editForm, order: e.target.value })}
@@ -458,8 +458,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Label (optional)</label>
-                          <input
+                          <label htmlFor="module-label-optional" className="block text-xs font-bold text-gray-500 uppercase mb-1">Label (optional)</label>
+                          <input id="module-label-optional"
                             type="text"
                             value={editForm.label || ''}
                             onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
@@ -469,8 +469,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
-                        <input
+                        <label htmlFor="module-title" className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+                        <input id="module-title"
                           type="text"
                           value={editForm.title || ''}
                           onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
@@ -478,17 +478,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+                        <label htmlFor="module-description" className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
                         <p className="text-[10px] text-gray-400 mb-1">Shown on curriculum cards and as "About this Module" on the designer's page.</p>
-                        <textarea
+                        <textarea id="module-description"
                           value={editForm.description || ''}
                           onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                           className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Outline (one step per line)</label>
-                        <textarea
+                        <label htmlFor="module-outline-one-step-per-line" className="block text-xs font-bold text-gray-500 uppercase mb-1">Outline (one step per line)</label>
+                        <textarea id="module-outline-one-step-per-line"
                           value={outlineText}
                           onChange={(e) => setOutlineText(e.target.value)}
                           placeholder={'1. Intro to EQ\n2. Subtractive vs Additive EQ'}
@@ -496,8 +496,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Learning Objectives (one per line)</label>
-                        <textarea
+                        <label htmlFor="module-learning-objectives-one-per-li" className="block text-xs font-bold text-gray-500 uppercase mb-1">Learning Objectives (one per line)</label>
+                        <textarea id="module-learning-objectives-one-per-li"
                           value={objectivesText}
                           onChange={(e) => setObjectivesText(e.target.value)}
                           placeholder={'e.g. Understand subtractive EQ\nApply gain staging correctly'}
@@ -505,8 +505,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Outcomes (one per line)</label>
-                        <textarea
+                        <label htmlFor="module-outcomes-one-per-line" className="block text-xs font-bold text-gray-500 uppercase mb-1">Outcomes (one per line)</label>
+                        <textarea id="module-outcomes-one-per-line"
                           value={outcomesText}
                           onChange={(e) => setOutcomesText(e.target.value)}
                           placeholder={'e.g. A mix with balanced frequency content'}
@@ -514,7 +514,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Content blocks (rich text, schedule, milestones, expectations, optional video)</label>
+                        <p className="block text-xs font-bold text-gray-500 uppercase mb-1">Content blocks (rich text, schedule, milestones, expectations, optional video)</p>
                         <ContentBlocksEditor
                           blocks={editForm.contentBlocks || []}
                           onChange={(contentBlocks) => setEditForm({ ...editForm, contentBlocks })}
@@ -522,7 +522,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Materials</label>
+                        <p className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Materials</p>
                         <div className="space-y-2">
                           {materials.map((material, idx) => (
                             <div key={idx} className="grid grid-cols-[1fr_1.4fr_auto] gap-2">
@@ -617,17 +617,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-black text-base leading-tight">{mod.title || <span className="text-ember">(no name)</span>}</h4>
                             {mod.program === 'episodeA' && (
-                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0" title="Old grading module - use Convert in Assessment (1–5) to remove it">
+                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Old grading module - use Convert in Assessment (1–5) to remove it">
                                 Old skill module
                               </span>
                             )}
                             {missingFields.length === 0 ? (
-                              <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0">
+                              <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">
                                 ✓ Complete
                               </span>
                             ) : (
                               <span
-                                className="bg-[#F4511E]/20 text-ember px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex-shrink-0"
+                                className="bg-[#F4511E]/20 text-ember px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0"
                                 title={`Missing: ${missingFields.join(', ')}`}
                               >
                                 Missing {missingFields.join(', ')}

@@ -20,6 +20,11 @@
   --color-leaf: #2A8F62;     /* green text */
   --color-ember: #C53914;    /* red/orange text */
   --color-rail: #2E9DF7;     /* sidebar */
+
+  /* Secondary text greys, darker than Tailwind's defaults so small grey
+     text meets WCAG AA (4.5:1) on white, gray-50/100 and sky fills. */
+  --color-gray-400: #666d7a;
+  --color-gray-500: #596070;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -45,7 +50,7 @@
   --color-gray-100: #202A3C;
   --color-gray-200: #2B374C;
   --color-gray-300: #3A475E;
-  --color-gray-400: #7A869C;
+  --color-gray-400: #8A96AB; /* 4.5:1+ on surface and gray-100 */
   --color-gray-500: #97A2B6;
   --color-gray-600: #B2BCCB;
   --color-gray-700: #CAD1DC;
@@ -69,8 +74,8 @@
   --color-gray-100: #f3f4f6;
   --color-gray-200: #e5e7eb;
   --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #6b7280;
+  --color-gray-400: #666d7a;
+  --color-gray-500: #596070;
   --color-gray-600: #4b5563;
   --color-gray-700: #374151;
   --color-gray-800: #1f2937;

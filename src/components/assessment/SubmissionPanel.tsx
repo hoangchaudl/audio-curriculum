@@ -64,12 +64,12 @@ export const SubmissionPanel: React.FC<{
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <span className="font-black text-gray-800">v{v.version}</span>
                 <span className="text-xs text-gray-400 font-bold">{new Date(v.submittedAt).toLocaleString()}</span>
-                {askComplete && v.isComplete && <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Complete</span>}
+                {askComplete && v.isComplete && <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Complete</span>}
                 {askComplete && gradesFirstComplete(stage) && v.id === firstComplete?.id && (
-                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Graded version</span>
+                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Graded version</span>
                 )}
                 {v.id === gradedSubmissionId && !gradesFirstComplete(stage) && (
-                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Graded version</span>
+                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Graded version</span>
                 )}
               </div>
               <ul className="flex flex-wrap gap-x-4 gap-y-1">

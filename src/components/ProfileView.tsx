@@ -105,21 +105,21 @@ export const ProfileView: React.FC = () => {
         <div className="w-full max-w-2xl">
           <div className="bg-surface rounded-[40px] p-6 md:p-10 shadow-sm border-2 border-gray-50 flex flex-col items-center">
 
-            <div className="relative mb-4 group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#2E9DF7] shadow-lg flex items-center justify-center bg-sky">
+            <button type="button" aria-label="Change profile photo" className="relative mb-4 group cursor-pointer rounded-full" onClick={() => fileInputRef.current?.click()}>
+              <span className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#2E9DF7] shadow-lg flex items-center justify-center bg-sky">
                 {currentUser.avatarBase64 ? (
                   <img src={currentUser.avatarBase64} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-4xl font-black text-[#2E9DF7]">{currentUser.name.substring(0, 2).toUpperCase()}</span>
                 )}
-              </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              </span>
+              <span className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
                 <span className="text-white text-xs font-black uppercase tracking-wider">Change</span>
-              </div>
-              <div className="absolute bottom-0 right-0 w-10 h-10 bg-[#F4511E] border-4 border-surface shadow-sm rounded-full flex items-center justify-center pointer-events-none">
-                <span className="text-white text-lg">📷</span>
-              </div>
-            </div>
+              </span>
+              <span className="absolute bottom-0 right-0 w-10 h-10 bg-[#F4511E] border-4 border-surface shadow-sm rounded-full flex items-center justify-center pointer-events-none">
+                <span className="text-white text-lg" aria-hidden="true">📷</span>
+              </span>
+            </button>
 
             <input
               type="file"

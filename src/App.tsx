@@ -202,7 +202,7 @@ const AppContent = () => {
   // login page for already-signed-in users on every refresh.
   if (authLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-page text-gray-400 font-bold text-sm">
+      <div role="status" className="flex h-screen w-full items-center justify-center bg-page text-gray-400 font-bold text-sm">
         Loading...
       </div>
     );
@@ -222,7 +222,7 @@ const AppContent = () => {
   if (hasSession && !currentUser) {
     if (!authError && !profileLoadTimedOut) {
       return (
-        <div className="flex h-screen w-full items-center justify-center bg-page text-gray-400 font-bold text-sm">
+        <div role="status" className="flex h-screen w-full items-center justify-center bg-page text-gray-400 font-bold text-sm">
           Loading...
         </div>
       );
@@ -281,7 +281,7 @@ const AppContent = () => {
     return (
       <div className="flex flex-col h-screen w-full bg-page text-ink font-sans overflow-hidden">
         {!onDashboard && <AdminHeader onPreview={setPreviewRole} onBack={() => { setView('module'); window.location.hash = ''; }} />}
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>{renderContent()}</Suspense>
+        <Suspense fallback={<div role="status" className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>{renderContent()}</Suspense>
       </div>
     );
   }
@@ -333,7 +333,7 @@ const AppContent = () => {
             </button>
           </div>
         )}
-        <Suspense fallback={<div className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>{renderContent()}</Suspense>
+        <Suspense fallback={<div role="status" className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>{renderContent()}</Suspense>
       </div>
     </div>
   );
