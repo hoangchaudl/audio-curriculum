@@ -339,7 +339,7 @@ export const ProgramOverview: React.FC = () => {
                 </p>
               </div>
               {allPublished ? (
-                <div className="flex items-center gap-3"><OutcomeBadge outcome={result.final} size="lg" /><BenchmarkChip meets={result.meetsBenchmark} /></div>
+                <div className="flex items-center gap-3"><OutcomeBadge outcome={result.final} size="lg" /><BenchmarkChip meets={result.meetsBenchmark} threshold={config.passThreshold} /></div>
               ) : (
                 <p className="text-xs font-bold text-gray-400">Appears once every stage is published</p>
               )}

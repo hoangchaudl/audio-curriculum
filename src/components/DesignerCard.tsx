@@ -88,7 +88,7 @@ export const DesignerCard: React.FC<{
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
             <span className="text-[10px] font-black uppercase text-gray-400">Final</span>
             {r!.final.status === 'scored' ? (
-              <span className="flex items-center gap-2"><OutcomeBadge outcome={r!.final} /><BenchmarkChip meets={r!.meetsBenchmark} /></span>
+              <span className="flex items-center gap-2"><OutcomeBadge outcome={r!.final} /><BenchmarkChip meets={r!.meetsBenchmark} threshold={config.passThreshold} /></span>
             ) : (
               <span className="text-xs font-bold text-gray-500">
                 {standing.scoreSoFar === null ? 'No scores yet' : `So far ${roundScore(standing.scoreSoFar).toFixed(2)} · needs ${config.passThreshold}`}
@@ -99,6 +99,12 @@ export const DesignerCard: React.FC<{
           {reasons.length > 0 && (
             <ul className="bg-rose rounded-2xl px-4 py-3 text-xs font-bold text-ember list-disc pl-7 space-y-0.5">
               {reasons.map(x => <li key={x}>{x}</li>)}
+            </ul>
+          )}
+
+          {standing.late.length > 0 && (
+            <ul className="bg-peach rounded-2xl px-4 py-3 text-xs font-bold text-ember list-disc pl-7 space-y-0.5">
+              {standing.late.map(l => <li key={l.assignment.id}>{l.assignment.title} was handed in {l.days} day{l.days === 1 ? '' : 's'} late</li>)}
             </ul>
           )}
 

@@ -1,6 +1,6 @@
 import { Assignment, ProgramOutline, VideoProgress } from '../types';
 import { FinalResult, TraineeData, finalResult, roundScore } from './scoring';
-import { assignmentApplies, assignmentStatus, programDate, weekGroups } from './outline';
+import { assignmentApplies, assignmentStatus, daysLate, programDate, weekGroups } from './outline';
 
 // Where a trainee stands in the probation program right now - one place
 // for the admin's designer cards and the "falling behind" alert.
@@ -41,6 +41,8 @@ export interface Standing {
   totalWeeks: number;
   ended: boolean;
   overdue: { assignment: Assignment; due: Date }[];
+  // Handed in after the due day (by the server's clock).
+  late: { assignment: Assignment; days: number }[];
   pace: PaceIssue[];
   // Weighted average of the stages scored so far (null = nothing scored yet).
   scoreSoFar: number | null;
@@ -65,6 +67,12 @@ export const traineeStanding = (d: TraineeData, outline: ProgramOutline | null, 
     return assignmentStatus(a, d.enrollment?.traineeId, d.submissions) === 'submitted' ? [] : [{ assignment: a, due }];
   }));
 
+  const late = (outline?.weeks ?? []).flatMap((w, wi) => w.items.flatMap(it => {
+    const a = it.kind === 'assignment' ? d.assignments.find(x => x.id === it.assignmentId) : undefined;
+    const days = a && assignmentApplies(a, d.enrollment) ? daysLate(a, wi + 1, d.enrollment, d.submissions) : null;
+    return a && days ? [{ assignment: a, days }] : [];
+  }));
+
   const w = d.config.stageWeights;
   const scoredStages = [
     { weight: w.episodeA, o: result.episodeA }, { weight: w.episodeB, o: result.episodeB },
@@ -81,7 +89,7 @@ export const traineeStanding = (d: TraineeData, outline: ProgramOutline | null, 
       : ended && !overdue.length ? 'grading'
       : overdue.length || pace.length || belowSoFar ? 'behind'
       : 'on_track';
-  return { status, week, totalWeeks, ended, overdue, pace, scoreSoFar, result };
+  return { status, week, totalWeeks, ended, overdue, late, pace, scoreSoFar, result };
 };
 
 // Why a trainee is flagged, in plain words.

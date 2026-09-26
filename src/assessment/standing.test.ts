@@ -12,6 +12,27 @@ const base = (overrides: Partial<TraineeData> = {}): TraineeData => ({
 const at = (iso: string) => new Date(`${iso}T12:00:00`);
 const submitted = (target: string) => ({ id: `s_${target}`, traineeId: T, stage: 'A' as const, target, version: 1, isComplete: true, links: [], submittedAt: '' });
 
+describe('late hand-ins (server submission time vs due day)', () => {
+  // Week 1 assignment is due Day 5 = Fri Sep 25 (end of that day).
+  const handedIn = (iso: string, extra: object = {}) => ({ ...submitted('asg_w1'), submittedAt: iso, ...extra });
+  it('is on time until the end of the due day', () => {
+    const s = traineeStanding(base({ submissions: [handedIn('2026-09-25T23:30:00')] }), DEFAULT_OUTLINE, [], at('2026-09-28'));
+    expect(s.late).toEqual([]);
+  });
+  it('counts whole days late from the first version (later revisions don\'t change it)', () => {
+    const subs = [handedIn('2026-09-26T09:00:00'), handedIn('2026-09-29T09:00:00', { id: 's2', version: 2 })];
+    const s = traineeStanding(base({ submissions: subs }), DEFAULT_OUTLINE, [], at('2026-09-30'));
+    expect(s.late.map(l => [l.assignment.id, l.days])).toEqual([['asg_w1', 1]]);
+  });
+  it('Episode B counts from the first complete version', () => {
+    // Episode B (asg_w3b) is due Week 3 Day 4 = Thu Oct 8.
+    const b = (iso: string, version: number, isComplete: boolean) =>
+      ({ id: `b${version}`, traineeId: T, stage: 'B' as const, target: 'episode', version, isComplete, links: [], submittedAt: iso });
+    const s = traineeStanding(base({ submissions: [b('2026-10-07T10:00:00', 1, false), b('2026-10-11T10:00:00', 2, true)] }), DEFAULT_OUTLINE, [], at('2026-10-12'));
+    expect(s.late.map(l => [l.assignment.id, l.days])).toEqual([['asg_w3b', 3]]);
+  });
+});
+
 describe('trainee standing', () => {
   it('is upcoming before the start date and on track early in week 1', () => {
     expect(traineeStanding(base(), DEFAULT_OUTLINE, [], at('2026-09-20')).status).toBe('upcoming');

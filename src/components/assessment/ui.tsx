@@ -94,12 +94,12 @@ export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg' }> = 
   );
 };
 
-export const BenchmarkChip: React.FC<{ meets?: boolean }> = ({ meets }) =>
+export const BenchmarkChip: React.FC<{ meets?: boolean; threshold: number }> = ({ meets, threshold }) =>
   meets === undefined ? null : (
     <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${
       meets ? 'bg-[#3DDC97] text-[#0B3D2A]' : 'bg-[#F4511E]/20 text-ember'
     }`}>
-      {meets ? '✓ Meeting benchmark' : 'Below benchmark (3.5)'}
+      {meets ? '✓ Meeting benchmark' : `Below benchmark (${threshold})`}
     </span>
   );
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../store';
 import { Assignment, CellWeight, ContentBlock, Enrollment, Invite, ReviewerSlot, Role, StageCriterion, User } from '../../types';
-import { CELLS_KEY, PublicationKey, REVIEWER_SLOTS, STAGE_SLOTS, cellGroup, stageCells, stageCriteria } from '../../assessment/config';
+import { CELLS_KEY, PublicationKey, REVIEWER_SLOTS, STAGE_SLOTS, cellGroup, parseSetting, stageCells, stageCriteria } from '../../assessment/config';
 import { assignmentCriteria, episodeAAssignments, finalResult, gradingProblems, outcomeLabel, scaleShares, splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentWeek, programProgress } from '../../assessment/outline';
 import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
@@ -68,7 +68,7 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-black uppercase text-gray-400">Final</span>
           <OutcomeBadge outcome={result.final} />
-          <BenchmarkChip meets={result.meetsBenchmark} />
+          <BenchmarkChip meets={result.meetsBenchmark} threshold={assessmentConfig.passThreshold} />
         </div>
       </div>
       <div className="mb-4"><ProgressBar done={progress.done} total={progress.total} /></div>
@@ -540,8 +540,12 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
   const stage = (key: keyof typeof w, label: string) => (
     <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
       {label}
-      <input type="number" min={0} step="1" defaultValue={w[key]} key={w[key]} aria-label={`${label} share of final grade`}
-        onBlur={e => Number(e.target.value) !== w[key] && saveWith(updateAssessmentConfig({ stageWeights: { ...w, [key]: Number(e.target.value) } }))}
+      <input type="number" min={0} max={100} step="1" defaultValue={w[key]} key={w[key]} aria-label={`${label} share of final grade`}
+        onBlur={e => {
+          const n = parseSetting(e.target.value, 0, 100);
+          if (n === null) e.target.value = String(w[key]);
+          else if (n !== w[key]) saveWith(updateAssessmentConfig({ stageWeights: { ...w, [key]: n } }));
+        }}
         className={numInput} />%
     </label>
   );
@@ -560,7 +564,11 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
           <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
             Benchmark
             <input type="number" min={1} max={5} step="0.1" defaultValue={config.passThreshold} key={config.passThreshold} aria-label="Benchmark score"
-              onBlur={e => Number(e.target.value) !== config.passThreshold && saveWith(updateAssessmentConfig({ passThreshold: Number(e.target.value) }))}
+              onBlur={e => {
+                const n = parseSetting(e.target.value, 1, 5);
+                if (n === null) e.target.value = String(config.passThreshold);
+                else if (n !== config.passThreshold) saveWith(updateAssessmentConfig({ passThreshold: n }));
+              }}
               className={numInput} />/ 5
           </label>
         </div>

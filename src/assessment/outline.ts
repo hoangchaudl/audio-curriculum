@@ -43,6 +43,19 @@ export const assignmentStatus = (a: Assignment, traineeId: string | undefined, s
   return 'submitted';
 };
 
+// How many days after its due day an assignment was handed in: the first
+// version for Episode A, the first complete one for Episode B / Pod / DA
+// (what makes it count as submitted). null = on time, or not handed in.
+export const daysLate = (a: Assignment, week: number | undefined, enrollment: Enrollment | undefined, submissions: AssessmentSubmission[]) => {
+  const due = programDate(enrollment?.startDate, week, a.dueDay ?? 7);
+  if (!due) return null;
+  const versions = stageSubmissions(submissions.filter(s => s.traineeId === enrollment?.traineeId), a.stage, submissionTarget(a));
+  const handedIn = a.stage === 'A' ? versions[0] : versions.find(v => v.isComplete);
+  const DAY = 24 * 60 * 60 * 1000;
+  const over = handedIn ? new Date(handedIn.submittedAt).getTime() - (due.getTime() + DAY) : NaN;
+  return over > 0 ? Math.ceil(over / DAY) : null;
+};
+
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // Which day of its week (1-7) an outline item sits on. An assignment's day
