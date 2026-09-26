@@ -21,18 +21,40 @@ export const primaryBtn =
   'bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2.5 rounded-2xl shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0';
 export const secondaryBtn = 'bg-gray-100 text-gray-700 font-bold text-sm px-4 py-2 rounded-2xl hover:bg-gray-200 transition-colors disabled:opacity-50';
 
-// One save rule for admin screens: every write goes through saveWith, which
-// shows "✓ Saved" (or a failure) in the corner via <SavedToast />.
+// One save rule: every write reports "✓ Saved" (or a failure) in the
+// corner via <SavedToast /> - through saveWith, or notifySave directly.
+export const notifySave = (ok: boolean) => window.dispatchEvent(new CustomEvent('app-saved', { detail: ok }));
+
 export const saveWith = async (work: Promise<unknown>): Promise<boolean> => {
   try {
     await work;
-    window.dispatchEvent(new CustomEvent('app-saved', { detail: true }));
+    notifySave(true);
     return true;
   } catch (error) {
     console.error('Save failed', error);
-    window.dispatchEvent(new CustomEvent('app-saved', { detail: false }));
+    notifySave(false);
     return false;
   }
+};
+
+// Live data that couldn't load (a listener was refused or lost).
+export const notifySyncError = () => window.dispatchEvent(new Event('app-sync-error'));
+
+export const SyncErrorBanner: React.FC = () => {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const onError = () => setShow(true);
+    window.addEventListener('app-sync-error', onError);
+    return () => window.removeEventListener('app-sync-error', onError);
+  }, []);
+  if (!show) return null;
+  return (
+    <div role="alert" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl flex flex-wrap items-center gap-3 bg-[#F4511E] text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-lg">
+      <span className="flex-1 min-w-[12rem]">Some data couldn't load, so this page may be out of date.</span>
+      <button onClick={() => window.location.reload()} className="bg-white text-ember px-3 py-1 rounded-full text-xs font-black uppercase">Refresh</button>
+      <button onClick={() => setShow(false)} aria-label="Dismiss" className="px-1 text-white/80 hover:text-white">✕</button>
+    </div>
+  );
 };
 
 export const SavedToast: React.FC = () => {

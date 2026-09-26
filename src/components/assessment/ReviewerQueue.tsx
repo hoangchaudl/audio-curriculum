@@ -160,6 +160,12 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   );
 };
 
+// What's saved for this item. When it changes (e.g. the same reviewer saved
+// in another tab) the open panel re-mounts with it instead of showing -
+// and later saving over it with - stale scores.
+const savedStamp = (item: QueueItem) =>
+  JSON.stringify([item.review, ...item.lineReviews].map(r => r && [r.target, r.submissionId, r.status, r.scores, r.feedback ?? '']));
+
 export const ReviewerQueue: React.FC = () => {
   const items = useQueue();
   const [filter, setFilter] = useState<'todo' | 'all'>('todo');
@@ -207,7 +213,7 @@ export const ReviewerQueue: React.FC = () => {
                   )}
                 </div>
               </div>
-              {open === item.key && <ReviewPanel item={item} onDone={() => setOpen(null)} />}
+              {open === item.key && <ReviewPanel key={savedStamp(item)} item={item} onDone={() => setOpen(null)} />}
             </article>
           ))}
         </div>

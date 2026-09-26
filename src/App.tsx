@@ -18,6 +18,7 @@ import { ProgramOverview } from './components/assessment/ProgramOverview';
 import { ContentPageView } from './components/assessment/ContentPageView';
 import { AssignmentView } from './components/assessment/AssignmentView';
 import { EpisodeView } from './components/assessment/EpisodeView';
+import { SavedToast, SyncErrorBanner } from './components/assessment/ui';
 // Loaded on demand so trainees never download the admin screens.
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const ReviewerQueue = lazy(() => import('./components/assessment/ReviewerQueue').then(m => ({ default: m.ReviewerQueue })));
@@ -338,10 +339,19 @@ const AppContent = () => {
   );
 };
 
+// Save results and "couldn't load" alerts, for whoever is signed in (a
+// fresh banner per account, so one user's alert never carries over).
+const Alerts = () => {
+  const { currentUser } = useAppContext();
+  if (!currentUser) return null;
+  return <><SavedToast /><SyncErrorBanner key={currentUser.id} /></>;
+};
+
 export default function App() {
   return (
     <AppProvider>
       <AppContent />
+      <Alerts />
     </AppProvider>
   );
 }

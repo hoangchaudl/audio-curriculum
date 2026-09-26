@@ -11,6 +11,14 @@ const enrollmentFromInvite = (invite: Invite, uid: string): Enrollment => ({
 import { AppState, User, Category, Module, ModuleVideo, VideoProgress } from './types';
 import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
 import { initialData } from './data';
+import { notifySave, notifySyncError } from './components/assessment/ui';
+
+// A live listener was refused or lost: log it and show the "couldn't load"
+// banner (<SyncErrorBanner />) instead of quietly showing stale/empty data.
+const syncFailed = (label: string) => (error: unknown) => {
+  console.error(`Error syncing ${label} from Firestore:`, error);
+  notifySyncError();
+};
 import { AssessmentApi, useAssessment } from './assessment/useAssessment';
 import { db, auth } from './firebase';
 import { collection, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, where, Query } from 'firebase/firestore';
@@ -222,7 +230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // `restricted` - see the admin reconcile below): keep the local
         // fallback rather than blanking the curriculum.
         apply(merged.size ? [...merged.values()] : null);
-      }, (error) => console.error(`Error syncing ${name} from Firestore:`, error)));
+      }, syncFailed(name)));
     };
 
     const unsubs = [
@@ -235,7 +243,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         snapshot.forEach(d => categories.push(d.data() as Category));
         setState(s => ({ ...s, categories }));
         setCurriculumFromFirestore(f => ({ ...f, categories: true }));
-      }, (error) => console.error('Error syncing categories from Firestore:', error)),
+      }, syncFailed('categories')),
       ...listen<Module>('modules', rows => {
         setState(s => ({ ...s, modules: rows ?? initialData.modules }));
         setCurriculumFromFirestore(f => ({ ...f, modules: !!rows }));
@@ -289,7 +297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
     }
-    if (writes) batch.commit().catch(err => console.error('Error syncing category locks', err));
+    if (writes) batch.commit().catch(err => { console.error('Error syncing category locks', err); notifySave(false); });
   }, [role, curriculumFromFirestore, state.modules, state.moduleVideos, state.categories]);
 
   // One-time curriculum bootstrap: the very first admin to sign in after
@@ -323,7 +331,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (cancelled || snap.exists() || !currentUser) return;
         return setDoc(bootstrapRef, { adminUid: currentUser.id, claimedAt: new Date().toISOString() });
       })
-      .catch(err => console.error('Error recording admin bootstrap', err));
+      .catch(err => { console.error('Error recording admin bootstrap', err); notifySave(false); });
 
     return () => { cancelled = true; };
   }, [currentUser?.role]);
@@ -456,21 +464,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     signOut(auth).catch(console.error);
   };
 
-  const updateUserAvatar = async (userId: string, avatarBase64: string) => {
+  // Every write says how it went (<SavedToast />): things a person just
+  // did confirm "Saved" or "Couldn't save"; background writes (theme, read
+  // notifications, lesson progress) speak up only when they fail.
+  const report = async (label: string, work: () => Promise<unknown>, { quiet = false } = {}) => {
     try {
-      const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, { avatarBase64 }, { merge: true });
+      await work();
+      if (!quiet) notifySave(true);
     } catch (error) {
-      console.error('Error updating avatar in Firestore', error);
+      console.error(label, error);
+      notifySave(false);
     }
   };
 
+  const updateUserAvatar = async (userId: string, avatarBase64: string) => {
+    await report('Error updating avatar in Firestore', () => setDoc(doc(db, 'users', userId), { avatarBase64 }, { merge: true }));
+  };
+
   const updateUserName = async (userId: string, name: string) => {
-    try {
-      await setDoc(doc(db, 'users', userId), { name }, { merge: true });
-    } catch (error) {
-      console.error('Error updating name in Firestore', error);
-    }
+    await report('Error updating name in Firestore', () => setDoc(doc(db, 'users', userId), { name }, { merge: true }));
   };
 
   // Admin-only: promote/demote a user between Sound Designer and Audio
@@ -479,11 +491,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // account becomes an engineer after the very first (admin) signup.
   const updateUserRole = async (userId: string, role: User['role']) => {
     if (!currentUser || currentUser.role !== 'admin') return;
-    try {
-      await setDoc(doc(db, 'users', userId), { role }, { merge: true });
-    } catch (error) {
-      console.error('Error updating user role', error);
-    }
+    await report('Error updating user role', () => setDoc(doc(db, 'users', userId), { role }, { merge: true }));
   };
 
   // A lesson finished: its video(s) played to the end (see ContentPageView)
@@ -497,22 +505,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userId: currentUser.id,
       watchedAt: new Date().toISOString(),
     };
-    try {
-      await setDoc(doc(db, 'videoProgress', progressId), record);
-    } catch (error) {
-      console.error('Error marking video watched', error);
-    }
+    await report('Error marking video watched', () => setDoc(doc(db, 'videoProgress', progressId), record), { quiet: true });
   };
 
   // Trainee's "Mark as done" toggle on program content pages (the same
   // record a finished video writes) - un-marking deletes it.
   const unmarkVideoWatched = async (moduleId: string) => {
     if (!currentUser) return;
-    try {
-      await deleteDoc(doc(db, 'videoProgress', `${moduleId}_${currentUser.id}`));
-    } catch (error) {
-      console.error('Error un-marking video watched', error);
-    }
+    await report('Error un-marking video watched', () => deleteDoc(doc(db, 'videoProgress', `${moduleId}_${currentUser.id}`)), { quiet: true });
   };
 
   const updateModule = async (moduleId: string, updates: Partial<Module>) => {
@@ -568,74 +568,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const videoId = existing?.id || `mv_${moduleId}`;
     const category = state.modules.find(m => m.id === moduleId)?.category ?? '';
     const video: ModuleVideo = { id: videoId, moduleId, ...updates, ...clipFields(start, end), category, restricted: isRestrictedCategory(state.categories, category) };
-    try {
-      await setDoc(doc(db, 'moduleVideos', videoId), video);
-    } catch (error) {
-      console.error('Error saving module video', error);
-    }
+    await report('Error saving module video', () => setDoc(doc(db, 'moduleVideos', videoId), video));
   };
 
   const deleteModuleVideo = async (moduleId: string) => {
     if (!currentUser || currentUser.role !== 'admin') return;
     const existing = state.moduleVideos.find(v => v.moduleId === moduleId);
     if (!existing) return;
-    try {
-      await deleteDoc(doc(db, 'moduleVideos', existing.id));
-    } catch (error) {
-      console.error('Error deleting module video', error);
-    }
+    await report('Error deleting module video', () => deleteDoc(doc(db, 'moduleVideos', existing.id)));
   };
 
   const updateUserTheme = async (theme: 'light' | 'dark') => {
     if (!currentUser) return;
-    try {
-      await setDoc(doc(db, 'users', currentUser.id), { theme }, { merge: true });
-    } catch (error) {
-      console.error('Error saving theme', error);
-    }
+    await report('Error saving theme', () => setDoc(doc(db, 'users', currentUser.id), { theme }, { merge: true }), { quiet: true });
   };
 
   // Which notifications you've read (ids from assessment/notifications.ts).
   const markNotificationsRead = async (ids: string[]) => {
     if (!currentUser) return;
-    try {
-      await setDoc(doc(db, 'users', currentUser.id), { readNotifications: ids }, { merge: true });
-    } catch (error) {
-      console.error('Error saving read notifications', error);
-    }
+    await report('Error saving read notifications', () => setDoc(doc(db, 'users', currentUser.id), { readNotifications: ids }, { merge: true }), { quiet: true });
   };
 
   // Admin-only (also enforced in firestore.rules): which restricted
   // categories a given user may see.
   const setUserUnlockedCategories = async (userId: string, categoryIds: string[]) => {
     if (currentUser?.role !== 'admin') return;
-    try {
-      await setDoc(doc(db, 'users', userId), { unlockedCategories: categoryIds }, { merge: true });
-    } catch (error) {
-      console.error('Error updating unlocked categories', error);
-    }
+    await report('Error updating unlocked categories', () => setDoc(doc(db, 'users', userId), { unlockedCategories: categoryIds }, { merge: true }));
   };
 
   const createCategory = async (name: string) => {
     if (currentUser?.role !== 'admin' || !name.trim()) return;
     const id = `cat_${Date.now()}`;
     const order = state.categories.length ? Math.max(...state.categories.map(c => c.order)) + 1 : 1;
-    try {
-      await setDoc(doc(db, 'categories', id), { id, name: name.trim(), order, restricted: false } satisfies Category);
-    } catch (error) {
-      console.error('Error creating category', error);
-    }
+    await report('Error creating category', () => setDoc(doc(db, 'categories', id), { id, name: name.trim(), order, restricted: false } satisfies Category));
   };
 
   // Locking/unlocking only flips the category here; the admin reconcile
   // effect above then updates every module/video in it.
   const updateCategory = async (categoryId: string, updates: Partial<Pick<Category, 'name' | 'restricted'>>) => {
     if (currentUser?.role !== 'admin') return;
-    try {
-      await updateDoc(doc(db, 'categories', categoryId), updates);
-    } catch (error) {
-      console.error('Error updating category', error);
-    }
+    await report('Error updating category', () => updateDoc(doc(db, 'categories', categoryId), updates));
   };
 
   // Swaps order with the neighbouring category in the given direction.
@@ -648,11 +620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const batch = writeBatch(db);
     batch.update(doc(db, 'categories', categoryId), { order: other.order });
     batch.update(doc(db, 'categories', other.id), { order: sorted[i].order });
-    try {
-      await batch.commit();
-    } catch (error) {
-      console.error('Error reordering categories', error);
-    }
+    await report('Error reordering categories', () => batch.commit());
   };
 
   // Refuses to delete a category that still has modules, so nothing ends
@@ -660,11 +628,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async (categoryId: string) => {
     if (currentUser?.role !== 'admin') return;
     if (state.modules.some(m => m.category === categoryId)) return;
-    try {
-      await deleteDoc(doc(db, 'categories', categoryId));
-    } catch (error) {
-      console.error('Error deleting category', error);
-    }
+    await report('Error deleting category', () => deleteDoc(doc(db, 'categories', categoryId)));
   };
 
   // The 1-5 assessment program (see src/assessment/).
@@ -692,7 +656,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const reviewedKey = staff ? '' : assessment.enrollments.filter(e => e.id !== authUid).map(e => e.traineeId).sort().join('|');
   useEffect(() => {
     if (!authUid || !role) return;
-    const logError = (label: string) => (error: unknown) => console.error(`Error syncing ${label} from Firestore:`, error);
+    const logError = syncFailed;
     const setProgress = (rows: VideoProgress[]) => setState(s => ({ ...s, videoProgress: rows }));
     const unsubs: Array<() => void> = [];
     if (staff) {
