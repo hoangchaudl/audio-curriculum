@@ -160,34 +160,65 @@ export const bandLabel = (bands: string[] | undefined, n: number) => bands?.[n -
 // can switch it EN / VI (remembered on this device); anything without a
 // Vietnamese text shows in English.
 type RubricLine = { id: string; title: string; levels?: string[]; outcome?: string; note?: string; vi?: RubricVi };
+
+// The rubric language this person picked (EN / VI): one choice for every
+// rubric view (trainee rubric tables, the reviewer's scoring panel),
+// remembered on this device and kept in step between open views.
+type RubricLang = 'en' | 'vi';
+const readRubricLang = (): RubricLang => { try { return localStorage.getItem('rubricLang') === 'vi' ? 'vi' : 'en'; } catch { return 'en'; } };
+export const useRubricLang = () => {
+  const [lang, setLang] = useState<RubricLang>(readRubricLang);
+  useEffect(() => {
+    const onChange = () => setLang(readRubricLang());
+    window.addEventListener('rubric-lang', onChange);
+    return () => window.removeEventListener('rubric-lang', onChange);
+  }, []);
+  const choose = (l: RubricLang) => {
+    try { localStorage.setItem('rubricLang', l); } catch { /* storage blocked */ }
+    setLang(l);
+    window.dispatchEvent(new Event('rubric-lang'));
+  };
+  return [lang, choose] as const;
+};
+
+export const RubricLangToggle: React.FC<{ lang: RubricLang; onChange: (l: RubricLang) => void }> = ({ lang, onChange }) => (
+  <div role="group" aria-label="Rubric language" className="flex gap-1">
+    {(['en', 'vi'] as const).map(l => (
+      <button key={l} type="button" aria-pressed={lang === l} onClick={() => onChange(l)}
+        className={`px-3 py-1 rounded-full text-[11px] font-black ${lang === l ? 'bg-[#2E9DF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+        {l === 'en' ? 'EN' : 'VI'}
+      </button>
+    ))}
+  </div>
+);
+
+// A rubric row's text in the chosen language (English when there's no
+// Vietnamese for it), and the name of score n.
+export const rubricText = (vi: boolean, row: { title?: string; outcome?: string; levels?: string[]; vi?: RubricVi } | undefined) => ({
+  title: (vi && row?.vi?.title?.trim()) || row?.title,
+  outcome: (vi && row?.vi?.outcome?.trim()) || row?.outcome,
+  level: (n: number) => (vi && row?.vi?.levels?.[n - 1]?.trim()) || row?.levels?.[n - 1],
+});
+export const rubricBand = (vi: boolean, bands: string[] | undefined, bandsVi: string[] | undefined, n: number) =>
+  vi ? bandsVi?.[n - 1]?.trim() || bands?.[n - 1]?.trim() || `Mức ${n}` : bandLabel(bands, n);
 const RUBRIC_TEXT = {
   en: { criterion: 'Criterion', assesses: 'What it assesses', weighting: 'Weighting', score: 'Score' },
   vi: { criterion: 'Tiêu chí', assesses: 'Đánh giá điều gì', weighting: 'Trọng số', score: 'Mức' },
 };
 export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; bandsVi?: string[] }> = ({ lines, bands, bandsVi }) => {
   const hasVi = lines.some(l => l.vi) || !!bandsVi?.some(b => b.trim());
-  const [lang, setLang] = useState<'en' | 'vi'>(() => { try { return localStorage.getItem('rubricLang') === 'vi' ? 'vi' : 'en'; } catch { return 'en'; } });
-  const choose = (l: 'en' | 'vi') => { setLang(l); try { localStorage.setItem('rubricLang', l); } catch { /* storage blocked */ } };
+  const [lang, choose] = useRubricLang();
   const vi = hasVi && lang === 'vi';
   const t = RUBRIC_TEXT[vi ? 'vi' : 'en'];
-  const title = (l: RubricLine) => (vi && l.vi?.title?.trim()) || l.title;
-  const outcome = (l: RubricLine) => (vi && l.vi?.outcome?.trim()) || l.outcome;
-  const level = (l: RubricLine, n: number) => (vi && l.vi?.levels?.[n - 1]?.trim()) || l.levels?.[n - 1];
-  const band = (n: number) => (vi ? bandsVi?.[n - 1]?.trim() || bands?.[n - 1]?.trim() || `${t.score} ${n}` : bandLabel(bands, n));
+  const title = (l: RubricLine) => rubricText(vi, l).title;
+  const outcome = (l: RubricLine) => rubricText(vi, l).outcome;
+  const level = (l: RubricLine, n: number) => rubricText(vi, l).level(n);
+  const band = (n: number) => rubricBand(vi, bands, bandsVi, n);
   const outcomes = lines.some(l => outcome(l));
   const notes = lines.some(l => l.note);
   return (
   <div>
-    {hasVi && (
-      <div role="group" aria-label="Rubric language" className="flex justify-end gap-1 mb-2">
-        {(['en', 'vi'] as const).map(l => (
-          <button key={l} type="button" aria-pressed={lang === l} onClick={() => choose(l)}
-            className={`px-3 py-1 rounded-full text-[11px] font-black ${lang === l ? 'bg-[#2E9DF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            {l === 'en' ? 'EN' : 'VI'}
-          </button>
-        ))}
-      </div>
-    )}
+    {hasVi && <div className="flex justify-end mb-2"><RubricLangToggle lang={lang} onChange={choose} /></div>}
   <div className="overflow-x-auto" lang={vi ? 'vi' : undefined}>
     <table className="w-full text-xs border-separate border-spacing-1 min-w-[720px]">
       <thead>
