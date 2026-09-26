@@ -4,7 +4,7 @@ import { Category, User } from '../types';
 import { traineeDataFrom } from '../assessment/traineeData';
 import { Standing, StandingStatus, behindReasons, traineeStanding } from '../assessment/standing';
 import { programProgress } from '../assessment/outline';
-import { roundScore } from '../assessment/scoring';
+import { Outcome, roundScore, scoreSnapshot } from '../assessment/scoring';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, formatDate, saveWith } from './assessment/ui';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -43,17 +43,27 @@ export const DesignerCard: React.FC<{
   const released = designer.status === 'released';
   const data = traineeDataFrom(ctx, designer.id);
   const outcome = programOutcomes.find(o => o.id === designer.id);
-  const badge = STATUS_BADGE[released ? 'released' : standing?.status ?? 'not_enrolled'];
+  // After the Week 4 decision, show the scores it was based on (frozen with
+  // it), not today's recalculation - weights or the benchmark may have
+  // changed since. Decisions recorded before snapshots existed show live scores.
+  const frozen = outcome?.decision ? outcome.snapshot : undefined;
+  const decidedStatus = frozen ? (frozen.meetsBenchmark ? 'passed' : 'not_passed') : undefined;
+  const badge = STATUS_BADGE[released ? 'released' : decidedStatus ?? standing?.status ?? 'not_enrolled'];
   const w = config.stageWeights;
   const r = standing?.result;
-  const stages = r ? [
-    { label: 'Episode A', weight: w.episodeA, o: r.episodeA },
-    { label: 'Episode B', weight: w.episodeB, o: r.episodeB },
-    { label: 'Audio Desc.', weight: w.da ?? 0, o: r.da },
-    { label: 'Pod Trial', weight: w.pod, o: r.pod },
-  ].filter(s => s.weight > 0) : [];
+  const LABELS = { episodeA: 'Episode A', episodeB: 'Episode B', da: 'Audio Desc.', pod: 'Pod Trial' } as const;
+  const scored = (value: number | null): Outcome => (value === null ? { status: 'awaiting', reason: 'assessment', missing: [] } : { status: 'scored', value });
+  const stages = frozen
+    ? frozen.stages.map(x => ({ label: LABELS[x.key], weight: x.weight, o: scored(x.value) })).filter(s => s.weight > 0)
+    : r ? [
+      { label: 'Episode A', weight: w.episodeA, o: r.episodeA },
+      { label: 'Episode B', weight: w.episodeB, o: r.episodeB },
+      { label: 'Audio Desc.', weight: w.da ?? 0, o: r.da },
+      { label: 'Pod Trial', weight: w.pod, o: r.pod },
+    ].filter(s => s.weight > 0) : [];
   const progress = data.enrollment ? programProgress(programOutline, assignments, data.enrollment, designer.id, videoProgress, assessmentSubmissions) : null;
-  const reasons = standing ? behindReasons(standing, config.passThreshold) : [];
+  // Once decided, "falling behind" no longer applies.
+  const reasons = standing && !outcome?.decision ? behindReasons(standing, config.passThreshold) : [];
 
 
   const weekLine = !standing ? null
@@ -69,7 +79,7 @@ export const DesignerCard: React.FC<{
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="font-black text-base leading-tight">{designer.name}</h4>
-          <p className="text-xs text-gray-500 font-bold truncate">{designer.pod || 'No pod'} • {designer.email}</p>
+          <p className="text-xs text-gray-500 font-bold truncate">{data.enrollment?.batch ? `${data.enrollment.batch} • ` : ''}{designer.pod || 'No pod'} • {designer.email}</p>
           {weekLine && <p className="text-[11px] text-gray-400 font-bold mt-0.5">{weekLine}</p>}
         </div>
         <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide whitespace-nowrap ${badge.cls}`}>{badge.label}</span>
@@ -92,7 +102,12 @@ export const DesignerCard: React.FC<{
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
             <span className="text-[10px] font-black uppercase text-gray-400">Final</span>
-            {r!.final.status === 'scored' ? (
+            {frozen ? (
+              <span className="flex items-center gap-2">
+                {frozen.final === null ? <span className="text-xs font-bold text-gray-500">No final score</span> : <OutcomeBadge outcome={scored(frozen.final)} />}
+                <BenchmarkChip meets={frozen.meetsBenchmark} threshold={frozen.passThreshold} />
+              </span>
+            ) : r!.final.status === 'scored' ? (
               <span className="flex items-center gap-2"><OutcomeBadge outcome={r!.final} /><BenchmarkChip meets={r!.meetsBenchmark} threshold={config.passThreshold} /></span>
             ) : (
               <span className="text-xs font-bold text-gray-500">
@@ -100,6 +115,12 @@ export const DesignerCard: React.FC<{
               </span>
             )}
           </div>
+
+          {frozen && (
+            <p className="text-[11px] font-bold text-gray-500 -mt-2">
+              As recorded with the decision on {formatDate(new Date(outcome!.decidedAt!))} - later changes to weights or the benchmark don't apply.
+            </p>
+          )}
 
           {reasons.length > 0 && (
             <ul className="bg-rose rounded-2xl px-4 py-3 text-xs font-bold text-ember list-disc pl-7 space-y-0.5">
@@ -113,7 +134,7 @@ export const DesignerCard: React.FC<{
             </ul>
           )}
 
-          {(standing.week >= 2 || standing.ended) && (
+          {(standing.week >= 2 || standing.ended) && (outcome?.week2 || !outcome?.decision) && (
             <div className="rounded-2xl px-4 py-3 text-xs bg-gray-50 text-gray-700 space-y-2">
               {outcome?.week2 ? (
                 <>
@@ -140,8 +161,8 @@ export const DesignerCard: React.FC<{
             </div>
           )}
 
-          {outcome?.week2?.decision !== 'release' && (standing.status === 'passed' || standing.status === 'not_passed') && (
-            <div className={`rounded-2xl px-4 py-3 text-xs ${standing.status === 'passed' ? 'bg-[#3DDC97]/15 text-leaf' : 'bg-gray-50 text-gray-600'}`}>
+          {outcome?.week2?.decision !== 'release' && (outcome?.decision || standing.status === 'passed' || standing.status === 'not_passed') && (
+            <div className={`rounded-2xl px-4 py-3 text-xs ${(decidedStatus ?? standing.status) === 'passed' ? 'bg-[#3DDC97]/15 text-leaf' : 'bg-gray-50 text-gray-600'}`}>
               {outcome?.decision ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-black">
@@ -200,7 +221,7 @@ export const DesignerCard: React.FC<{
         confirmLabel={confirm === 'release' ? 'Release' : 'Record'}
         onConfirm={() => {
           if (confirm === 'release') saveWith(setWeek2Checkpoint(designer.id, 'release', week2Note)).then(ok => ok && setWeek2Note(''));
-          else if (confirm) saveWith(setProgramOutcome(designer.id, confirm, finalNote)).then(ok => ok && setFinalNote(''));
+          else if (confirm) saveWith(setProgramOutcome(designer.id, confirm, finalNote, scoreSnapshot(data))).then(ok => ok && setFinalNote(''));
           setConfirm(null);
         }}
         onCancel={() => setConfirm(null)}

@@ -309,7 +309,8 @@ service cloud.firestore {
     function enrollmentMatchesInvite(d) {
       let inv = invite();
       return inv.role == 'sound_designer' && ('startDate' in inv) &&
-             d.keys().hasOnly(['id', 'traineeId', 'startDate', 'reviewers', 'reviewerUids', 'podEpisodesRequired', 'createdAt']) &&
+             d.keys().hasOnly(['id', 'traineeId', 'startDate', 'reviewers', 'reviewerUids', 'podEpisodesRequired', 'createdAt', 'batch']) &&
+             d.get('batch', '') == inv.get('batch', '') &&
              d.id == request.auth.uid && d.traineeId == request.auth.uid &&
              d.startDate == inv.startDate && d.podEpisodesRequired == inv.podEpisodesRequired &&
              d.reviewers == inv.reviewers && d.reviewerUids == inv.reviewerUids;

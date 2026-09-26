@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase';
 import {
   AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, Enrollment, Exercise,
-  Invite, Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, User,
+  Invite, Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, ScoreSnapshot, User,
 } from '../types';
 import { convertSkillGrading } from './migrate';
 import { isReleasedBy } from './standing';
@@ -195,7 +195,7 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   // --- admin / coordinator ---
 
   const upsertEnrollment = async (
-    traineeId: string, fields: Pick<Enrollment, 'startDate' | 'reviewers' | 'podEpisodesRequired'>,
+    traineeId: string, fields: Pick<Enrollment, 'startDate' | 'reviewers' | 'podEpisodesRequired' | 'batch'>,
   ) => {
     if (!isAdmin) return;
     const reviewers = Object.fromEntries(Object.entries(fields.reviewers).filter(([, v]) => !!v)) as Enrollment['reviewers'];
@@ -204,6 +204,7 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
       id: traineeId, traineeId, startDate: fields.startDate, podEpisodesRequired: fields.podEpisodesRequired, reviewers,
       reviewerUids: [...new Set(Object.values(reviewers))] as string[],
       createdAt: existing?.createdAt ?? new Date().toISOString(),
+      ...(fields.batch?.trim() ? { batch: fields.batch.trim() } : {}),
     };
     await setDoc(doc(db, 'enrollments', traineeId), row);
   };
@@ -327,11 +328,12 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     const week2 = decision ? { decision, decidedAt: new Date().toISOString(), decidedBy: uid, ...(note?.trim() ? { note: note.trim() } : {}) } : undefined;
     await saveCheckpoint(traineeId, { week2: week2 ?? (deleteField() as never) }, { ...current(traineeId), week2 });
   };
-  const setProgramOutcome = async (traineeId: string, decision: 'offered' | 'not_offered' | null, note?: string) => {
+  // `snapshot`: the scores the decision is based on, frozen with it.
+  const setProgramOutcome = async (traineeId: string, decision: 'offered' | 'not_offered' | null, note?: string, snapshot?: ScoreSnapshot) => {
     if (!isAdmin) return;
     const fields = decision
-      ? { decision, decidedAt: new Date().toISOString(), decidedBy: uid, note: note?.trim() ? note.trim() : deleteField() }
-      : { decision: deleteField(), decidedAt: deleteField(), decidedBy: deleteField(), note: deleteField() };
+      ? { decision, decidedAt: new Date().toISOString(), decidedBy: uid, note: note?.trim() ? note.trim() : deleteField(), snapshot: snapshot ?? deleteField() }
+      : { decision: deleteField(), decidedAt: deleteField(), decidedBy: deleteField(), note: deleteField(), snapshot: deleteField() };
     await saveCheckpoint(traineeId, fields as Partial<ProgramOutcome>, { ...current(traineeId), decision: decision ?? undefined });
   };
 

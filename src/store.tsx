@@ -7,6 +7,7 @@ import { Invite, Enrollment } from './types';
 const enrollmentFromInvite = (invite: Invite, uid: string): Enrollment => ({
   id: uid, traineeId: uid, startDate: invite.startDate!, podEpisodesRequired: invite.podEpisodesRequired ?? 1,
   reviewers: invite.reviewers ?? {}, reviewerUids: invite.reviewerUids ?? [], createdAt: new Date().toISOString(),
+  ...(invite.batch ? { batch: invite.batch } : {}),
 });
 import { AppState, User, Category, Module, ModuleVideo, VideoProgress } from './types';
 import { canSeeModule, isRestrictedCategory, seesAllCategories } from './access';
