@@ -11,7 +11,7 @@ import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
-import { SavedToast, saveWith } from './assessment/ui';
+import { saveWith } from './assessment/ui';
 import { ClipTimes } from './assessment/ClipTimes';
 import { DesignerCard, STATUS_ORDER } from './DesignerCard';
 import { behindReasons, traineeStanding } from '../assessment/standing';
@@ -691,7 +691,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         }}
         onCancel={() => setDiscardConfirmAction(null)}
       />
-      <SavedToast />
     </main>
   );
 };

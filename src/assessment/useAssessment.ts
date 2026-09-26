@@ -17,6 +17,7 @@ import {
   Invite, Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, User,
 } from '../types';
 import { convertSkillGrading } from './migrate';
+import { notifySyncError } from '../components/assessment/ui';
 import {
   DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE, scoreKeysFor,
   STAGE_SLOTS, PublicationKey, publicationKey, withConfigDefaults,
@@ -51,7 +52,7 @@ const useLive = <T extends { id: string }>(key: string | null, build: () => (Que
       setRows(Object.assign([...merged.values()], { loaded: answered.size === sources.length }));
     };
     const unsubs = sources.map((src, i) => {
-      const onError = (err: unknown) => console.error('Assessment sync error', err);
+      const onError = (err: unknown) => { console.error('Assessment sync error', err); notifySyncError(); };
       if (src instanceof DocumentReference) {
         return onSnapshot(src, snap => {
           results[i] = snap.exists() ? new Map([[snap.id, rowOf<T>(snap)]]) : new Map();
