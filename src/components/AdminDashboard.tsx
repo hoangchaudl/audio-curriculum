@@ -14,7 +14,7 @@ import { sortCategories } from '../access';
 import { saveWith } from './assessment/ui';
 import { ClipTimes } from './assessment/ClipTimes';
 import { DesignerCard, STATUS_ORDER } from './DesignerCard';
-import { behindReasons, traineeStanding } from '../assessment/standing';
+import { behindReasons, traineeStanding, week2CheckpointDue } from '../assessment/standing';
 import { traineeDataFrom } from '../assessment/traineeData';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
@@ -81,9 +81,15 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const roster = designers.map(designer => ({
     designer,
     standing: enrollments.some(e => e.id === designer.id) ? traineeStanding(traineeDataFrom(ctx, designer.id), programOutline, ctx.videoProgress) : null,
-  })).sort((a, b) => STATUS_ORDER.indexOf(a.standing?.status ?? 'not_enrolled') - STATUS_ORDER.indexOf(b.standing?.status ?? 'not_enrolled') || a.designer.name.localeCompare(b.designer.name));
-  const behind = roster.filter(r => r.standing?.status === 'behind');
-  const awaitingDecision = roster.filter(r => (r.standing?.status === 'passed' || r.standing?.status === 'not_passed') && !programOutcomes.some(o => o.id === r.designer.id));
+  }));
+  const sortKey = (r: typeof roster[number]) => STATUS_ORDER.indexOf(r.designer.status === 'released' ? 'released' : r.standing?.status ?? 'not_enrolled');
+  roster.sort((a, b) => sortKey(a) - sortKey(b) || a.designer.name.localeCompare(b.designer.name));
+  // Released trainees drop out of every alert.
+  const active = roster.filter(r => r.designer.status !== 'released');
+  const outcomeOf = (id: string) => programOutcomes.find(o => o.id === id);
+  const behind = active.filter(r => r.standing?.status === 'behind');
+  const awaitingDecision = active.filter(r => (r.standing?.status === 'passed' || r.standing?.status === 'not_passed') && !outcomeOf(r.designer.id)?.decision);
+  const checkpointDue = active.filter(r => week2CheckpointDue(r.standing, outcomeOf(r.designer.id)));
   const engineers = users.filter(u => u.role === 'audio_engineer');
   // The retired 1-4 homework system's data (read-only archive), as a JSON
   // download - see firestore.rules.
@@ -253,8 +259,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
         {/* Alerts for coordinators, on every tab: who's falling behind, and
             who finished probation and is waiting for an offer decision. */}
-        {(behind.length > 0 || awaitingDecision.length > 0) && (
+        {(behind.length > 0 || awaitingDecision.length > 0 || checkpointDue.length > 0) && (
           <div className="space-y-3">
+            {checkpointDue.length > 0 && (
+              <div className="bg-sky rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-bold text-navy">
+                  🚦 Week 2 checkpoint due for {checkpointDue.map(r => r.designer.name).join(', ')} - record continue or release.
+                </p>
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+              </div>
+            )}
             {behind.length > 0 && (
               <div className="bg-rose rounded-[32px] p-5 flex flex-wrap items-start justify-between gap-3">
                 <div>

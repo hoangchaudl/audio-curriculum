@@ -37,6 +37,13 @@ service cloud.firestore {
       return isSignedIn() && (callerRole() == 'audio_engineer' || callerRole() == 'admin');
     }
 
+    // A trainee an admin released at a checkpoint (Week 2 "Release", or
+    // Week 4 "No offer"). They keep their grades and feedback; lessons, the
+    // weekly outline and submitting are closed to them.
+    function isReleased() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status', 'active') == 'released';
+    }
+
     // Restricted categories an admin has unlocked for the caller.
     function callerUnlocked() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('unlockedCategories', []);
@@ -48,7 +55,7 @@ service cloud.firestore {
     // content plus categories unlocked for them. Documents missing the flag
     // are treated as locked until an admin's client backfills it.
     function canReadCurriculum() {
-      return isEngineerOrAdmin() || (isMember() && (
+      return isEngineerOrAdmin() || (isMember() && !isReleased() && (
                resource.data.get('restricted', true) == false ||
                resource.data.get('category', '') in callerUnlocked()
              ));
@@ -283,7 +290,7 @@ service cloud.firestore {
     }
 
     match /programOutline/{outlineId} {
-      allow read: if isMember();
+      allow read: if isMember() && !isReleased();
       allow write: if isAdmin();
     }
 
@@ -326,7 +333,7 @@ service cloud.firestore {
                   (isSignedIn() && (resource.data.traineeId == request.auth.uid ||
                                     isStageReviewer(resource.data.traineeId, resource.data.stage)));
       allow create: if isSignedIn() && request.resource.data.traineeId == request.auth.uid &&
-                    callerRole() == 'sound_designer' &&
+                    callerRole() == 'sound_designer' && !isReleased() &&
                     exists(/databases/$(database)/documents/enrollments/$(request.auth.uid)) &&
                     request.resource.data.keys().hasOnly(['id', 'traineeId', 'stage', 'target', 'version', 'links', 'note', 'isComplete', 'submittedAt']) &&
                     request.resource.data.id == submissionId &&
@@ -418,8 +425,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // End-of-probation (full-time offer) decisions: admins only - never
-    // visible to the trainee or their reviewers.
+    // Checkpoint decisions - Week 2 continue/release and the Week 4
+    // full-time offer: admins only, never visible to the trainee or their
+    // reviewers. (A release also sets users/{uid}.status, which is.)
     match /programOutcomes/{traineeId} {
       allow read, write: if isAdmin();
     }

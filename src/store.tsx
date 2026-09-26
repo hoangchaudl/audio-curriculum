@@ -208,9 +208,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // listen to everything. Re-subscribes whenever the role or unlock list
   // changes, so an admin's unlock/lock takes effect live.
   const role = currentUser?.role;
+  // Released at a checkpoint: lessons are closed (firestore.rules), so
+  // don't ask for them; grades and feedback still load (useAssessment).
+  const released = role === 'sound_designer' && currentUser?.status === 'released';
   const unlockedKey = (currentUser?.unlockedCategories ?? []).join('|');
   useEffect(() => {
-    if (!authUid || !role) return;
+    if (!authUid || !role || released) return;
     const unlocked = unlockedKey ? unlockedKey.split('|') : [];
 
     const listen = <T extends { id: string }>(
@@ -254,14 +257,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }),
     ];
     return () => unsubs.forEach(u => u());
-  }, [authUid, role, unlockedKey]);
+  }, [authUid, role, unlockedKey, released]);
 
   // Defense in depth on top of firestore.rules: also hides locked content
   // that only exists locally (the seed fallback shown before Firestore
   // responds), so a designer never sees it even for a moment.
   const visibleModules = useMemo(
-    () => state.modules.filter(m => canSeeModule(m, state.categories, currentUser)),
-    [state.modules, state.categories, currentUser],
+    () => (released ? [] : state.modules.filter(m => canSeeModule(m, state.categories, currentUser))),
+    [state.modules, state.categories, currentUser, released],
   );
   const visibleModuleVideos = useMemo(
     () => state.moduleVideos.filter(v => visibleModules.some(m => m.id === v.moduleId)),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE } from './config';
-import { behindReasons, lessonPace, traineeStanding } from './standing';
+import { behindReasons, isReleasedBy, lessonPace, traineeStanding, week2CheckpointDue } from './standing';
 import { TraineeData } from './scoring';
 
 const T = 't';
@@ -78,5 +78,25 @@ describe('lesson pace', () => {
     const s = traineeStanding(base(), outline, done(3), at('2026-09-24'));
     expect(s.status).toBe('behind');
     expect(behindReasons(s, 3.5)).toContain('Week 1: only 3 of 10 lessons done - behind pace (half by Day 4)');
+  });
+});
+
+describe('checkpoints (Week 2 continue/release, Week 4 offer)', () => {
+  const by = { decidedAt: '', decidedBy: 'a' };
+  it('a trainee is released by a Week 2 release or a Week 4 "no offer"', () => {
+    expect(isReleasedBy(undefined)).toBe(false);
+    expect(isReleasedBy({ id: T, week2: { decision: 'continue', ...by } })).toBe(false);
+    expect(isReleasedBy({ id: T, week2: { decision: 'release', ...by } })).toBe(true);
+    expect(isReleasedBy({ id: T, week2: { decision: 'continue', ...by }, decision: 'offered' })).toBe(false);
+    expect(isReleasedBy({ id: T, week2: { decision: 'continue', ...by }, decision: 'not_offered' })).toBe(true);
+  });
+  it('the Week 2 checkpoint is due once Week 2 is over, until it is recorded', () => {
+    // Started Mon Sep 21: Week 3 starts Oct 5.
+    const inWeek2 = traineeStanding(base(), DEFAULT_OUTLINE, [], at('2026-10-02'));
+    const inWeek3 = traineeStanding(base(), DEFAULT_OUTLINE, [], at('2026-10-05'));
+    expect(week2CheckpointDue(inWeek2, undefined)).toBe(false);
+    expect(week2CheckpointDue(inWeek3, undefined)).toBe(true);
+    expect(week2CheckpointDue(inWeek3, { id: T, week2: { decision: 'continue', ...by } })).toBe(false);
+    expect(week2CheckpointDue(null, undefined)).toBe(false);
   });
 });

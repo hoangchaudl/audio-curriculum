@@ -8,7 +8,8 @@ import { roundScore } from '../assessment/scoring';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, formatDate, saveWith } from './assessment/ui';
 import { ConfirmModal } from './ConfirmModal';
 
-export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled', { label: string; cls: string }> = {
+export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled' | 'released', { label: string; cls: string }> = {
+  released: { label: 'Released', cls: 'bg-gray-200 text-gray-700' },
   passed: { label: '✓ Passed probation', cls: 'bg-[#3DDC97] text-[#0B3D2A]' },
   not_passed: { label: 'Below benchmark', cls: 'bg-[#F4511E] text-white' },
   behind: { label: '⚠ Falling behind', cls: 'bg-[#F4511E]/20 text-ember' },
@@ -19,7 +20,7 @@ export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled', { label: stri
 };
 
 // Sort order for the roster: who needs attention first.
-export const STATUS_ORDER: (StandingStatus | 'not_enrolled')[] = ['behind', 'grading', 'passed', 'not_passed', 'on_track', 'upcoming', 'not_enrolled'];
+export const STATUS_ORDER: (StandingStatus | 'not_enrolled' | 'released')[] = ['behind', 'grading', 'passed', 'not_passed', 'on_track', 'upcoming', 'not_enrolled', 'released'];
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
@@ -34,11 +35,15 @@ export const DesignerCard: React.FC<{
 }> = ({ designer, standing, accent, lockedCategories }) => {
   const ctx = useAppContext();
   const { assessmentConfig: config, programOutline, assignments, videoProgress, assessmentSubmissions, programOutcomes, setProgramOutcome,
-    setUserUnlockedCategories } = ctx;
-  const [confirm, setConfirm] = useState<'offered' | 'not_offered' | null>(null);
+    setWeek2Checkpoint, setUserUnlockedCategories } = ctx;
+  const [confirm, setConfirm] = useState<'offered' | 'not_offered' | 'release' | null>(null);
+  // Optional reason recorded with each checkpoint decision (admins only).
+  const [week2Note, setWeek2Note] = useState('');
+  const [finalNote, setFinalNote] = useState('');
+  const released = designer.status === 'released';
   const data = traineeDataFrom(ctx, designer.id);
   const outcome = programOutcomes.find(o => o.id === designer.id);
-  const badge = STATUS_BADGE[standing?.status ?? 'not_enrolled'];
+  const badge = STATUS_BADGE[released ? 'released' : standing?.status ?? 'not_enrolled'];
   const w = config.stageWeights;
   const r = standing?.result;
   const stages = r ? [
@@ -108,16 +113,48 @@ export const DesignerCard: React.FC<{
             </ul>
           )}
 
-          {(standing.status === 'passed' || standing.status === 'not_passed') && (
+          {(standing.week >= 2 || standing.ended) && (
+            <div className="rounded-2xl px-4 py-3 text-xs bg-gray-50 text-gray-700 space-y-2">
+              {outcome?.week2 ? (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-black">
+                      Week 2 checkpoint: {outcome.week2.decision === 'continue' ? '✓ Continue' : 'Released - lessons closed, grades still visible'} · {formatDate(new Date(outcome.week2.decidedAt))}
+                    </span>
+                    <button onClick={() => saveWith(setWeek2Checkpoint(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>
+                  </div>
+                  {outcome.week2.note && <p className="text-gray-500 whitespace-pre-wrap">{outcome.week2.note}</p>}
+                </>
+              ) : (
+                <>
+                  <p className="font-black">Week 2 checkpoint - continue or release?</p>
+                  <textarea value={week2Note} onChange={e => setWeek2Note(e.target.value)} maxLength={2000} placeholder="Reason (optional, admins only)"
+                    aria-label="Week 2 checkpoint reason" className="w-full bg-surface rounded-xl p-2 text-xs h-14" />
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => saveWith(setWeek2Checkpoint(designer.id, 'continue', week2Note)).then(ok => ok && setWeek2Note(''))}
+                      className="bg-[#3DDC97] text-[#0B3D2A] font-black px-3 py-1.5 rounded-full">Continue</button>
+                    <button onClick={() => setConfirm('release')} className="bg-gray-200 text-gray-700 font-black px-3 py-1.5 rounded-full">Release</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {outcome?.week2?.decision !== 'release' && (standing.status === 'passed' || standing.status === 'not_passed') && (
             <div className={`rounded-2xl px-4 py-3 text-xs ${standing.status === 'passed' ? 'bg-[#3DDC97]/15 text-leaf' : 'bg-gray-50 text-gray-600'}`}>
-              {outcome ? (
+              {outcome?.decision ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-black">
-                    {outcome.decision === 'offered' ? '🎉 Full-time offer recorded' : 'Recorded: no full-time offer'} · {formatDate(new Date(outcome.decidedAt))}
+                    {outcome.decision === 'offered' ? '🎉 Full-time offer recorded' : 'Recorded: no full-time offer - lessons closed, grades still visible'} · {formatDate(new Date(outcome.decidedAt!))}
                   </span>
-                  <button onClick={() => saveWith(setProgramOutcome(designer.id, null))} className="font-bold text-gray-400 hover:text-ember">Undo</button>
+                  <button onClick={() => saveWith(setProgramOutcome(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>
+                  {outcome.note && <p className="w-full whitespace-pre-wrap opacity-80">{outcome.note}</p>}
                 </div>
-              ) : standing.status === 'passed' ? (
+              ) : (
+                <textarea value={finalNote} onChange={e => setFinalNote(e.target.value)} maxLength={2000} placeholder="Reason (optional, admins only)"
+                  aria-label="Week 4 decision reason" className="w-full bg-surface rounded-xl p-2 text-xs h-14 mb-2 text-gray-700" />
+              )}
+              {outcome?.decision ? null : standing.status === 'passed' ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-black">Passed probation - recommend a full-time offer.</span>
                   <button onClick={() => setConfirm('offered')} className="bg-[#3DDC97] text-[#0B3D2A] font-black px-3 py-1.5 rounded-full">Record full-time offer</button>
@@ -155,10 +192,17 @@ export const DesignerCard: React.FC<{
 
       <ConfirmModal
         open={confirm !== null}
-        title={confirm === 'offered' ? `Record a full-time offer for ${designer.name}?` : `Record that ${designer.name} won't get an offer?`}
-        message="This only records the decision here for coordinators - it isn't shown to the trainee or their reviewers, and no email is sent."
-        confirmLabel="Record"
-        onConfirm={() => { if (confirm) saveWith(setProgramOutcome(designer.id, confirm)); setConfirm(null); }}
+        title={confirm === 'release' ? `Release ${designer.name} at the Week 2 checkpoint?`
+          : confirm === 'offered' ? `Record a full-time offer for ${designer.name}?` : `Record that ${designer.name} won't get an offer?`}
+        message={confirm === 'offered'
+          ? "This only records the decision here for coordinators - it isn't shown to the trainee or their reviewers, and no email is sent."
+          : `${designer.name}'s lessons, schedule and submissions close right away; they can still see their grades and reviewers' feedback. The decision and reason are only visible to admins, and no email is sent. You can undo this.`}
+        confirmLabel={confirm === 'release' ? 'Release' : 'Record'}
+        onConfirm={() => {
+          if (confirm === 'release') saveWith(setWeek2Checkpoint(designer.id, 'release', week2Note)).then(ok => ok && setWeek2Note(''));
+          else if (confirm) saveWith(setProgramOutcome(designer.id, confirm, finalNote)).then(ok => ok && setFinalNote(''));
+          setConfirm(null);
+        }}
         onCancel={() => setConfirm(null)}
       />
     </div>

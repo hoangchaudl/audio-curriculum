@@ -342,6 +342,31 @@ describe('assessment program', () => {
     await assertFails(deleteDoc(doc(as(T), `assessmentSubmissions/${v1.id}`)));
     await assertFails(deleteDoc(doc(as('admin'), `assessmentSubmissions/${v1.id}`)));
   });
+  it('a released trainee keeps grades and feedback, but lessons, the outline and submitting are closed', async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'modules/open'), { id: 'open', category: 'Onboarding', restricted: false });
+      await setDoc(doc(db, 'programOutline/current'), { id: 'current', weeks: [] });
+      await setDoc(doc(db, `publications/${T}`), { id: T, episodeA: true, episodeB: false, pod: false });
+      await setDoc(doc(db, `reviews/${T}__A__ex1__trainer`), rev('A', 'ex1', 'trainer', 'trainer', 'trainee__A__ex1__v1', { exercise: 4 }));
+    });
+    const t = as(T);
+    await assertSucceeds(getDoc(doc(t, 'modules/open')));
+    // Only an admin can release (users can't set their own status either way).
+    await assertFails(updateDoc(doc(t, `users/${T}`), { status: 'released' }));
+    await assertSucceeds(updateDoc(doc(as('admin'), `users/${T}`), { status: 'released' }));
+    await assertFails(updateDoc(doc(t, `users/${T}`), { status: 'active' }));
+    await assertFails(getDoc(doc(t, 'modules/open')));
+    await assertFails(getDocs(query(collection(t, 'modules'), where('restricted', '==', false))));
+    await assertFails(getDoc(doc(t, 'programOutline/current')));
+    await assertFails(putSub(T, sub('A', 'ex1', 2)));
+    // Still theirs to see: published reviews, own submissions, enrollment, the grading setup.
+    await assertSucceeds(getDocs(query(collection(t, 'reviews'), where('traineeId', '==', T), where('stage', '==', 'A'))));
+    await assertSucceeds(getDocs(query(collection(t, 'assessmentSubmissions'), where('traineeId', '==', T))));
+    await assertSucceeds(getDoc(doc(t, `enrollments/${T}`)));
+    await assertSucceeds(getDoc(doc(t, 'assignments/asg1')));
+    // The checkpoint record itself stays admin-only.
+    await assertFails(getDoc(doc(t, `programOutcomes/${T}`)));
+  });
   it('an enrolled account whose role was changed away from trainee can no longer submit', async () => {
     await assertSucceeds(updateDoc(doc(as('admin'), `users/${T}`), { role: 'reviewer' }));
     const s = sub('A', 'ex1', 2);

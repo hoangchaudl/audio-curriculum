@@ -18,6 +18,10 @@ export interface User {
   unlockedCategories?: string[];
   // Notification ids this user has read (see assessment/notifications.ts).
   readNotifications?: string[];
+  // Trainees only: 'released' after an admin's checkpoint decision (Week 2
+  // "Release" or Week 4 "No offer"). Lessons close; grades stay visible.
+  // Only admins can change it (see firestore.rules).
+  status?: 'active' | 'released';
 }
 
 // Admin-managed grouping for modules (shown as sidebar sections). A
@@ -249,13 +253,23 @@ export interface Invite {
   createdBy: string;
 }
 
-// The coordinator's end-of-probation decision for a trainee. Admin-only
-// (never readable by the trainee or their reviewers).
-export interface ProgramOutcome {
-  id: string; // trainee uid
-  decision: 'offered' | 'not_offered';
+// An admin's checkpoint decisions for a trainee: continue/release after
+// Week 2, and the full-time offer after Week 4. Admin-only (never readable
+// by the trainee or their reviewers).
+export interface CheckpointDecision {
+  decision: 'continue' | 'release';
+  note?: string;
   decidedAt: string;
   decidedBy: string;
+}
+export interface ProgramOutcome {
+  id: string; // trainee uid
+  week2?: CheckpointDecision;
+  // Week 4: the full-time offer decision.
+  decision?: 'offered' | 'not_offered';
+  note?: string;
+  decidedAt?: string;
+  decidedBy?: string;
 }
 
 // Append-only: every revision is a new document; firestore.rules forbid
