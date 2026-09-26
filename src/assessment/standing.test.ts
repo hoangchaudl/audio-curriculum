@@ -97,6 +97,8 @@ describe('checkpoints (Week 2 continue/release, Week 4 offer)', () => {
     expect(week2CheckpointDue(inWeek2, undefined)).toBe(false);
     expect(week2CheckpointDue(inWeek3, undefined)).toBe(true);
     expect(week2CheckpointDue(inWeek3, { id: T, week2: { decision: 'continue', ...by } })).toBe(false);
+    // Already decided at Week 4: nothing left to ask at Week 2.
+    expect(week2CheckpointDue(inWeek3, { id: T, decision: 'offered' })).toBe(false);
     expect(week2CheckpointDue(null, undefined)).toBe(false);
   });
 });

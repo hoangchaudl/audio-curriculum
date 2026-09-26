@@ -8,7 +8,7 @@
 // - Reviewer table cell weights already include the criterion weight and
 //   are applied once (never multiplied by a criterion weight again).
 import {
-  AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
+  ScoreSnapshot, AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
   Enrollment, Exercise, ReviewerSlot,
 } from '../types';
 import { REVIEWER_SLOTS, allowedScoreKeys, gradesFirstComplete, stageCriteria } from './config';
@@ -318,4 +318,19 @@ export const reviewSummaries = (
     out.set(key, entry);
   }
   return [...out.values()];
+};
+
+// The scores as they stand right now, frozen onto a Week 4 decision (see
+// ProgramOutcome.snapshot): stage values, final score, benchmark.
+export const scoreSnapshot = (d: TraineeData): ScoreSnapshot => {
+  const r = finalResult(d);
+  const w = d.config.stageWeights;
+  const value = (o: Outcome) => (o.status === 'scored' ? roundScore(o.value) : null);
+  return {
+    final: value(r.final),
+    ...(r.meetsBenchmark !== undefined ? { meetsBenchmark: r.meetsBenchmark } : {}),
+    passThreshold: d.config.passThreshold,
+    stages: ([['episodeA', r.episodeA], ['episodeB', r.episodeB], ['da', r.da], ['pod', r.pod]] as const)
+      .map(([key, o]) => ({ key, weight: w[key] ?? 0, value: value(o) })),
+  };
 };

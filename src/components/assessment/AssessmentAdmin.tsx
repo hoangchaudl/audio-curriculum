@@ -11,7 +11,21 @@ import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { AssignmentForm, OutlineEditor } from './OutlineEditor';
 import { BandInputs, RubricPaste } from './RubricTools';
 import { PastedRubric } from '../../assessment/rubricPaste';
-import { BenchmarkChip, OutcomeBadge, ProgressBar, STAGE_LABELS, bandLabel, card, input, primaryBtn, saveWith, secondaryBtn, sectionTitle } from './ui';
+import {
+  BatchFilter, BenchmarkChip, OutcomeBadge, ProgressBar, STAGE_LABELS, bandLabel, batchNames, card, inBatch, input, primaryBtn, saveWith, secondaryBtn,
+  sectionTitle, useBatchFilter,
+} from './ui';
+
+// Suggestions for a batch field: the batches already in use.
+const BatchInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+  const { enrollments, invites } = useAppContext();
+  return (
+    <label className="text-xs font-bold text-gray-500 uppercase">Hiring batch
+      <input value={value} onChange={e => onChange(e.target.value)} list="batch-names" maxLength={40} placeholder="e.g. Oct 2026" className={`${input} mt-1`} />
+      <datalist id="batch-names">{batchNames(enrollments, invites).map(b => <option key={b} value={b} />)}</datalist>
+    </label>
+  );
+};
 
 type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 // Grouped in the order an admin works: set the program up, add people,
@@ -141,17 +155,19 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
   const [startDate, setStartDate] = useState(existing?.startDate ?? today());
   const [reviewers, setReviewers] = useState<Enrollment['reviewers']>(existing?.reviewers ?? {});
   const [pods, setPods] = useState<1 | 2>(existing?.podEpisodesRequired ?? 1);
+  const [batch, setBatch] = useState(existing?.batch ?? '');
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     setStartDate(existing?.startDate ?? today());
     setReviewers(existing?.reviewers ?? {});
     setPods(existing?.podEpisodesRequired ?? 1);
-  }, [existing?.startDate, existing?.podEpisodesRequired, JSON.stringify(existing?.reviewers)]);
+    setBatch(existing?.batch ?? '');
+  }, [existing?.startDate, existing?.podEpisodesRequired, existing?.batch, JSON.stringify(existing?.reviewers)]);
 
   const trainee = users.find(u => u.id === traineeId);
   const candidates = users.filter(u => u.id !== traineeId).sort((a, b) => a.name.localeCompare(b.name));
   const save = async () => {
-    await upsertEnrollment(traineeId, { startDate, reviewers, podEpisodesRequired: pods });
+    await upsertEnrollment(traineeId, { startDate, reviewers, podEpisodesRequired: pods, batch });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -172,6 +188,7 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
         <label className="text-xs font-bold text-gray-500 uppercase">Start date
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={`${input} mt-1`} />
         </label>
+        <BatchInput value={batch} onChange={setBatch} />
         <label className="text-xs font-bold text-gray-500 uppercase">Pod episodes required
           <select value={pods} onChange={e => setPods(Number(e.target.value) as 1 | 2)} className={`${input} mt-1`}>
             <option value={1}>1 episode</option>
@@ -208,7 +225,7 @@ const INVITE_ROLES: { id: Invite['role']; label: string }[] = [
 
 const InvitePanel: React.FC = () => {
   const { users, invites, createInvite, deleteInvite } = useAppContext();
-  const blank = { email: '', role: 'sound_designer' as Invite['role'], startDate: today(), pods: 1 as 1 | 2, reviewers: {} as Enrollment['reviewers'] };
+  const blank = { email: '', role: 'sound_designer' as Invite['role'], startDate: today(), pods: 1 as 1 | 2, reviewers: {} as Enrollment['reviewers'], batch: '' };
   const [f, setF] = useState(blank);
   const email = f.email.trim().toLowerCase();
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -217,7 +234,7 @@ const InvitePanel: React.FC = () => {
   const send = async () => {
     const ok = await saveWith(createInvite({
       email, role: f.role,
-      ...(f.role === 'sound_designer' ? { startDate: f.startDate, podEpisodesRequired: f.pods, reviewers: f.reviewers } : {}),
+      ...(f.role === 'sound_designer' ? { startDate: f.startDate, podEpisodesRequired: f.pods, reviewers: f.reviewers, ...(f.batch.trim() ? { batch: f.batch.trim() } : {}) } : {}),
     }));
     if (ok) setF(blank);
   };
@@ -244,6 +261,7 @@ const InvitePanel: React.FC = () => {
           <label className="text-xs font-bold text-gray-500 uppercase">Start date
             <input type="date" value={f.startDate} onChange={e => setF({ ...f, startDate: e.target.value })} className={`${input} mt-1`} />
           </label>
+          <BatchInput value={f.batch} onChange={batch => setF({ ...f, batch })} />
           <label className="text-xs font-bold text-gray-500 uppercase">Pod episodes required
             <select value={f.pods} onChange={e => setF({ ...f, pods: Number(e.target.value) as 1 | 2 })} className={`${input} mt-1`}>
               <option value={1}>1 episode</option>
@@ -271,7 +289,7 @@ const InvitePanel: React.FC = () => {
           {pending.map(inv => (
             <div key={inv.id} className="flex flex-wrap items-center gap-2 bg-gray-50 rounded-2xl px-3 py-2 text-sm">
               <span className="font-bold text-gray-800">{inv.email}</span>
-              <span className="text-xs text-gray-500">{INVITE_ROLES.find(r => r.id === inv.role)?.label}{inv.startDate ? ` · starts ${inv.startDate}` : ''}</span>
+              <span className="text-xs text-gray-500">{INVITE_ROLES.find(r => r.id === inv.role)?.label}{inv.startDate ? ` · starts ${inv.startDate}` : ''}{inv.batch ? ` · ${inv.batch}` : ''}</span>
               <button onClick={() => saveWith(deleteInvite(inv.id))} className="ml-auto text-xs font-bold text-gray-400 hover:text-ember">Cancel invite</button>
             </div>
           ))}
@@ -789,8 +807,10 @@ const PeopleTab: React.FC = () => {
 // --- Tab shell ------------------------------------------------------------------
 
 export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => void }> = ({ onEditModule }) => {
-  const { users, enrollments, modules, assignments, exercises, assessmentConfig, assessmentConfigSaved, setupAssessmentProgram, programOutline } = useAppContext();
+  const { users, enrollments, invites, modules, assignments, exercises, assessmentConfig, assessmentConfigSaved, setupAssessmentProgram, programOutline } = useAppContext();
   const [tab, setTab] = useState<Tab>('outline');
+  const batches = batchNames(enrollments, invites);
+  const [batch, setBatch] = useBatchFilter(batches);
   const [setupBusy, setSetupBusy] = useState(false);
   const needsSetup = !assessmentConfigSaved || !programOutline;
   // Before the one-time conversion the old data trips every check, and
@@ -842,7 +862,8 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
       {tab === 'tracking' && (
         <div className="space-y-4">
           {enrollments.length === 0 && <p className={`${card} text-sm text-gray-500`}>No trainees enrolled yet - use "Enrollment & reviewers".</p>}
-          {[...enrollments].sort((a, b) => (users.find(u => u.id === a.traineeId)?.name ?? '').localeCompare(users.find(u => u.id === b.traineeId)?.name ?? ''))
+          <BatchFilter value={batch} onChange={setBatch} batches={batches} />
+          {[...enrollments].filter(e => inBatch(e, batch)).sort((a, b) => (users.find(u => u.id === a.traineeId)?.name ?? '').localeCompare(users.find(u => u.id === b.traineeId)?.name ?? ''))
             .map(e => <TrackingRow key={e.id} enrollment={e} />)}
         </div>
       )}

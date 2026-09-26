@@ -235,6 +235,8 @@ export interface Enrollment {
   reviewerUids: string[];
   podEpisodesRequired: 1 | 2;
   createdAt: string;
+  // Hiring batch (e.g. "Oct 2026"): admins filter the roster by it.
+  batch?: string;
 }
 
 // An admin's invitation for an email address that hasn't signed up yet
@@ -249,6 +251,7 @@ export interface Invite {
   podEpisodesRequired?: 1 | 2;
   reviewers?: Partial<Record<ReviewerSlot, string>>;
   reviewerUids?: string[];
+  batch?: string;
   createdAt: string;
   createdBy: string;
 }
@@ -270,6 +273,16 @@ export interface ProgramOutcome {
   note?: string;
   decidedAt?: string;
   decidedBy?: string;
+  // The scores the Week 4 decision was based on, frozen at that moment, so
+  // later changes to weights, criteria or the benchmark don't rewrite them.
+  snapshot?: ScoreSnapshot;
+}
+
+export interface ScoreSnapshot {
+  final: number | null;
+  meetsBenchmark?: boolean;
+  passThreshold: number;
+  stages: { key: 'episodeA' | 'episodeB' | 'da' | 'pod'; weight: number; value: number | null }[];
 }
 
 // Append-only: every revision is a new document; firestore.rules forbid

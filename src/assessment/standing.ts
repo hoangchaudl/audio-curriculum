@@ -95,9 +95,10 @@ export const traineeStanding = (d: TraineeData, outline: ProgramOutline | null, 
 // Released at a checkpoint: Week 2 "Release", or Week 4 "No offer".
 export const isReleasedBy = (o: ProgramOutcome | undefined) => o?.week2?.decision === 'release' || o?.decision === 'not_offered';
 
-// Week 2 ended without a continue/release decision (and nobody released them).
+// Week 2 ended without a continue/release decision (and nobody released
+// them, and the Week 4 decision hasn't already been made).
 export const week2CheckpointDue = (s: Standing | null, o: ProgramOutcome | undefined) =>
-  !!s && (s.week >= 3 || s.ended) && !o?.week2 && !isReleasedBy(o);
+  !!s && (s.week >= 3 || s.ended) && !o?.week2 && !o?.decision && !isReleasedBy(o);
 
 // Why a trainee is flagged, in plain words.
 export const behindReasons = (s: Standing, passThreshold: number): string[] => [

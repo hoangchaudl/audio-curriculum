@@ -216,6 +216,13 @@ describe('invites', () => {
     await assertFails(setDoc(doc(asEmail('pat', 'pat@story.co'), 'users/pat'), { id: 'pat', role: 'reviewer', email: 'someone@story.co' }));
     await assertFails(setDoc(doc(asEmail('zed', 'zed@story.co'), 'users/zed'), { id: 'zed', role: 'reviewer', email: 'zed@story.co' }));
   });
+  it('an invited trainee enrolls into exactly the invited hiring batch', async () => {
+    await seed(db => setDoc(doc(db, 'invites/kim@story.co'), { ...trainee, batch: 'Oct 2026' }));
+    const kim = asEmail('kim', 'kim@story.co');
+    await assertFails(setDoc(doc(kim, 'enrollments/kim'), enrollment)); // batch left off
+    await assertFails(setDoc(doc(kim, 'enrollments/kim'), { ...enrollment, batch: 'Jan 2027' }));
+    await assertSucceeds(setDoc(doc(kim, 'enrollments/kim'), { ...enrollment, batch: 'Oct 2026' }));
+  });
   it('an invited trainee creates a trainee profile - not a different role', async () => {
     await assertSucceeds(setDoc(doc(asEmail('kim', 'kim@story.co'), 'users/kim'), { id: 'kim', role: 'sound_designer', email: 'kim@story.co' }));
     await assertFails(setDoc(doc(asEmail('kim', 'kim@story.co'), 'users/kim2'), { id: 'kim2', role: 'sound_designer', email: 'kim@story.co' }));

@@ -7,7 +7,7 @@ import {
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
-  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries,
+  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -320,6 +320,17 @@ describe('Final grade', () => {
     // 0.2*5 + 0.4*3 + 0.4*4 = 3.8
     expect(r.final).toEqual({ status: 'scored', value: expect.closeTo(3.8, 10) });
     expect(r.meetsBenchmark).toBe(true);
+  });
+
+  it('a snapshot freezes the scores a decision was based on', () => {
+    const d = complete(5, 3, 4);
+    const snap = scoreSnapshot(d);
+    expect(snap).toMatchObject({ final: 3.8, meetsBenchmark: true, passThreshold: CONFIG.passThreshold });
+    expect(snap.stages.filter(x => x.weight > 0).map(x => [x.key, x.weight, x.value])).toEqual([['episodeA', 20, 5], ['episodeB', 40, 3], ['pod', 40, 4]]);
+    // Later grading changes move the live result, not the snapshot taken earlier.
+    const stricter = { ...d, config: { ...d.config, passThreshold: 4, stageWeights: { ...d.config.stageWeights, episodeA: 0, pod: 60 } } };
+    expect(finalResult(stricter).meetsBenchmark).toBe(false);
+    expect(snap.final).toBe(3.8);
   });
 
   it('meets the benchmark at exactly 3.5 and not below', () => {

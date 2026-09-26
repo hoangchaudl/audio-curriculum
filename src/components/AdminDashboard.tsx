@@ -11,7 +11,7 @@ import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
-import { saveWith } from './assessment/ui';
+import { BatchFilter, batchNames, inBatch, saveWith, useBatchFilter } from './assessment/ui';
 import { ClipTimes } from './assessment/ClipTimes';
 import { DesignerCard, STATUS_ORDER } from './DesignerCard';
 import { behindReasons, traineeStanding, week2CheckpointDue } from '../assessment/standing';
@@ -67,7 +67,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const hasReviews = useHasReviewAssignments();
   const reviewTodo = useReviewTodoCount();
   const {
-    users, categories, modules, moduleVideos, enrollments, programOutline, programOutcomes, assessmentConfig,
+    users, categories, modules, moduleVideos, enrollments, invites, programOutline, programOutcomes, assessmentConfig,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo,
     setUserUnlockedCategories,
   } = useAppContext();
@@ -90,6 +90,11 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const behind = active.filter(r => r.standing?.status === 'behind');
   const awaitingDecision = active.filter(r => (r.standing?.status === 'passed' || r.standing?.status === 'not_passed') && !outcomeOf(r.designer.id)?.decision);
   const checkpointDue = active.filter(r => week2CheckpointDue(r.standing, outcomeOf(r.designer.id)));
+  // The Sound Designers tab shows one hiring batch at a time (newest by
+  // default); the alerts above always cover everyone.
+  const batches = batchNames(enrollments, invites);
+  const [batch, setBatch] = useBatchFilter(batches);
+  const shownRoster = roster.filter(r => inBatch(enrollments.find(e => e.id === r.designer.id), batch));
   const engineers = users.filter(u => u.role === 'audio_engineer');
   // The retired 1-4 homework system's data (read-only archive), as a JSON
   // download - see firestore.rules.
@@ -346,12 +351,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
                 📋 Probation progress
               </h3>
-              <span className="text-xs font-bold text-gray-500">
-                Pass = final score of {assessmentConfig.passThreshold}+ / 5 after week 4 → recommend a full-time offer
-              </span>
+              <div className="flex items-center gap-4 flex-wrap">
+                <BatchFilter value={batch} onChange={setBatch} batches={batches} />
+                <span className="text-xs font-bold text-gray-500">
+                  Pass = final score of {assessmentConfig.passThreshold}+ / 5 after week 4 → recommend a full-time offer
+                </span>
+              </div>
             </div>
+            {shownRoster.length === 0 && <p className="text-sm font-bold text-gray-500">No sound designers in this batch.</p>}
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {roster.map(({ designer, standing }, i) => (
+              {shownRoster.map(({ designer, standing }, i) => (
                 <DesignerCard key={designer.id} designer={designer} standing={standing} accent={CARD_THEMES[i % CARD_THEMES.length].accent}
                   lockedCategories={lockedCategories} />
               ))}

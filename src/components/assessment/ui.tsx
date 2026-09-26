@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 
 // Loaded when the first Markdown text is shown, not with the app.
 const Markdown = lazy(() => import('react-markdown'));
-import { AssessmentStage } from '../../types';
+import { AssessmentStage, Enrollment, Invite } from '../../types';
 import { Outcome, outcomeLabel, roundScore } from '../../assessment/scoring';
 import { SCORE_LABELS_5 } from '../../assessment/config';
 
@@ -187,3 +187,44 @@ export const RubricTable: React.FC<{ lines: { id: string; title: string; levels?
   </div>
   );
 };
+
+// --- Hiring batches ----------------------------------------------------------
+// Trainees are hired in batches (Enrollment.batch, e.g. "Oct 2026"). Admin
+// lists filter by batch; alerts always cover everyone.
+
+export const ALL_BATCHES = '__all__';
+export const NO_BATCH = '__none__';
+
+// Batch names in use, newest first (by the latest start date in each).
+export const batchNames = (enrollments: Enrollment[], invites: Invite[] = []): string[] => {
+  const latest = new Map<string, string>();
+  for (const x of [...enrollments, ...invites]) {
+    const name = x.batch?.trim();
+    if (!name) continue;
+    const start = x.startDate ?? '';
+    if (!latest.has(name) || start > latest.get(name)!) latest.set(name, start);
+  }
+  return [...latest.entries()].sort((a, b) => b[1].localeCompare(a[1]) || a[0].localeCompare(b[0])).map(([name]) => name);
+};
+
+export const inBatch = (enrollment: Enrollment | undefined, batch: string) =>
+  batch === ALL_BATCHES || (batch === NO_BATCH ? !enrollment?.batch : enrollment?.batch === batch);
+
+// The admin's choice, or by default the newest batch (everyone if there are none).
+export const useBatchFilter = (batches: string[]) => {
+  const [picked, setPicked] = useState<string | null>(null);
+  const value = picked !== null && (picked === ALL_BATCHES || picked === NO_BATCH || batches.includes(picked)) ? picked : batches[0] ?? ALL_BATCHES;
+  return [value, setPicked] as const;
+};
+
+export const BatchFilter: React.FC<{ value: string; onChange: (v: string) => void; batches: string[] }> = ({ value, onChange, batches }) =>
+  batches.length === 0 ? null : (
+    <label className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase">
+      Batch
+      <select value={value} onChange={e => onChange(e.target.value)} className="bg-surface border border-gray-200 rounded-xl px-3 py-2 text-sm font-bold text-gray-700 normal-case">
+        {batches.map(b => <option key={b} value={b}>{b}</option>)}
+        <option value={NO_BATCH}>No batch</option>
+        <option value={ALL_BATCHES}>All batches</option>
+      </select>
+    </label>
+  );
