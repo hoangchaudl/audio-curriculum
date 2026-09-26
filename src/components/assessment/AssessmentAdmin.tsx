@@ -9,8 +9,8 @@ import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
 import { AssignmentForm, OutlineEditor } from './OutlineEditor';
-import { BandInputs, RubricPaste } from './RubricTools';
-import { PastedRubric } from '../../assessment/rubricPaste';
+import { BandInputs, RubricPaste, VietnameseStatus } from './RubricTools';
+import { PastedRubric, withVietnamese } from '../../assessment/rubricPaste';
 import {
   BatchFilter, BenchmarkChip, OutcomeBadge, ProgressBar, STAGE_LABELS, bandLabel, batchNames, card, inBatch, input, primaryBtn, saveWith, secondaryBtn,
   sectionTitle, useBatchFilter,
@@ -340,7 +340,8 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
   // (so scores given stay attached); a row's weighting is split evenly
   // between the reviewers who score that criterion (all, for a new one).
   const applyPaste = (r: PastedRubric) => {
-    const next = r.criteria.map((c, i) => tidy({ id: criteria[i]?.id ?? `c_${Date.now().toString(36)}${i}`, title: c.title, levels: c.levels, outcome: c.outcome }));
+    const next = r.criteria.map((c, i) => tidy({ id: criteria[i]?.id ?? `c_${Date.now().toString(36)}${i}`, title: c.title, levels: c.levels, outcome: c.outcome,
+      ...(criteria[i]?.vi ? { vi: criteria[i].vi } : {}) }));
     const nextCells = next.flatMap((c, i) => {
       const had = cells.filter(x => x.criterion === c.id);
       const who = had.length ? had.map(x => x.slot) : slots.map(s => s.id);
@@ -351,6 +352,19 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
     });
     save(next, nextCells, r.bands ?? bands);
   };
+  // Vietnamese version (trainees can switch the rubric to VI): text only.
+  const applyVietnamese = (r: PastedRubric) => {
+    const next = withVietnamese(criteria, r);
+    if (!next) return;
+    saveWith(updateAssessmentConfig({
+      criteria: { ...config.criteria, [group]: next },
+      ...(r.bands ? { bandsVi: { ...config.bandsVi, [group]: r.bands } } : {}),
+    }));
+  };
+  const removeVietnamese = () => saveWith(updateAssessmentConfig({
+    criteria: { ...config.criteria, [group]: criteria.map(({ vi: _vi, ...c }) => c) },
+    bandsVi: Object.fromEntries(Object.entries(config.bandsVi ?? {}).filter(([g]) => g !== group)),
+  }));
   const setCell = (slot: ReviewerSlot, criterion: string, raw: string) => {
     const rest = cells.filter(c => !(c.slot === slot && c.criterion === criterion));
     save(criteria, raw === '' ? rest : [...rest, { slot, criterion, weight: Number(raw) }]);
@@ -372,8 +386,12 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
       </p>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
         <div className="flex-1 min-w-72"><BandInputs key={(bands ?? []).join('|')} bands={bands} onSave={b => save(criteria, cells, b)} /></div>
-        <RubricPaste onApply={applyPaste} />
+        <div className="flex flex-col items-end gap-1">
+          <RubricPaste onApply={applyPaste} />
+          {criteria.length > 0 && <RubricPaste vietnamese={criteria.length} onApply={applyVietnamese} />}
+        </div>
       </div>
+      <div className="mb-3"><VietnameseStatus done={criteria.filter(c => c.vi).length} total={criteria.length} onRemove={removeVietnamese} /></div>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
           <thead><tr><th />{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}<th /></tr></thead>

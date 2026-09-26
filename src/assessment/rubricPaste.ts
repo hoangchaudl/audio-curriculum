@@ -1,3 +1,5 @@
+import { RubricVi } from '../types';
+
 // Turns a rubric table pasted from Word, Google Docs/Sheets or a web page
 // into criteria. Expected columns, left to right:
 //   Criterion | [learning outcome / ILO] | [weighting] | 5 score descriptions
@@ -66,3 +68,13 @@ export const parseRubricRows = (raw: string[][]): PastedRubric | null => {
   if (!criteria.length) return null;
   return { criteria, ...(header ? { bands: header.slice(-5) } : {}) };
 };
+
+// A pasted Vietnamese version of an existing rubric: same rows, same order.
+// Only its text is used (the criteria, weights and ids stay as they are).
+// null when the row count doesn't match, so nothing is attached to the
+// wrong criterion.
+export const withVietnamese = <T extends { title: string; vi?: RubricVi }>(items: T[], pasted: PastedRubric): (T & { vi: RubricVi })[] | null =>
+  pasted.criteria.length !== items.length ? null : items.map((item, i) => {
+    const c = pasted.criteria[i];
+    return { ...item, vi: { title: c.title, levels: c.levels, ...(c.outcome ? { outcome: c.outcome } : {}) } };
+  });

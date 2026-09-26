@@ -5,7 +5,7 @@ import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmissio
 import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys, cellGroup, gradesFirstComplete, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
 import { assignmentWeek, daysLate } from '../../assessment/outline';
-import { STAGE_LABELS, bandLabel, card, input, notifySave, primaryBtn, secondaryBtn } from './ui';
+import { RubricLangToggle, STAGE_LABELS, card, input, notifySave, primaryBtn, rubricBand, rubricText, secondaryBtn, useRubricLang } from './ui';
 
 const STATUS_LABELS: Record<Status, string> = {
   'needs-review': 'Needs review',
@@ -49,8 +49,16 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const keys: string[] = isA ? item.lines.map(l => l.id) : allowedScoreKeys(item.stage, item.slot, assessmentConfig);
   const criteria = stageCriteria(assessmentConfig, item.stage);
   // Score names ("Merit (60+)") from the assignment (Episode A) or stage.
-  const bands = isA ? assignments.find(a => a.id === item.lines[0]?.assignmentId)?.bands : assessmentConfig.bands?.[cellGroup(item.stage)];
-  const outcomeOf = (k: string) => (isA ? item.lines.find(x => x.id === k) : criteria.find(c => c.id === k))?.outcome;
+  const lineAssignment = isA ? assignments.find(a => a.id === item.lines[0]?.assignmentId) : undefined;
+  const bands = isA ? lineAssignment?.bands : assessmentConfig.bands?.[cellGroup(item.stage)];
+  const bandsVi = isA ? lineAssignment?.bandsVi : assessmentConfig.bandsVi?.[cellGroup(item.stage)];
+  // The rubric in English or Vietnamese (when the admin added a Vietnamese
+  // version) - the same EN / VI choice as trainees' rubric tables.
+  const rowOf = (k: string) => (isA ? item.lines.find(x => x.id === k) : criteria.find(c => c.id === k));
+  const hasVi = keys.some(k => rowOf(k)?.vi) || !!bandsVi?.some(b => b.trim());
+  const [lang, chooseLang] = useRubricLang();
+  const vi = hasVi && lang === 'vi';
+  const outcomeOf = (k: string) => rubricText(vi, rowOf(k)).outcome;
   const cells = stageCells(assessmentConfig, item.stage);
   const complete = keys.every(k => scores[k]);
   const selected = item.versions.find(v => v.id === submissionId);
@@ -87,14 +95,11 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
     enrollments.find(e => e.id === item.traineeId), assessmentSubmissions) : null;
 
   // The admin's description of score n for this criterion.
-  const levelText = (k: string, n: number) => (isA ? item.lines.find(x => x.id === k) : criteria.find(c => c.id === k))?.levels?.[n - 1];
+  const levelText = (k: string, n: number) => rubricText(vi, rowOf(k)).level(n);
   const keyLabel = (k: string) => {
-    if (isA) {
-      const l = item.lines.find(x => x.id === k);
-      return `${l?.title ?? 'Criterion'} (${l?.weight ?? 0}% of this assignment)`;
-    }
-    const w = cells.find(c => c.slot === item.slot && c.criterion === k)?.weight;
-    return `${criteria.find(c => c.id === k)?.title ?? k} (${w}%)`;
+    const name = rubricText(vi, rowOf(k)).title ?? (isA ? 'Criterion' : k);
+    if (isA) return `${name} (${item.lines.find(x => x.id === k)?.weight ?? 0}% ${vi ? 'của bài này' : 'of this assignment'})`;
+    return `${name} (${cells.find(c => c.slot === item.slot && c.criterion === k)?.weight}%)`;
   };
 
   const save = async (status: AssessmentReview['status']) => {
@@ -147,7 +152,10 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
       </div>
 
       <div className="space-y-3">
-        {!locked && <p className="text-[11px] text-gray-500">Tip: press 1–5 to score the highlighted criterion · Ctrl/⌘+Enter submits</p>}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {!locked ? <p className="text-[11px] text-gray-500">Tip: press 1–5 to score the highlighted criterion · Ctrl/⌘+Enter submits</p> : <span />}
+          {hasVi && <RubricLangToggle lang={lang} onChange={chooseLang} />}
+        </div>
         {keys.map(k => (
           <div key={k} className={`rounded-2xl p-2 -m-2 ${k === current ? 'ring-2 ring-[#2E9DF7]/60' : ''}`} onFocus={() => setActive(k)}>
             <p className="text-xs font-bold text-gray-700">{keyLabel(k)}</p>
@@ -160,7 +168,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
                   className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
                     scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
-                  {bands?.some(b => b.trim()) ? `${n} · ${bandLabel(bands, n)}` : n}
+                  {(vi ? bandsVi ?? bands : bands)?.some(b => b.trim()) ? `${n} · ${rubricBand(vi, bands, bandsVi, n)}` : n}
                   {levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
                 </button>
               ))}

@@ -81,7 +81,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
               <div className="mt-5">
                 <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
                 <RubricTable lines={criteria.map(c => ({ ...c, note: `${Math.round(cells.filter(x => x.criterion === c.id).reduce((t, x) => t + x.weight, 0) * 100) / 100}%` }))}
-                  bands={assessmentConfig.bands?.[cellGroup(stage)]} />
+                  bands={assessmentConfig.bands?.[cellGroup(stage)]} bandsVi={assessmentConfig.bandsVi?.[cellGroup(stage)]} />
               </div>
             )}
           </section>
