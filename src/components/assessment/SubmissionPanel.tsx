@@ -90,8 +90,8 @@ export const SubmissionPanel: React.FC<{
           </p>
           {links.map((l, i) => (
             <div key={i} className="grid grid-cols-[7rem_1fr_auto] gap-2">
-              <input value={l.label} onChange={e => setLinks(ls => ls.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} aria-label="Link label" className={input} />
-              <input value={l.url} onChange={e => setLinks(ls => ls.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))}
+              <input value={l.label} maxLength={100} onChange={e => setLinks(ls => ls.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} aria-label="Link label" className={input} />
+              <input value={l.url} maxLength={2000} onChange={e => setLinks(ls => ls.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))}
                 placeholder="https://drive.google.com/... or https://f.io/..." aria-label="Link URL"
                 className={`${input} ${l.url && !isHttpUrl(l.url) ? 'ring-2 ring-[#F4511E]' : ''}`} />
               {links.length > 1 ? (
@@ -101,9 +101,9 @@ export const SubmissionPanel: React.FC<{
           ))}
           {invalid && <p className="text-[10px] font-bold text-ember">Links must start with http:// or https://</p>}
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setLinks(ls => [...ls, { label: 'Review', url: '' }])} className={secondaryBtn}>+ Another link</button>
+            {links.length < 10 && <button type="button" onClick={() => setLinks(ls => [...ls, { label: 'Review', url: '' }])} className={secondaryBtn}>+ Another link</button>}
           </div>
-          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Notes for your reviewer (optional)" className={`${input} h-16`} />
+          <textarea value={note} maxLength={5000} onChange={e => setNote(e.target.value)} placeholder="Notes for your reviewer (optional)" className={`${input} h-16`} />
           {askComplete && (
             <label className="flex items-start gap-2 text-xs font-bold text-gray-600">
               <input type="checkbox" checked={isComplete} onChange={e => setIsComplete(e.target.checked)} className="mt-0.5" />

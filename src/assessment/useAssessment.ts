@@ -8,7 +8,8 @@
 //     submissions for the stages their slot reviews, and their own reviews.
 import { useEffect, useMemo, useState } from 'react';
 import {
-  DocumentReference, Query, collection, doc, getDoc, onSnapshot, query, setDoc, where, writeBatch, deleteDoc, updateDoc,
+  DocumentData, DocumentReference, Query, Timestamp, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where, writeBatch,
+  deleteDoc, updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
@@ -23,6 +24,14 @@ import {
 } from './config';
 
 const STAGES: AssessmentStage[] = ['A', 'B', 'P1', 'P2', 'DA'];
+
+// Times the server stamps (submittedAt, updatedAt) arrive as Timestamps -
+// or, for a write still in flight, as the local estimate. The app works
+// with ISO strings (older documents store them that way), so convert.
+const withIsoTimes = <T,>(data: DocumentData): T =>
+  Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v instanceof Timestamp ? v.toDate().toISOString() : v])) as T;
+const rowOf = <T,>(snap: { data: (o: { serverTimestamps: 'estimate' }) => DocumentData | undefined }) =>
+  withIsoTimes<T>(snap.data({ serverTimestamps: 'estimate' }) ?? {});
 
 // Subscribes to several queries/docs and merges their rows by id. `key`
 // must change whenever the set of sources should change.
@@ -45,12 +54,12 @@ const useLive = <T extends { id: string }>(key: string | null, build: () => (Que
       const onError = (err: unknown) => console.error('Assessment sync error', err);
       if (src instanceof DocumentReference) {
         return onSnapshot(src, snap => {
-          results[i] = snap.exists() ? new Map([[snap.id, snap.data() as T]]) : new Map();
+          results[i] = snap.exists() ? new Map([[snap.id, rowOf<T>(snap)]]) : new Map();
           publish(i);
         }, onError);
       }
       return onSnapshot(src, snap => {
-        results[i] = new Map(snap.docs.map(d => [d.id, d.data() as T]));
+        results[i] = new Map(snap.docs.map(d => [d.id, rowOf<T>(d)]));
         publish(i);
       }, onError);
     });
@@ -146,8 +155,9 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
     for (let attempt = 0; attempt < 3; attempt++, version++) {
       const id = submissionId(uid, stage, target, version);
       if ((await getDoc(doc(db, 'assessmentSubmissions', id)).catch(() => null))?.exists()) continue;
-      const row: AssessmentSubmission = {
-        id, traineeId: uid, stage, target, version, links, isComplete, submittedAt: new Date().toISOString(),
+      // submittedAt: the server's clock (firestore.rules require it).
+      const row = {
+        id, traineeId: uid, stage, target, version, links, isComplete, submittedAt: serverTimestamp(),
         ...(note?.trim() ? { note: note.trim() } : {}),
       };
       try {
@@ -160,17 +170,22 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   };
 
   // Reviewer: create or revise their review (allowed until published).
+  // One review per target; an Episode A assignment passes one per grading
+  // line, and they save together or not at all.
   const saveReview = async (
-    traineeId: string, stage: AssessmentStage, target: string, slot: ReviewerSlot, submissionIdToGrade: string,
-    scores: AssessmentReview['scores'], status: AssessmentReview['status'], feedback?: string,
+    traineeId: string, stage: AssessmentStage, targets: { target: string; scores: AssessmentReview['scores'] }[],
+    slot: ReviewerSlot, submissionIdToGrade: string, status: AssessmentReview['status'], feedback?: string,
   ) => {
     if (!authUid) return;
-    const id = reviewId(traineeId, stage, target, slot);
-    const row: AssessmentReview = {
-      id, traineeId, stage, target, reviewerSlot: slot, reviewerUid: uid, submissionId: submissionIdToGrade,
-      scores, status, updatedAt: new Date().toISOString(), ...(feedback?.trim() ? { feedback: feedback.trim() } : {}),
-    };
-    await setDoc(doc(db, 'reviews', id), row);
+    const batch = writeBatch(db);
+    for (const { target, scores } of targets) {
+      const id = reviewId(traineeId, stage, target, slot);
+      batch.set(doc(db, 'reviews', id), {
+        id, traineeId, stage, target, reviewerSlot: slot, reviewerUid: uid, submissionId: submissionIdToGrade,
+        scores, status, updatedAt: serverTimestamp(), ...(feedback?.trim() ? { feedback: feedback.trim() } : {}),
+      });
+    }
+    await batch.commit();
   };
 
   // --- admin / coordinator ---

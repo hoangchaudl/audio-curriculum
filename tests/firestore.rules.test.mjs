@@ -8,7 +8,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import {
-  collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch,
+  collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, writeBatch,
 } from 'firebase/firestore';
 
 let env;
@@ -282,7 +282,9 @@ describe('assessment program', () => {
     id: `${T}__${stage}__${target}__${slot}`, traineeId: T, stage, target, reviewerSlot: slot, reviewerUid,
     submissionId, scores, status, updatedAt: '2026-01-06T10:00:00Z',
   });
-  const put = (uid, r) => setDoc(doc(as(uid), `reviews/${r.id}`), r);
+  // Writes stamp the server time, as the app does (rules require it).
+  const put = (uid, r) => setDoc(doc(as(uid), `reviews/${r.id}`), { ...r, updatedAt: serverTimestamp() });
+  const putSub = (uid, s) => setDoc(doc(as(uid), `assessmentSubmissions/${s.id}`), { ...s, submittedAt: serverTimestamp() });
   const FULL = { workflow: 4, dialogue: 4, sfx: 4, music: 4 };
 
   beforeEach(() => seed(async (db) => {
@@ -315,11 +317,27 @@ describe('assessment program', () => {
   // --- submissions ---
   it('trainee submits new revisions of their own work', async () => {
     const s = sub('A', 'ex1', 2);
-    await assertSucceeds(setDoc(doc(as(T), `assessmentSubmissions/${s.id}`), s));
+    await assertSucceeds(putSub(T, s));
+  });
+  it('the submission time is the server\'s, not the trainee\'s clock', async () => {
+    const s = sub('A', 'ex1', 2);
+    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${s.id}`), { ...s, submittedAt: '2026-01-01T00:00:00Z' }));
+    await assertSucceeds(putSub(T, s));
+  });
+  it('links must be 1-10 labelled http(s) URLs; notes are capped', async () => {
+    const s = sub('A', 'ex1', 2);
+    const link = (url, label = 'Session') => ({ label, url });
+    await assertFails(putSub(T, { ...s, links: [link('javascript:alert(1)')] }));
+    await assertFails(putSub(T, { ...s, links: [link('https://ok.example'), link('ftp://files.example')] }));
+    await assertFails(putSub(T, { ...s, links: [{ url: 'https://ok.example' }] }));
+    await assertFails(putSub(T, { ...s, links: [link('https://ok.example', 'x'.repeat(101))] }));
+    await assertFails(putSub(T, { ...s, links: Array.from({ length: 11 }, () => link('https://ok.example')) }));
+    await assertFails(putSub(T, { ...s, note: 'x'.repeat(5001) }));
+    await assertSucceeds(putSub(T, { ...s, note: 'Mixed at -23 LUFS', links: [link('HTTPS://drive.google.com/a'), link('https://f.io/b', 'Review')] }));
   });
   it('submitted versions are preserved: no overwrite, edit, or delete (even by admin)', async () => {
     const v1 = sub('A', 'ex1', 1);
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${v1.id}`), { ...v1, links: [{ label: 'x', url: 'y' }] }));
+    await assertFails(putSub(T, { ...v1, links: [{ label: 'x', url: 'y' }] }));
     await assertFails(updateDoc(doc(as(T), `assessmentSubmissions/${v1.id}`), { note: 'edited' }));
     await assertFails(deleteDoc(doc(as(T), `assessmentSubmissions/${v1.id}`)));
     await assertFails(deleteDoc(doc(as('admin'), `assessmentSubmissions/${v1.id}`)));
@@ -327,19 +345,19 @@ describe('assessment program', () => {
   it('an enrolled account whose role was changed away from trainee can no longer submit', async () => {
     await assertSucceeds(updateDoc(doc(as('admin'), `users/${T}`), { role: 'reviewer' }));
     const s = sub('A', 'ex1', 2);
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${s.id}`), s));
+    await assertFails(putSub(T, s));
   });
   it('trainees cannot submit for someone else, when unenrolled, or with invalid targets', async () => {
     const other = sub('A', 'ex1', 2, true, 'trainee2');
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${other.id}`), other));
+    await assertFails(putSub(T, other));
     const unenrolled = sub('A', 'ex1', 1, true, 'unenrolled');
-    await assertFails(setDoc(doc(as('unenrolled'), `assessmentSubmissions/${unenrolled.id}`), unenrolled));
+    await assertFails(putSub('unenrolled', unenrolled));
     const noExercise = sub('A', 'missing', 1);
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${noExercise.id}`), noExercise));
+    await assertFails(putSub(T, noExercise));
     const p2 = sub('P2', 'episode', 1); // this trainee needs only 1 pod episode
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${p2.id}`), p2));
+    await assertFails(putSub(T, p2));
     const badId = sub('A', 'ex1', 3);
-    await assertFails(setDoc(doc(as(T), 'assessmentSubmissions/whatever'), { ...badId, id: 'whatever' }));
+    await assertFails(setDoc(doc(as(T), 'assessmentSubmissions/whatever'), { ...badId, id: 'whatever', submittedAt: serverTimestamp() }));
   });
   it('a trainee sees only their own submissions', async () => {
     await assertSucceeds(getDocs(query(collection(as(T), 'assessmentSubmissions'), where('traineeId', '==', T))));
@@ -389,9 +407,9 @@ describe('assessment program', () => {
   });
   it('Audio Description (DA): trainee submits; trainer, engineer and producer score every criterion; KSD cannot', async () => {
     const da = sub('DA', 'episode', 1);
-    await assertSucceeds(setDoc(doc(as(T), `assessmentSubmissions/${da.id}`), da));
+    await assertSucceeds(putSub(T, da));
     const bad = sub('DA', 'asg1', 1); // DA is submitted against 'episode', like Episode B
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${bad.id}`), bad));
+    await assertFails(putSub(T, bad));
     await assertSucceeds(put('producer', rev('DA', 'episode', 'producer', 'producer', da.id, FULL)));
     await assertSucceeds(put('duy', rev('DA', 'episode', 'engineer', 'duy', da.id, FULL)));
     await assertSucceeds(put('trainer', rev('DA', 'episode', 'trainer', 'trainer', da.id, FULL)));
@@ -467,17 +485,37 @@ describe('assessment program', () => {
   // --- assignments & outline ---
   it('trainee submits against an Episode A assignment (not a B/P assignment id)', async () => {
     const s = sub('A', 'asg1', 2);
-    await assertSucceeds(setDoc(doc(as(T), `assessmentSubmissions/${s.id}`), s));
+    await assertSucceeds(putSub(T, s));
     const wrong = sub('A', 'asgB', 1);
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${wrong.id}`), wrong));
+    await assertFails(putSub(T, wrong));
     const missing = sub('A', 'nope', 1);
-    await assertFails(setDoc(doc(as(T), `assessmentSubmissions/${missing.id}`), missing));
+    await assertFails(putSub(T, missing));
   });
   it('trainer grades each line of one assignment submission separately', async () => {
     await assertSucceeds(put('trainer', rev('A', 'lineWf', 'trainer', 'trainer', 'trainee__A__asg1__v1', { exercise: 5 })));
     await assertSucceeds(put('trainer', rev('A', 'lineDx', 'trainer', 'trainer', 'trainee__A__asg1__v1', { exercise: 3 })));
     // A line can't be graded against another assignment's submission.
     await assertFails(put('trainer', rev('A', 'lineWf', 'trainer', 'trainer', 'trainee__A__ex1__v1', { exercise: 5 })));
+  });
+  it('all lines of an assignment save in one batch (as the review queue does)', async () => {
+    const db = as('trainer');
+    const b = writeBatch(db);
+    for (const [line, score] of [['lineWf', 5], ['lineDx', 3]]) {
+      const r = rev('A', line, 'trainer', 'trainer', 'trainee__A__asg1__v1', { exercise: score });
+      b.set(doc(db, `reviews/${r.id}`), { ...r, updatedAt: serverTimestamp() });
+    }
+    await assertSucceeds(b.commit());
+  });
+  it('review times are the server\'s', async () => {
+    const r = rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', FULL);
+    await assertFails(setDoc(doc(as('duy'), `reviews/${r.id}`), r));
+  });
+  it('the benchmark must be a score from 1 to 5', async () => {
+    const cfg = { id: 'current', passThreshold: 3.5, stageWeights: { episodeA: 20, episodeB: 25, pod: 40, da: 15 } };
+    await assertSucceeds(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, passThreshold: 4 }));
+    await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, passThreshold: 0 }));
+    await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, passThreshold: 6 }));
+    await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, passThreshold: '' }));
   });
   it('only admins arrange assignments and the outline', async () => {
     await assertSucceeds(getDoc(doc(as(T), 'assignments/asg1')));

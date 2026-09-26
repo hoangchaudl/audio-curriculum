@@ -85,6 +85,14 @@ export const scoreKeysFor = (config: AssessmentConfig): NonNullable<AssessmentCo
   return { B: bySlot('B'), P: bySlot('P1'), DA: bySlot('DA') };
 };
 
+// A number typed into a grading setting, or null when the field is blank,
+// not a number, or out of range (the field then goes back to the saved
+// value - a blank benchmark must never save as 0 and pass everyone).
+export const parseSetting = (text: string, min: number, max: number): number | null => {
+  const n = Number(text);
+  return text.trim() !== '' && Number.isFinite(n) && n >= min && n <= max ? n : null;
+};
+
 // Single-submission stages: only the first version marked complete is graded.
 export const gradesFirstComplete = (stage: AssessmentStage) => stage === 'B' || stage === 'DA';
 

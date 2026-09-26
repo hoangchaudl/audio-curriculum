@@ -4,6 +4,7 @@ import { useAppContext } from '../../store';
 import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
 import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys, cellGroup, gradesFirstComplete, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
+import { assignmentWeek, daysLate } from '../../assessment/outline';
 import { STAGE_LABELS, bandLabel, card, input, primaryBtn, secondaryBtn } from './ui';
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -33,7 +34,7 @@ const gradableVersions = (item: QueueItem) => {
 };
 
 const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, onDone }) => {
-  const { saveReview, assessmentConfig, modules, assignments } = useAppContext();
+  const { saveReview, assessmentConfig, modules, assignments, programOutline, enrollments, assessmentSubmissions } = useAppContext();
   const isA = item.stage === 'A';
   const options = gradableVersions(item);
   const [submissionId, setSubmissionId] = useState(item.review?.submissionId && options.some(o => o.id === item.review!.submissionId)
@@ -55,6 +56,11 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const selected = item.versions.find(v => v.id === submissionId);
   const laterRevisions = gradesFirstComplete(item.stage) ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
   const locked = item.published;
+  // Handed in after the due day? (Episode A items are per assignment; the
+  // other stages have one assignment each.)
+  const assignment = assignments.find(a => (isA ? a.id === item.target : a.stage === item.stage));
+  const late = assignment ? daysLate(assignment, assignmentWeek(programOutline, assignment.id),
+    enrollments.find(e => e.id === item.traineeId), assessmentSubmissions) : null;
 
   // The admin's description of score n for this criterion.
   const levelText = (k: string, n: number) => (isA ? item.lines.find(x => x.id === k) : criteria.find(c => c.id === k))?.levels?.[n - 1];
@@ -71,14 +77,12 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
     setBusy(true);
     setError('');
     try {
-      if (isA) {
-        // One review per grading line, all against the same submission.
-        await Promise.all(item.lines.map(l => saveReview(item.traineeId, 'A', l.id, item.slot, submissionId,
-          scores[l.id] ? { exercise: scores[l.id] } : {}, status, feedback)));
-      } else {
-        await saveReview(item.traineeId, item.stage, item.target, item.slot, submissionId,
-          Object.fromEntries(keys.flatMap(k => (scores[k] ? [[k, scores[k]]] : []))) as AssessmentReview['scores'], status, feedback);
-      }
+      // Episode A: one review per grading line, all against the same
+      // submission, saved together.
+      const targets = isA
+        ? item.lines.map(l => ({ target: l.id, scores: scores[l.id] ? { exercise: scores[l.id] } : {} }))
+        : [{ target: item.target, scores: Object.fromEntries(keys.flatMap(k => (scores[k] ? [[k, scores[k]]] : []))) as AssessmentReview['scores'] }];
+      await saveReview(item.traineeId, item.stage, targets, item.slot, submissionId, status, feedback);
       if (status === 'submitted') onDone();
     } catch (err) {
       console.error(err);
@@ -101,6 +105,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
             {options.map(v => <option key={v.id} value={v.id}>v{v.version} · {new Date(v.submittedAt).toLocaleDateString()}</option>)}
           </select>
         )}
+        {late && <p className="text-xs font-bold text-ember mt-1">Handed in {late} day{late === 1 ? '' : 's'} late</p>}
         {selected && (
           <ul className="flex flex-wrap gap-x-4 mt-2">
             {selected.links.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-[#2E9DF7] underline">{l.label}</a></li>)}

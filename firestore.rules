@@ -262,7 +262,12 @@ service cloud.firestore {
     // trainees see their rubric; only admins change them.
     match /assessmentConfig/{configId} {
       allow read: if isMember();
-      allow write: if isAdmin();
+      // The benchmark is a 1-5 score (a blank field must never save 0 -
+      // that would pass everyone).
+      allow write: if isAdmin() &&
+                   (!('passThreshold' in request.resource.data) ||
+                    (request.resource.data.passThreshold is number &&
+                     request.resource.data.passThreshold >= 1 && request.resource.data.passThreshold <= 5));
     }
 
     match /exercises/{exerciseId} {
@@ -337,9 +342,29 @@ service cloud.firestore {
                         get(/databases/$(database)/documents/assignments/$(request.resource.data.target)).data.stage == 'A'))) ||
                      (request.resource.data.stage != 'A' && request.resource.data.target == 'episode')) &&
                     (request.resource.data.stage != 'P2' || enrollmentOf(request.auth.uid).podEpisodesRequired == 2) &&
-                    request.resource.data.links is list && request.resource.data.links.size() >= 1 && request.resource.data.links.size() <= 10 &&
+                    linksOk(request.resource.data.links) &&
+                    request.resource.data.get('note', '') is string && request.resource.data.get('note', '').size() <= 5000 &&
+                    // Server clock, not the trainee's: lateness is judged by it.
+                    request.resource.data.submittedAt == request.time &&
                     request.resource.data.isComplete is bool;
       allow update, delete: if false;
+    }
+
+    // 1-10 links, each an http(s) URL with a short label. (Rules have no
+    // loops, hence one check per possible index.)
+    function linkOk(l) {
+      return l is map && l.keys().hasOnly(['label', 'url']) &&
+             l.label is string && l.label.size() <= 100 &&
+             l.url is string && l.url.size() <= 2000 && l.url.matches('(?i)https?://.+');
+    }
+    function linksOk(links) {
+      return links is list && links.size() >= 1 && links.size() <= 10 &&
+             linkOk(links[0]) &&
+             (links.size() < 2 || linkOk(links[1])) && (links.size() < 3 || linkOk(links[2])) &&
+             (links.size() < 4 || linkOk(links[3])) && (links.size() < 5 || linkOk(links[4])) &&
+             (links.size() < 6 || linkOk(links[5])) && (links.size() < 7 || linkOk(links[6])) &&
+             (links.size() < 8 || linkOk(links[7])) && (links.size() < 9 || linkOk(links[8])) &&
+             (links.size() < 10 || linkOk(links[9]));
     }
 
     // One review per (trainee, stage, target, reviewer slot). Only the
@@ -365,6 +390,7 @@ service cloud.firestore {
              isSlotHolder(d.traineeId, d.reviewerSlot) &&
              d.status in ['draft', 'submitted'] &&
              d.get('feedback', '') is string && d.get('feedback', '').size() <= 10000 &&
+             d.updatedAt == request.time &&
              scoresValid(d.scores, d.stage, d.reviewerSlot) &&
              (d.status == 'draft' || d.scores.keys().hasAll(allowedKeys(d.stage, d.reviewerSlot))) &&
              submissionMatches(d) &&
