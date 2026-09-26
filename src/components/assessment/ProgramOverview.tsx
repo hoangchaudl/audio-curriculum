@@ -33,6 +33,9 @@ export const ProgramOverview: React.FC = () => {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  // Released at a checkpoint: only Grades (their results and feedback).
+  const released = currentUser?.status === 'released';
+  const view: TabId = released ? 'grades' : tab;
   const chooseTab = (t: TabId) => {
     setTab(t);
     try { localStorage.setItem('programWelcomeSeen', '1'); } catch { /* storage blocked */ }
@@ -125,9 +128,18 @@ export const ProgramOverview: React.FC = () => {
         </div>
       </header>
 
+      {released && (
+        <div className="bg-surface border-b px-4 md:px-10 py-4 flex-shrink-0">
+          <p className="max-w-5xl mx-auto text-sm font-bold text-gray-700">
+            Your place in the StoryCo Audio Training Program has ended, so lessons and submissions are closed.
+            Your grades and your reviewers' feedback stay available below. Questions? Contact your coordinator.
+          </p>
+        </div>
+      )}
+
       {/* Pinned above the tabs and outside the scroll area, so Up next and
           progress stay in view on every tab. */}
-      <div className="bg-surface border-b px-4 md:px-10 py-3 flex-shrink-0">
+      {!released && <div className="bg-surface border-b px-4 md:px-10 py-3 flex-shrink-0">
         <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-x-6 gap-y-3">
           <div className="flex-1 min-w-60 flex items-center justify-between gap-3">
             {next ? (
@@ -158,11 +170,11 @@ export const ProgramOverview: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-6">
-          {(pace.length > 0 || overdue.length > 0) && (
+          {!released && (pace.length > 0 || overdue.length > 0) && (
           <section className="space-y-3">
             {pace.length > 0 && (
               <div className="bg-[#F4511E]/10 border-2 border-[#F4511E]/30 rounded-[32px] p-5 space-y-1">
@@ -191,18 +203,18 @@ export const ProgramOverview: React.FC = () => {
           </section>
           )}
 
-          <div role="tablist" aria-label="My Program sections" className="flex gap-1 bg-surface rounded-full p-1 border border-gray-100 shadow-sm w-fit max-w-full overflow-x-auto">
+          {!released && <div role="tablist" aria-label="My Program sections" className="flex gap-1 bg-surface rounded-full p-1 border border-gray-100 shadow-sm w-fit max-w-full overflow-x-auto">
             {TABS.map(t => (
               <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => chooseTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-[#2E9DF7] text-white shadow-md' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
                 <t.Icon className="w-4 h-4" strokeWidth={2.5} aria-hidden="true" />{t.label}
               </button>
             ))}
-          </div>
+          </div>}
 
-          {tab === 'today' && <WeekPlan traineeId={currentUser?.id} />}
+          {view === 'today' && <WeekPlan traineeId={currentUser?.id} />}
 
-          {tab === 'schedule' && (
+          {view === 'schedule' && (
             <>
             {programOutline?.weeks.length ? (
               <section className={card}>
@@ -284,7 +296,7 @@ export const ProgramOverview: React.FC = () => {
             </>
           )}
 
-          {tab === 'grades' && (
+          {view === 'grades' && (
             <>
             <div>
               <h3 className={`${sectionTitle} mb-1 px-2`}>How you're graded</h3>
@@ -347,7 +359,7 @@ export const ProgramOverview: React.FC = () => {
             </>
           )}
 
-          {tab === 'about' && (
+          {view === 'about' && (
           <section className="bg-sky rounded-[32px] p-6 md:p-8 text-navy">
             <h3 className="text-lg font-black mb-2">Welcome to your training program</h3>
             <p className="text-sm font-medium mb-4">

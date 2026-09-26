@@ -19,6 +19,8 @@ export const SubmissionPanel: React.FC<{
   disabledReason?: string;
 }> = ({ stage, target, askComplete, gradedSubmissionId, disabledReason }) => {
   const { currentUser, assessmentSubmissions, submitAssessmentVersion } = useAppContext();
+  // Released at a checkpoint: history stays visible, submitting is closed.
+  if (currentUser?.status === 'released') disabledReason = 'Your place in the program has ended, so submissions are closed. Your earlier versions and results stay here.';
   const [links, setLinks] = useState([{ label: 'Session', url: '' }]);
   const [note, setNote] = useState('');
   const [isComplete, setIsComplete] = useState(false);

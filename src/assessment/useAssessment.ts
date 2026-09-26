@@ -8,8 +8,8 @@
 //     submissions for the stages their slot reviews, and their own reviews.
 import { useEffect, useMemo, useState } from 'react';
 import {
-  DocumentData, DocumentReference, Query, Timestamp, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where, writeBatch,
-  deleteDoc, updateDoc,
+  DocumentData, DocumentReference, Query, Timestamp, collection, deleteField, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where,
+  writeBatch, deleteDoc, updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
@@ -17,6 +17,7 @@ import {
   Invite, Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, User,
 } from '../types';
 import { convertSkillGrading } from './migrate';
+import { isReleasedBy } from './standing';
 import { notifySyncError } from '../components/assessment/ui';
 import {
   DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE, scoreKeysFor,
@@ -90,7 +91,9 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   const configSaved = configRows.length > 0;
 
   const assignments = useLive<Assignment>(ready ? 'assignments' : null, () => [collection(db, 'assignments')]);
-  const outlineRows = useLive<ProgramOutline>(ready ? 'outline' : null, () => [doc(db, 'programOutline', 'current')]);
+  // Released trainees don't get the weekly outline (firestore.rules).
+  const released = role === 'sound_designer' && currentUser?.status === 'released';
+  const outlineRows = useLive<ProgramOutline>(ready && !released ? 'outline' : null, () => [doc(db, 'programOutline', 'current')]);
   const programOutline = outlineRows[0] ?? null;
 
   // --- enrollments ---
@@ -308,11 +311,28 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   };
   const deleteInvite = async (id: string) => { if (isAdmin) await deleteDoc(doc(db, 'invites', id)); };
 
-  // Record (or clear, with null) the full-time offer decision.
-  const setProgramOutcome = async (traineeId: string, decision: ProgramOutcome['decision'] | null) => {
+  // Record (or clear, with null) a checkpoint decision: Week 2 continue /
+  // release, or the Week 4 full-time offer. A release (or no offer) closes
+  // the trainee's lessons via users/{uid}.status; clearing it reopens them.
+  // Decision and status are written together, so they never disagree.
+  const saveCheckpoint = async (traineeId: string, fields: Partial<ProgramOutcome>, next: ProgramOutcome) => {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'programOutcomes', traineeId), { id: traineeId, ...fields }, { merge: true });
+    batch.update(doc(db, 'users', traineeId), { status: isReleasedBy(next) ? 'released' : 'active' });
+    await batch.commit();
+  };
+  const current = (traineeId: string): ProgramOutcome => programOutcomes.find(o => o.id === traineeId) ?? { id: traineeId };
+  const setWeek2Checkpoint = async (traineeId: string, decision: 'continue' | 'release' | null, note?: string) => {
     if (!isAdmin) return;
-    if (!decision) { await deleteDoc(doc(db, 'programOutcomes', traineeId)); return; }
-    await setDoc(doc(db, 'programOutcomes', traineeId), { id: traineeId, decision, decidedAt: new Date().toISOString(), decidedBy: uid } satisfies ProgramOutcome);
+    const week2 = decision ? { decision, decidedAt: new Date().toISOString(), decidedBy: uid, ...(note?.trim() ? { note: note.trim() } : {}) } : undefined;
+    await saveCheckpoint(traineeId, { week2: week2 ?? (deleteField() as never) }, { ...current(traineeId), week2 });
+  };
+  const setProgramOutcome = async (traineeId: string, decision: 'offered' | 'not_offered' | null, note?: string) => {
+    if (!isAdmin) return;
+    const fields = decision
+      ? { decision, decidedAt: new Date().toISOString(), decidedBy: uid, note: note?.trim() ? note.trim() : deleteField() }
+      : { decision: deleteField(), decidedAt: deleteField(), decidedBy: deleteField(), note: deleteField() };
+    await saveCheckpoint(traineeId, fields as Partial<ProgramOutcome>, { ...current(traineeId), decision: decision ?? undefined });
   };
 
   const updateAssignment = async (assignmentId: string, updates: Partial<Assignment>) => {
@@ -345,7 +365,7 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
 
   return {
     exercises, assignments, programOutline, assessmentConfig: config, assessmentConfigSaved: configSaved,
-    enrollments, ownEnrollmentLoaded: isAdmin || !!ownEnrollment.loaded, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome,
+    enrollments, ownEnrollmentLoaded: isAdmin || !!ownEnrollment.loaded, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome, setWeek2Checkpoint,
     invites, createInvite, deleteInvite,
     submitAssessmentVersion, saveReview, upsertEnrollment, setPublication, upsertExercise, deleteExercise,
     updateAssessmentConfig, setupAssessmentProgram, updateAssignment, convertToAssignmentGrading, saveOutline, saveAssignment, deleteAssignment,

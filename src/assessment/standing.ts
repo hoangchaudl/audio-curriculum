@@ -1,4 +1,4 @@
-import { Assignment, ProgramOutline, VideoProgress } from '../types';
+import { Assignment, ProgramOutcome, ProgramOutline, VideoProgress } from '../types';
 import { FinalResult, TraineeData, finalResult, roundScore } from './scoring';
 import { assignmentApplies, assignmentStatus, daysLate, programDate, weekGroups } from './outline';
 
@@ -91,6 +91,13 @@ export const traineeStanding = (d: TraineeData, outline: ProgramOutline | null, 
       : 'on_track';
   return { status, week, totalWeeks, ended, overdue, late, pace, scoreSoFar, result };
 };
+
+// Released at a checkpoint: Week 2 "Release", or Week 4 "No offer".
+export const isReleasedBy = (o: ProgramOutcome | undefined) => o?.week2?.decision === 'release' || o?.decision === 'not_offered';
+
+// Week 2 ended without a continue/release decision (and nobody released them).
+export const week2CheckpointDue = (s: Standing | null, o: ProgramOutcome | undefined) =>
+  !!s && (s.week >= 3 || s.ended) && !o?.week2 && !isReleasedBy(o);
 
 // Why a trainee is flagged, in plain words.
 export const behindReasons = (s: Standing, passThreshold: number): string[] => [
