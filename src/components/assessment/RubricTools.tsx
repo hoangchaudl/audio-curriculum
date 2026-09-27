@@ -20,19 +20,20 @@ export const BandInputs: React.FC<{ bands?: string[]; onSave: (bands: string[]) 
 
 // "Paste table": paste a rubric copied from Word, Google Docs/Sheets or a
 // web page; shows what was found before replacing the criteria.
-// With `vietnamese` (the number of criteria): paste the Vietnamese version
-// of the same table - same rows, same order - which only adds text for
-// trainees who switch the rubric to VI.
-export const RubricPaste: React.FC<{ onApply: (r: PastedRubric) => void; vietnamese?: number }> = ({ onApply, vietnamese }) => {
+// With `vietnamese` (the English criterion names, in order): paste the
+// Vietnamese version of the same table - same rows, same order - which only
+// adds text for people who switch the rubric to VI. The preview pairs each
+// English criterion with its Vietnamese row, so a wrong table is obvious.
+export const RubricPaste: React.FC<{ onApply: (r: PastedRubric) => void; vietnamese?: string[] }> = ({ onApply, vietnamese }) => {
   const [open, setOpen] = useState(false);
   const [found, setFound] = useState<PastedRubric | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const read = (rows: string[][]) => {
     const r = parseRubricRows(rows);
-    const wrongCount = r && vietnamese !== undefined && r.criteria.length !== vietnamese;
+    const wrongCount = r && vietnamese !== undefined && r.criteria.length !== vietnamese.length;
     setFound(r && !wrongCount ? r : null);
     setFailed(!r ? "Couldn't find a table with a criterion and five score columns - check the columns and paste again."
-      : wrongCount ? `Found ${r.criteria.length} rows, but this rubric has ${vietnamese} criteria - paste the same table, in the same order.` : null);
+      : wrongCount ? `Found ${r.criteria.length} rows, but this rubric has ${vietnamese!.length} criteria - paste the same table, in the same order.` : null);
   };
   const close = () => { setOpen(false); setFound(null); setFailed(null); };
 
@@ -60,7 +61,16 @@ export const RubricPaste: React.FC<{ onApply: (r: PastedRubric) => void; vietnam
       {failed && <p className="text-xs font-bold text-ember">{failed}</p>}
       {found && (
         <div className="text-xs text-navy space-y-1">
-          <p><b>{found.criteria.length} criteria:</b> {found.criteria.map(c => `${c.title}${c.weight !== undefined ? ` (${c.weight}%)` : ''}`).join(' · ')}</p>
+          {vietnamese ? (
+            <div>
+              <p><b>Check each row matches:</b></p>
+              <ol className="list-decimal pl-5">
+                {vietnamese.map((en, i) => <li key={i}>{en} <span className="text-gray-500">→</span> <b>{found.criteria[i]?.title}</b></li>)}
+              </ol>
+            </div>
+          ) : (
+            <p><b>{found.criteria.length} criteria:</b> {found.criteria.map(c => `${c.title}${c.weight !== undefined ? ` (${c.weight}%)` : ''}`).join(' · ')}</p>
+          )}
           {found.bands && <p><b>Scores:</b> {found.bands.map((b, i) => `${i + 1} ${b}`).join(' · ')}</p>}
           <p className="text-gray-500">{vietnamese !== undefined
             ? 'This adds the Vietnamese text to the criteria below, in order (replacing any earlier Vietnamese version).'

@@ -90,7 +90,7 @@ export const AssignmentForm: React.FC<{
                 if (r.bands) setA(x => ({ ...x, bands: r.bands }));
               }} />
               {lines.length > 0 && (
-                <RubricPaste vietnamese={lines.length} onApply={r => {
+                <RubricPaste vietnamese={lines.map(l => l.title)} onApply={r => {
                   const next = withVietnamese(lines, r);
                   if (next) setLines(next);
                   if (r.bands) setA(x => ({ ...x, bandsVi: r.bands }));
