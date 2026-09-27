@@ -219,32 +219,34 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
   const outcome = (l: RubricLine) => rubricText(vi, l).outcome;
   const level = (l: RubricLine, n: number) => rubricText(vi, l).level(n);
   const band = (n: number) => rubricBand(vi, bands, bandsVi, n);
-  const outcomes = lines.some(l => outcome(l));
-  const notes = lines.some(l => l.note);
+  // Criterion, its weighting and what it assesses share the first column,
+  // so the five score descriptions get the width (and read in long lines).
   return (
   <div>
     {hasVi && <div className="flex justify-end mb-2"><RubricLangToggle lang={lang} onChange={choose} /></div>}
   <div className="overflow-x-auto" lang={vi ? 'vi' : undefined}>
-    <table className="w-full text-xs border-separate border-spacing-1 min-w-[720px]">
+    <table className="w-full text-xs border-separate border-spacing-1">
       <thead>
         <tr className="text-[10px] font-black uppercase text-gray-500">
-          <th className="text-left px-2 py-1 w-36">{t.criterion}</th>
-          {outcomes && <th className="text-left px-2 py-1 w-48">{t.assesses}</th>}
-          {notes && <th className="text-left px-2 py-1">{t.weighting}</th>}
-          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1">{n} — {band(n)}</th>)}
+          <th className="text-left px-2 py-1 w-44 min-w-[9rem]">{t.criterion}</th>
+          {/* A minimum width per score column: on small screens the table
+              scrolls sideways instead of squeezing the text into slivers. */}
+          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1 min-w-[9rem]">{n} — {band(n)}</th>)}
         </tr>
       </thead>
       <tbody>
         {lines.map(l => (
           <tr key={l.id} className="align-top">
-            <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{title(l)}</td>
-            {outcomes && <td className="bg-gray-50 rounded-xl px-3 py-2 text-gray-600 whitespace-pre-wrap">{outcome(l) || <span className="text-gray-300">–</span>}</td>}
-            {notes && <td className="bg-gray-50 rounded-xl px-3 py-2 font-black text-gray-600">{l.note}</td>}
+            <td className="bg-sky text-navy rounded-xl px-3 py-2">
+              <p className="font-black">{title(l)}</p>
+              {l.note && <p className="mt-1"><span className="inline-block bg-surface rounded-full px-2 py-0.5 text-[10px] font-black" title={t.weighting}>{t.weighting}: {l.note}</span></p>}
+              {outcome(l) && <p className="mt-1.5 text-[11px] font-medium whitespace-pre-wrap"><span className="block text-[9px] font-black uppercase opacity-70">{t.assesses}</span>{outcome(l)}</p>}
+            </td>
             {[1, 2, 3, 4, 5].map(n => {
               const got = scores?.[l.id] === n;
               return (
                 <td key={n} aria-current={got ? 'true' : undefined}
-                  className={`rounded-xl px-3 py-2 whitespace-pre-wrap ${got ? 'bg-[#2E9DF7] text-white font-bold ring-2 ring-[#1b85df]' : 'bg-gray-50 text-gray-700'}`}>
+                  className={`rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap ${got ? 'bg-[#2E9DF7] text-white font-bold ring-2 ring-[#1b85df]' : 'bg-gray-50 text-gray-700'}`}>
                   {got && <span className="block text-[10px] font-black uppercase mb-1">{vi ? '✓ Điểm của bạn' : '✓ Your score'}</span>}
                   {level(l, n) || <span className={got ? '' : 'text-gray-300'}>–</span>}
                 </td>

@@ -42,7 +42,8 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
         </div>
       </header>
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
-        <div className="max-w-4xl mx-auto space-y-6">
+        {/* Wide, so the rubric's score descriptions read in long lines. */}
+        <div className="max-w-7xl mx-auto space-y-6">
           <AssignmentIntro assignment={assignment} startDate={data.enrollment?.startDate} />
 
           <section className={card}>
