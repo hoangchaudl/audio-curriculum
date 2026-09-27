@@ -15,6 +15,8 @@ export const STAGE_LABELS: Record<AssessmentStage, string> = {
 };
 
 export const card = 'bg-surface rounded-[32px] p-6 md:p-8 border border-gray-100 shadow-sm';
+// Slimmer side padding, for the card holding the rubric table (more width for the text).
+export const wideCard = 'bg-surface rounded-[32px] p-4 md:p-5 border border-gray-100 shadow-sm';
 export const sectionTitle = 'text-sm font-black uppercase text-[#2E9DF7] tracking-widest';
 export const input = 'w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-medium';
 export const primaryBtn =
@@ -219,8 +221,9 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
   const outcome = (l: RubricLine) => rubricText(vi, l).outcome;
   const level = (l: RubricLine, n: number) => rubricText(vi, l).level(n);
   const band = (n: number) => rubricBand(vi, bands, bandsVi, n);
-  // Criterion, its weighting and what it assesses share the first column,
-  // so the five score descriptions get the width (and read in long lines).
+  // What a criterion assesses sits under its name (not a column of its
+  // own), so the five score descriptions get the width.
+  const notes = lines.some(l => l.note);
   return (
   <div>
     {hasVi && <div className="flex justify-end mb-2"><RubricLangToggle lang={lang} onChange={choose} /></div>}
@@ -229,6 +232,7 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
       <thead>
         <tr className="text-[10px] font-black uppercase text-gray-500">
           <th className="text-left px-2 py-1 w-44 min-w-[9rem]">{t.criterion}</th>
+          {notes && <th className="text-center px-1 py-1 w-16">{t.weighting}</th>}
           {/* A minimum width per score column: on small screens the table
               scrolls sideways instead of squeezing the text into slivers. */}
           {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1 min-w-[9rem]">{n} — {band(n)}</th>)}
@@ -239,9 +243,9 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
           <tr key={l.id} className="align-top">
             <td className="bg-sky text-navy rounded-xl px-3 py-2">
               <p className="font-black">{title(l)}</p>
-              {l.note && <p className="mt-1"><span className="inline-block bg-surface rounded-full px-2 py-0.5 text-[10px] font-black" title={t.weighting}>{t.weighting}: {l.note}</span></p>}
               {outcome(l) && <p className="mt-1.5 text-[11px] font-medium whitespace-pre-wrap"><span className="block text-[9px] font-black uppercase opacity-70">{t.assesses}</span>{outcome(l)}</p>}
             </td>
+            {notes && <td className="bg-gray-50 rounded-xl px-1 py-2 text-center font-black text-gray-700">{l.note}</td>}
             {[1, 2, 3, 4, 5].map(n => {
               const got = scores?.[l.id] === n;
               return (
