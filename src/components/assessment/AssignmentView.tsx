@@ -6,7 +6,7 @@ import { exerciseOutcome } from '../../assessment/scoring';
 import { assignmentLines } from '../../assessment/outline';
 import { SubmissionPanel } from './SubmissionPanel';
 import { EpisodeView } from './EpisodeView';
-import { OutcomeBadge, RubricTable, card, sectionTitle } from './ui';
+import { OutcomeBadge, RubricTable, wideCard, card, sectionTitle } from './ui';
 import { AssignmentIntro } from './AssignmentIntro';
 
 export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentId }) => {
@@ -41,12 +41,12 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
           <p className="text-xs text-gray-400 font-medium mt-1">Episode A assignment · counts toward Episode A ({data.config.stageWeights.episodeA}% of your final grade)</p>
         </div>
       </header>
-      <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         {/* Wide, so the rubric's score descriptions read in long lines. */}
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-[1800px] mx-auto space-y-6">
           <AssignmentIntro assignment={assignment} startDate={data.enrollment?.startDate} />
 
-          <section className={card}>
+          <section className={wideCard}>
             <h3 className={`${sectionTitle} mb-1`}>How it's graded</h3>
             <p className="text-xs text-gray-500 mb-4">
               This assignment counts {assignment.weight ?? 0}% of Episode A ({Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade). Your trainer scores it from 1 to 5 separately for each criterion below. Scores appear once the coordinator publishes Episode A.

@@ -5,7 +5,7 @@ import { daOutcome, episodeBOutcome, podEpisodeOutcome } from '../../assessment/
 import { REVIEWER_SLOTS, STAGE_SLOTS, cellGroup, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
 import { ContentBlocks } from './ContentBlocks';
 import { SubmissionPanel } from './SubmissionPanel';
-import { OutcomeBadge, RubricTable, STAGE_LABELS, card, sectionTitle } from './ui';
+import { OutcomeBadge, RubricTable, wideCard, STAGE_LABELS, card, sectionTitle } from './ui';
 import { Assignment } from '../../types';
 import { AssignmentIntro } from './AssignmentIntro';
 
@@ -45,13 +45,13 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
         {published && <OutcomeBadge outcome={outcome} />}
       </header>
 
-      <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         {/* Wide, so the rubric's score descriptions read in long lines. */}
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-[1800px] mx-auto space-y-6">
           {assignment && <AssignmentIntro assignment={assignment} startDate={data.enrollment?.startDate} />}
           <ContentBlocks blocks={blocks} startDate={data.enrollment?.startDate} />
 
-          <section className={card}>
+          <section className={wideCard}>
             <h3 className={`${sectionTitle} mb-1`}>Grading rubric</h3>
             <p className="text-xs text-gray-500 mb-4">
               Each reviewer scores every criterion independently from 1 to 5. The percentages are each cell's share of this stage.
