@@ -365,6 +365,17 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
     criteria: { ...config.criteria, [group]: criteria.map(({ vi: _vi, ...c }) => c) },
     bandsVi: Object.fromEntries(Object.entries(config.bandsVi ?? {}).filter(([g]) => g !== group)),
   }));
+  // A criterion's weight is the sum of its reviewers' cells. Typing it
+  // splits the new total between the reviewers who score that criterion,
+  // keeping their current proportions (evenly if they're all 0; all of
+  // this stage's reviewers if nobody scores it yet).
+  const setCriterionWeight = (criterion: string, total: number) => {
+    const row = cells.filter(c => c.criterion === criterion);
+    const target = row.length ? row : slots.map(s => ({ slot: s.id, criterion, weight: 0 }));
+    const shares = scaleShares(target.map(c => c.weight), total);
+    save(criteria, [...cells.filter(c => c.criterion !== criterion), ...target.map((c, i) => ({ ...c, weight: shares[i] }))]);
+  };
+  const rowTotal = (criterion: string) => round2(cells.filter(c => c.criterion === criterion).reduce((t, c) => t + c.weight, 0));
   const setCell = (slot: ReviewerSlot, criterion: string, raw: string) => {
     const rest = cells.filter(c => !(c.slot === slot && c.criterion === criterion));
     save(criteria, raw === '' ? rest : [...rest, { slot, criterion, weight: Number(raw) }]);
@@ -381,7 +392,8 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
         <TotalChip total={cells.reduce((t, c) => t + c.weight, 0)} label="Table total" />
       </div>
       <p className="text-xs text-gray-500 mb-3">
-        Each row is one criterion, scored 1–5. Each cell is how much one reviewer's score on it counts toward this stage; leave a cell blank if that reviewer doesn't score it.
+        Each row is one criterion, scored 1–5. Set its <b>Criterion weight</b> (its share of this stage) and it's split between the reviewers who score it -
+        or fine-tune each reviewer's cell; leave a cell blank if that reviewer doesn't score it.
         Use <b>Describe scores</b> to write what each score means - trainees and reviewers see it as the rubric.
       </p>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
@@ -394,7 +406,7 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
       <div className="mb-3"><VietnameseStatus done={criteria.filter(c => c.vi).length} total={criteria.length} onRemove={removeVietnamese} /></div>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
-          <thead><tr><th />{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}<th /></tr></thead>
+          <thead><tr><th /><th className="text-[10px] font-black uppercase text-navy px-2 pb-2 text-left">Criterion weight</th>{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}<th /></tr></thead>
           <tbody>
             {criteria.map(k => (
               <React.Fragment key={k.id}>
@@ -407,6 +419,17 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
                       {open === k.id ? 'Hide scores' : `Describe scores${k.levels?.some(Boolean) ? ` (${k.levels.filter(Boolean).length}/5)` : ''}`}
                     </button>
                     {!cells.some(c => c.criterion === k.id) && <span className="text-[11px] font-bold text-ember ml-2">No reviewer scores this</span>}
+                  </td>
+                  <td className="px-2 py-1 align-top">
+                    <span className="flex items-center gap-1 text-xs font-bold text-navy">
+                      <input type="number" min={0} max={100} step="0.5" defaultValue={rowTotal(k.id)} key={rowTotal(k.id)} aria-label={`${k.title} - criterion weight`}
+                        onBlur={e => {
+                          const n = parseSetting(e.target.value, 0, 100);
+                          if (n === null) e.target.value = String(rowTotal(k.id));
+                          else if (n !== rowTotal(k.id)) setCriterionWeight(k.id, n);
+                        }}
+                        className={`${numInput} bg-sky`} />%
+                    </span>
                   </td>
                   {slots.map(r => {
                     const cell = cells.find(c => c.slot === r.id && c.criterion === k.id);
@@ -427,7 +450,7 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
                 </tr>
                 {open === k.id && (
                   <tr>
-                    <td colSpan={slots.length + 2} className="pb-3">
+                    <td colSpan={slots.length + 3} className="pb-3">
                       <div className="bg-gray-50 rounded-2xl p-3 space-y-2">
                       <textarea defaultValue={k.outcome ?? ''} key={k.outcome ?? ''} placeholder="What it assesses, e.g. the module learning outcome (optional)" aria-label={`${k.title} - what it assesses`}
                         onBlur={e => { if (e.target.value.trim() !== (k.outcome ?? '')) patch(k.id, { outcome: e.target.value }); }}
