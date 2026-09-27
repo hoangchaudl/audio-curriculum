@@ -106,6 +106,14 @@ export type AssessmentScore = 1 | 2 | 3 | 4 | 5;
 // 'sfx' | 'music'; admins add their own per stage (StageCriterion).
 export type CriterionId = string;
 
+// Vietnamese version of a rubric row, shown to trainees who switch the
+// rubric to VI. Missing parts fall back to the English text.
+export interface RubricVi {
+  title?: string;
+  outcome?: string;
+  levels?: string[];
+}
+
 // One criterion of a reviewer-table stage (Episode B, Pod Trial, DA):
 // its name and what each score 1-5 means (levels[0] = score 1).
 export interface StageCriterion {
@@ -114,6 +122,7 @@ export interface StageCriterion {
   levels?: string[];
   // What the criterion assesses (e.g. the module learning outcome).
   outcome?: string;
+  vi?: RubricVi;
 }
 export type CellGroup = 'episodeB' | 'pod' | 'da';
 export type ReviewerSlot = 'trainer' | 'engineer' | 'keySoundDesigner' | 'producer';
@@ -141,6 +150,7 @@ export interface Exercise {
   levels?: string[];
   // What the criterion assesses (e.g. the module learning outcome).
   outcome?: string;
+  vi?: RubricVi;
 }
 
 // Something trainees submit, placed on a day of the program outline.
@@ -159,6 +169,7 @@ export interface Assignment {
   weight?: number;
   // Episode A only: names for scores 1-5 in its rubric (e.g. "Fail (<50)").
   bands?: string[];
+  bandsVi?: string[];
 }
 
 // sectionId: the week section it's grouped under (unset = after the sections).
@@ -221,6 +232,7 @@ export interface AssessmentConfig {
   scoreKeys?: Record<'B' | 'P' | 'DA', Partial<Record<ReviewerSlot, string[]>>>;
   // Names for scores 1-5 in each stage's rubric (unset = "Score 1".."Score 5").
   bands?: Partial<Record<CellGroup, string[]>>;
+  bandsVi?: Partial<Record<CellGroup, string[]>>;
 }
 
 // One per trainee; doc id = trainee uid. Reviewer slots hold real account

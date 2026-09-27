@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 
 // Loaded when the first Markdown text is shown, not with the app.
 const Markdown = lazy(() => import('react-markdown'));
-import { AssessmentStage, Enrollment, Invite } from '../../types';
+import { AssessmentStage, Enrollment, Invite, RubricVi } from '../../types';
 import { Outcome, outcomeLabel, roundScore } from '../../assessment/scoring';
 import { SCORE_LABELS_5 } from '../../assessment/config';
 
@@ -156,34 +156,93 @@ export const bandLabel = (bands: string[] | undefined, n: number) => bands?.[n -
 
 // Rubric table: one row per criterion (with what it assesses and its
 // weighting when set), one column per score 1-5 with the admin's
-// description of that level.
-export const RubricTable: React.FC<{ lines: { id: string; title: string; levels?: string[]; outcome?: string; note?: string }[]; bands?: string[] }> = ({ lines, bands }) => {
-  const outcomes = lines.some(l => l.outcome);
+// description of that level. When a Vietnamese version exists, trainees
+// can switch it EN / VI (remembered on this device); anything without a
+// Vietnamese text shows in English.
+type RubricLine = { id: string; title: string; levels?: string[]; outcome?: string; note?: string; vi?: RubricVi };
+
+// The rubric language this person picked (EN / VI): one choice for every
+// rubric view (trainee rubric tables, the reviewer's scoring panel),
+// remembered on this device and kept in step between open views.
+type RubricLang = 'en' | 'vi';
+const readRubricLang = (): RubricLang => { try { return localStorage.getItem('rubricLang') === 'vi' ? 'vi' : 'en'; } catch { return 'en'; } };
+export const useRubricLang = () => {
+  const [lang, setLang] = useState<RubricLang>(readRubricLang);
+  useEffect(() => {
+    const onChange = () => setLang(readRubricLang());
+    window.addEventListener('rubric-lang', onChange);
+    return () => window.removeEventListener('rubric-lang', onChange);
+  }, []);
+  const choose = (l: RubricLang) => {
+    try { localStorage.setItem('rubricLang', l); } catch { /* storage blocked */ }
+    setLang(l);
+    window.dispatchEvent(new Event('rubric-lang'));
+  };
+  return [lang, choose] as const;
+};
+
+export const RubricLangToggle: React.FC<{ lang: RubricLang; onChange: (l: RubricLang) => void }> = ({ lang, onChange }) => (
+  <div role="group" aria-label="Rubric language" className="flex gap-1">
+    {(['en', 'vi'] as const).map(l => (
+      <button key={l} type="button" aria-pressed={lang === l} onClick={() => onChange(l)}
+        className={`px-3 py-1 rounded-full text-[11px] font-black ${lang === l ? 'bg-[#2E9DF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+        {l === 'en' ? 'EN' : 'VI'}
+      </button>
+    ))}
+  </div>
+);
+
+// A rubric row's text in the chosen language (English when there's no
+// Vietnamese for it), and the name of score n.
+export const rubricText = (vi: boolean, row: { title?: string; outcome?: string; levels?: string[]; vi?: RubricVi } | undefined) => ({
+  title: (vi && row?.vi?.title?.trim()) || row?.title,
+  outcome: (vi && row?.vi?.outcome?.trim()) || row?.outcome,
+  level: (n: number) => (vi && row?.vi?.levels?.[n - 1]?.trim()) || row?.levels?.[n - 1],
+});
+export const rubricBand = (vi: boolean, bands: string[] | undefined, bandsVi: string[] | undefined, n: number) =>
+  vi ? bandsVi?.[n - 1]?.trim() || bands?.[n - 1]?.trim() || `Mức ${n}` : bandLabel(bands, n);
+const RUBRIC_TEXT = {
+  en: { criterion: 'Criterion', assesses: 'What it assesses', weighting: 'Weighting', score: 'Score' },
+  vi: { criterion: 'Tiêu chí', assesses: 'Đánh giá điều gì', weighting: 'Trọng số', score: 'Mức' },
+};
+export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; bandsVi?: string[] }> = ({ lines, bands, bandsVi }) => {
+  const hasVi = lines.some(l => l.vi) || !!bandsVi?.some(b => b.trim());
+  const [lang, choose] = useRubricLang();
+  const vi = hasVi && lang === 'vi';
+  const t = RUBRIC_TEXT[vi ? 'vi' : 'en'];
+  const title = (l: RubricLine) => rubricText(vi, l).title;
+  const outcome = (l: RubricLine) => rubricText(vi, l).outcome;
+  const level = (l: RubricLine, n: number) => rubricText(vi, l).level(n);
+  const band = (n: number) => rubricBand(vi, bands, bandsVi, n);
+  const outcomes = lines.some(l => outcome(l));
   const notes = lines.some(l => l.note);
   return (
-  <div className="overflow-x-auto">
+  <div>
+    {hasVi && <div className="flex justify-end mb-2"><RubricLangToggle lang={lang} onChange={choose} /></div>}
+  <div className="overflow-x-auto" lang={vi ? 'vi' : undefined}>
     <table className="w-full text-xs border-separate border-spacing-1 min-w-[720px]">
       <thead>
         <tr className="text-[10px] font-black uppercase text-gray-500">
-          <th className="text-left px-2 py-1 w-36">Criterion</th>
-          {outcomes && <th className="text-left px-2 py-1 w-48">What it assesses</th>}
-          {notes && <th className="text-left px-2 py-1">Weighting</th>}
-          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1">{n} · {bandLabel(bands, n)}</th>)}
+          <th className="text-left px-2 py-1 w-36">{t.criterion}</th>
+          {outcomes && <th className="text-left px-2 py-1 w-48">{t.assesses}</th>}
+          {notes && <th className="text-left px-2 py-1">{t.weighting}</th>}
+          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1">{n} · {band(n)}</th>)}
         </tr>
       </thead>
       <tbody>
         {lines.map(l => (
           <tr key={l.id} className="align-top">
-            <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{l.title}</td>
-            {outcomes && <td className="bg-gray-50 rounded-xl px-3 py-2 text-gray-600 whitespace-pre-wrap">{l.outcome || <span className="text-gray-300">–</span>}</td>}
+            <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{title(l)}</td>
+            {outcomes && <td className="bg-gray-50 rounded-xl px-3 py-2 text-gray-600 whitespace-pre-wrap">{outcome(l) || <span className="text-gray-300">–</span>}</td>}
             {notes && <td className="bg-gray-50 rounded-xl px-3 py-2 font-black text-gray-600">{l.note}</td>}
             {[1, 2, 3, 4, 5].map(n => (
-              <td key={n} className="bg-gray-50 rounded-xl px-3 py-2 text-gray-700 whitespace-pre-wrap">{l.levels?.[n - 1] || <span className="text-gray-300">–</span>}</td>
+              <td key={n} className="bg-gray-50 rounded-xl px-3 py-2 text-gray-700 whitespace-pre-wrap">{level(l, n) || <span className="text-gray-300">–</span>}</td>
             ))}
           </tr>
         ))}
       </tbody>
     </table>
+  </div>
   </div>
   );
 };
