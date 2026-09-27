@@ -168,7 +168,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
                   className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
                     scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
-                  {(vi ? bandsVi ?? bands : bands)?.some(b => b.trim()) ? `${n} · ${rubricBand(vi, bands, bandsVi, n)}` : n}
+                  {`${n} — ${rubricBand(vi, bands, bandsVi, n)}`}
                   {levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
                 </button>
               ))}

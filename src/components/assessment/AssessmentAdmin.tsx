@@ -435,7 +435,7 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
                       <div className="grid gap-2 sm:grid-cols-5">
                         {[1, 2, 3, 4, 5].map(n => (
                           <label key={n} className="block">
-                            <span className="text-[10px] font-black uppercase text-gray-400">{n} · {bandLabel(bands, n)}</span>
+                            <span className="text-[10px] font-black uppercase text-gray-400">{n} — {bandLabel(bands, n)}</span>
                             <textarea defaultValue={k.levels?.[n - 1] ?? ''} key={k.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${k.title} - score ${n} description`}
                               onBlur={e => { if (e.target.value.trim() !== (k.levels?.[n - 1] ?? '')) patch(k.id, { levels: [1, 2, 3, 4, 5].map(j => (j === n ? e.target.value : k.levels?.[j - 1] ?? '')) }); }}
                               className={`${input} bg-surface h-24 text-xs`} />

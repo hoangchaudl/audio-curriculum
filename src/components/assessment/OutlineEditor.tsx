@@ -117,7 +117,7 @@ export const AssignmentForm: React.FC<{
               <div className="grid gap-2 sm:grid-cols-5">
                 {[1, 2, 3, 4, 5].map(n => (
                   <label key={n} className="block">
-                    <span className="text-[10px] font-black uppercase text-gray-400">{n} · {bandLabel(a.bands, n)}</span>
+                    <span className="text-[10px] font-black uppercase text-gray-400">{n} — {bandLabel(a.bands, n)}</span>
                     <textarea value={l.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${l.title || 'Criterion'} - score ${n} description`}
                       onChange={e => { const levels = [1, 2, 3, 4, 5].map(k => (k === n ? e.target.value : l.levels?.[k - 1] ?? '')); setLine(i, { levels }); }}
                       className={`${input} bg-surface h-24 text-xs`} />

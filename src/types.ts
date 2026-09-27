@@ -230,7 +230,7 @@ export interface AssessmentConfig {
   // Derived from the tables on every save (see scoreKeysFor): which score
   // keys each reviewer writes per stage. firestore.rules reads it.
   scoreKeys?: Record<'B' | 'P' | 'DA', Partial<Record<ReviewerSlot, string[]>>>;
-  // Names for scores 1-5 in each stage's rubric (unset = "Score 1".."Score 5").
+  // Names for scores 1-5 in each stage's rubric (unset = the defaults, see DEFAULT_BANDS).
   bands?: Partial<Record<CellGroup, string[]>>;
   bandsVi?: Partial<Record<CellGroup, string[]>>;
 }

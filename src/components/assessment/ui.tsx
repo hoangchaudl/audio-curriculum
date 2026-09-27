@@ -152,7 +152,10 @@ export const Md: React.FC<{ children: string }> = ({ children }) => (
 export const isHttpUrl = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 
 // A rubric's name for score n: the admin's band ("Merit (60+)") or "Score n".
-export const bandLabel = (bands: string[] | undefined, n: number) => bands?.[n - 1]?.trim() || `Score ${n}`;
+// Names for scores 1-5 when an admin hasn't set the rubric's own.
+export const DEFAULT_BANDS = ['Not met', 'Needs major improvement', 'Meets basic expectations', 'Meets expectations well', 'Fully meets expectations'];
+export const DEFAULT_BANDS_VI = ['Chưa đạt', 'Cần cải thiện nhiều', 'Đạt cơ bản', 'Đạt tốt', 'Hoàn thành đầy đủ'];
+export const bandLabel = (bands: string[] | undefined, n: number) => bands?.[n - 1]?.trim() || DEFAULT_BANDS[n - 1];
 
 // Rubric table: one row per criterion (with what it assesses and its
 // weighting when set), one column per score 1-5 with the admin's
@@ -200,10 +203,10 @@ export const rubricText = (vi: boolean, row: { title?: string; outcome?: string;
   level: (n: number) => (vi && row?.vi?.levels?.[n - 1]?.trim()) || row?.levels?.[n - 1],
 });
 export const rubricBand = (vi: boolean, bands: string[] | undefined, bandsVi: string[] | undefined, n: number) =>
-  vi ? bandsVi?.[n - 1]?.trim() || bands?.[n - 1]?.trim() || `Mức ${n}` : bandLabel(bands, n);
+  vi ? bandsVi?.[n - 1]?.trim() || bands?.[n - 1]?.trim() || DEFAULT_BANDS_VI[n - 1] : bandLabel(bands, n);
 const RUBRIC_TEXT = {
-  en: { criterion: 'Criterion', assesses: 'What it assesses', weighting: 'Weighting', score: 'Score' },
-  vi: { criterion: 'Tiêu chí', assesses: 'Đánh giá điều gì', weighting: 'Trọng số', score: 'Mức' },
+  en: { criterion: 'Criterion', assesses: 'What it assesses', weighting: 'Weighting' },
+  vi: { criterion: 'Tiêu chí', assesses: 'Đánh giá điều gì', weighting: 'Trọng số' },
 };
 // `scores` (criterion id -> 1-5): once results are published, the level
 // each criterion got is highlighted.
@@ -228,7 +231,7 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
           <th className="text-left px-2 py-1 w-36">{t.criterion}</th>
           {outcomes && <th className="text-left px-2 py-1 w-48">{t.assesses}</th>}
           {notes && <th className="text-left px-2 py-1">{t.weighting}</th>}
-          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1">{n} · {band(n)}</th>)}
+          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1">{n} — {band(n)}</th>)}
         </tr>
       </thead>
       <tbody>
