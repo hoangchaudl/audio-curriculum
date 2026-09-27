@@ -6,9 +6,11 @@ import { youTubeId } from '../../videoClip';
 import { Md, ProgressBar, card, sectionTitle } from './ui';
 
 const go = (hash: string) => { window.location.hash = hash; };
+// Tighter than the shared card so the lesson fills wide screens.
+const box = `${card} md:!p-6`;
 const MATERIAL_ICON: Record<string, string> = { video: '🎥', book: '📖', article: '📄' };
 
-// A lesson in the week-by-week program: video and lesson text on the left;
+// A lesson in the week-by-week program: lesson text then video on the left;
 // where it sits in the week, what it teaches and its materials on the
 // right; previous / next at the bottom. Submitting happens on assignment
 // pages.
@@ -85,21 +87,21 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
         {doneButton}
       </header>
 
-      <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
-        <div className="max-w-6xl mx-auto grid gap-6 lg:gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-6 min-w-0">
-            {video && (
-              <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, title: video.title, start: video.start, end: video.end }]} onVideoEnded={onVideoEnded} />
-            )}
+      <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:px-10 lg:py-6 overflow-y-auto">
+        <div className="max-w-[1760px] mx-auto grid gap-5 lg:gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-5 min-w-0">
             {mod.description && (
-              <section className={card}>
+              <section className={box}>
                 <h3 className={`${sectionTitle} mb-3`}>About this lesson</h3>
                 <div className="text-[15px]"><Md>{mod.description}</Md></div>
               </section>
             )}
+            {video && (
+              <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, start: video.start, end: video.end }]} onVideoEnded={onVideoEnded} />
+            )}
             <ContentBlocks blocks={mod.contentBlocks} startDate={enrollment?.startDate} onVideoEnded={onVideoEnded} />
             {!video && !mod.description && !mod.contentBlocks?.length && (
-              <section className={`${card} text-center text-sm text-gray-400`}>This lesson's material is on its way - check the materials on the right, or move on to the next item.</section>
+              <section className={`${box} text-center text-sm text-gray-400`}>This lesson's material is on its way - check the materials on the right, or move on to the next item.</section>
             )}
             {ctx && (ctx.prev || ctx.next) && (
               <nav className="flex flex-col sm:flex-row gap-4" aria-label="Lesson navigation">
@@ -109,9 +111,9 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
             )}
           </div>
 
-          <aside className="space-y-6 lg:sticky lg:top-0 self-start">
+          <aside className="space-y-5 lg:sticky lg:top-0 self-start">
             {ctx && (
-              <section className={card}>
+              <section className={box}>
                 <ProgressBar done={ctx.lessonsDone} total={ctx.lessonCount} label={`Week ${ctx.week} lessons`} />
                 <p className="text-xs text-gray-500 mt-3">
                   {done ? '✓ You\'ve completed this lesson.' : videoIds.length ? 'Watch the video to the end to complete this lesson.' : 'Mark this lesson complete when you\'ve finished it.'}
@@ -119,19 +121,19 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
               </section>
             )}
             {mod.objectives?.length ? (
-              <section className={card}>
+              <section className={box}>
                 <h3 className={`${sectionTitle} mb-4`}>What you'll learn</h3>
                 {bulletList(mod.objectives, '✓')}
               </section>
             ) : null}
             {mod.outcomes?.length ? (
-              <section className={card}>
+              <section className={box}>
                 <h3 className={`${sectionTitle} mb-4`}>By the end, you'll be able to</h3>
                 {bulletList(mod.outcomes, '→')}
               </section>
             ) : null}
             {mod.additionalMaterials?.length ? (
-              <section className={card}>
+              <section className={box}>
                 <h3 className={`${sectionTitle} mb-3`}>Materials</h3>
                 <ul className="space-y-2">
                   {mod.additionalMaterials.map((m, i) => (
