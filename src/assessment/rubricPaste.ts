@@ -56,7 +56,8 @@ export const parseRubricRows = (raw: string[][]): PastedRubric | null => {
   const hasOutcome = width >= 8;
   const hasWeight = width >= 7;
   const weightCol = hasOutcome ? 2 : 1;
-  const isHeader = (r: string[]) => /^(assessment\s+)?criteri/i.test(r[0]) || (hasWeight && asWeight(r[weightCol]) === undefined && !/\d/.test(r[weightCol]));
+  // Header: first cell names the column ("Criteria", or Vietnamese "Tiêu chí").
+  const isHeader = (r: string[]) => /^(assessment\s+)?(criteri|tiêu\s*chí)/i.test(r[0]) || (hasWeight && asWeight(r[weightCol]) === undefined && !/\d/.test(r[weightCol]));
   const header = isHeader(rows[0]) ? rows[0] : null;
   const body = header ? rows.slice(1) : rows;
   const criteria = body.filter(r => r[0]).map(r => ({

@@ -205,7 +205,9 @@ const RUBRIC_TEXT = {
   en: { criterion: 'Criterion', assesses: 'What it assesses', weighting: 'Weighting', score: 'Score' },
   vi: { criterion: 'Tiêu chí', assesses: 'Đánh giá điều gì', weighting: 'Trọng số', score: 'Mức' },
 };
-export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; bandsVi?: string[] }> = ({ lines, bands, bandsVi }) => {
+// `scores` (criterion id -> 1-5): once results are published, the level
+// each criterion got is highlighted.
+export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; bandsVi?: string[]; scores?: Record<string, number | undefined> }> = ({ lines, bands, bandsVi, scores }) => {
   const hasVi = lines.some(l => l.vi) || !!bandsVi?.some(b => b.trim());
   const [lang, choose] = useRubricLang();
   const vi = hasVi && lang === 'vi';
@@ -235,9 +237,16 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
             <td className="bg-sky text-navy rounded-xl px-3 py-2 font-black">{title(l)}</td>
             {outcomes && <td className="bg-gray-50 rounded-xl px-3 py-2 text-gray-600 whitespace-pre-wrap">{outcome(l) || <span className="text-gray-300">–</span>}</td>}
             {notes && <td className="bg-gray-50 rounded-xl px-3 py-2 font-black text-gray-600">{l.note}</td>}
-            {[1, 2, 3, 4, 5].map(n => (
-              <td key={n} className="bg-gray-50 rounded-xl px-3 py-2 text-gray-700 whitespace-pre-wrap">{level(l, n) || <span className="text-gray-300">–</span>}</td>
-            ))}
+            {[1, 2, 3, 4, 5].map(n => {
+              const got = scores?.[l.id] === n;
+              return (
+                <td key={n} aria-current={got ? 'true' : undefined}
+                  className={`rounded-xl px-3 py-2 whitespace-pre-wrap ${got ? 'bg-[#2E9DF7] text-white font-bold ring-2 ring-[#1b85df]' : 'bg-gray-50 text-gray-700'}`}>
+                  {got && <span className="block text-[10px] font-black uppercase mb-1">{vi ? '✓ Điểm của bạn' : '✓ Your score'}</span>}
+                  {level(l, n) || <span className={got ? '' : 'text-gray-300'}>–</span>}
+                </td>
+              );
+            })}
           </tr>
         ))}
       </tbody>

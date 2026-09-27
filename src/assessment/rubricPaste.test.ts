@@ -36,6 +36,11 @@ describe('Vietnamese version of a rubric', () => {
     expect(out.map(c => [c.id, c.title, c.vi?.title])).toEqual([['c1', 'Workflow', 'Quy trình làm việc'], ['c2', 'Dialogue', 'Lời thoại']]);
     expect(out[0].vi).toEqual({ title: 'Quy trình làm việc', levels: ['1', '2', '3', '4', '5'], outcome: 'ILO' });
   });
+  it('recognises a Vietnamese header row ("Tiêu chí") even without a weighting column', () => {
+    const r = parseRubricRows([['Tiêu chí', 'Trượt', 'Đạt thấp', 'Đạt', 'Khá', 'Giỏi'], ['Quy trình', 'a', 'b', 'c', 'd', 'e']])!;
+    expect(r.criteria.map(c => c.title)).toEqual(['Quy trình']);
+    expect(r.bands).toEqual(['Trượt', 'Đạt thấp', 'Đạt', 'Khá', 'Giỏi']);
+  });
   it('refuses a table with a different number of rows', () => {
     expect(withVietnamese(criteria, vi(['Chỉ một dòng']))).toBeNull();
   });

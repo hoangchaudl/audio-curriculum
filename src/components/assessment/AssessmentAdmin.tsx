@@ -388,7 +388,7 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
         <div className="flex-1 min-w-72"><BandInputs key={(bands ?? []).join('|')} bands={bands} onSave={b => save(criteria, cells, b)} /></div>
         <div className="flex flex-col items-end gap-1">
           <RubricPaste onApply={applyPaste} />
-          {criteria.length > 0 && <RubricPaste vietnamese={criteria.length} onApply={applyVietnamese} />}
+          {criteria.length > 0 && <RubricPaste vietnamese={criteria.map(c => c.title)} onApply={applyVietnamese} />}
         </div>
       </div>
       <div className="mb-3"><VietnameseStatus done={criteria.filter(c => c.vi).length} total={criteria.length} onRemove={removeVietnamese} /></div>

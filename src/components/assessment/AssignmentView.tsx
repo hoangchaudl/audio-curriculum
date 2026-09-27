@@ -26,6 +26,9 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
   const gradedSubmissionId = published
     ? data.reviews.find(r => r.stage === 'A' && lines.some(l => l.id === r.target))?.submissionId
     : undefined;
+  const hasRubric = lines.some(l => l.levels?.some(Boolean) || l.outcome);
+  // The trainer writes one feedback per assignment (saved on each criterion's review).
+  const feedback = [...new Set(data.reviews.filter(r => r.stage === 'A' && lines.some(l => l.id === r.target)).map(r => r.feedback?.trim()).filter((f): f is string => !!f))];
   const disabledReason = !data.enrollment
     ? "You're not enrolled in the assessment program yet - ask a coordinator to enroll you."
     : published ? 'Episode A results are published; submissions are closed.' : undefined;
@@ -35,7 +38,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
       <header className="min-h-20 bg-surface border-b flex items-center px-4 md:px-10 py-3 flex-shrink-0">
         <div className="min-w-0">
           <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{assignment.title}</h2>
-          <p className="text-xs text-gray-400 font-medium mt-1">Episode A assignment · counts toward Episode A (20% of your final grade)</p>
+          <p className="text-xs text-gray-400 font-medium mt-1">Episode A assignment · counts toward Episode A ({data.config.stageWeights.episodeA}% of your final grade)</p>
         </div>
       </header>
       <div className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto">
@@ -47,6 +50,22 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
             <p className="text-xs text-gray-500 mb-4">
               This assignment counts {assignment.weight ?? 0}% of Episode A ({Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade). Your trainer scores it from 1 to 5 separately for each criterion below. Scores appear once the coordinator publishes Episode A.
             </p>
+            {/* With a rubric table, the table is the list: each row is a
+                criterion with its weighting, and after publishing it shows the
+                score each got. Without one, list the criteria (and scores). */}
+            {hasRubric ? (
+              <>
+                <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
+                <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} bandsVi={assignment.bandsVi}
+                  scores={published ? Object.fromEntries(lines.map(l => [l.id, data.reviews.find(r => r.stage === 'A' && r.target === l.id)?.scores.exercise])) : undefined} />
+                {published && feedback.map(f => (
+                  <div key={f} className="mt-4 bg-sky rounded-2xl p-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-navy mb-1">Trainer feedback</p>
+                    <p className="text-sm text-navy whitespace-pre-wrap">{f}</p>
+                  </div>
+                ))}
+              </>
+            ) : (
             <ul className="space-y-2">
               {lines.map(l => {
                 const review = data.reviews.find(r => r.stage === 'A' && r.target === l.id);
@@ -65,12 +84,8 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
               })}
               {lines.length === 0 && <li className="text-sm text-gray-400">No criteria set up yet.</li>}
             </ul>
-            {lines.some(l => l.levels?.some(Boolean) || l.outcome) ? (
-              <div className="mt-4">
-                <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
-                <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} bandsVi={assignment.bandsVi} />
-              </div>
-            ) : lines.length > 0 && <p className="text-[10px] text-gray-400 mt-3">Scale: 1 (lowest) to 5 (highest)</p>}
+            )}
+            {!hasRubric && lines.length > 0 && <p className="text-[10px] text-gray-400 mt-3">Scale: 1 (lowest) to 5 (highest)</p>}
           </section>
 
           <section className={card}>
