@@ -8,10 +8,11 @@ describe('rubric text in English or Vietnamese', () => {
     expect([t.title, t.outcome, t.level(1), t.level(2)]).toEqual(['Quy trình', 'Organise a session', '1', 'b']);
     expect(rubricText(false, row).title).toBe('Workflow');
   });
-  it('names scores from the Vietnamese bands, then the English ones, then "Mức n"', () => {
+  it('names scores from the Vietnamese bands, then the English ones, then the default names', () => {
     expect(rubricBand(true, ['Fail'], ['Trượt'], 1)).toBe('Trượt');
     expect(rubricBand(true, ['Fail', 'Pass'], ['Trượt'], 2)).toBe('Pass');
-    expect(rubricBand(true, undefined, undefined, 3)).toBe('Mức 3');
-    expect(rubricBand(false, undefined, ['Trượt'], 1)).toBe('Score 1');
+    expect(rubricBand(true, undefined, undefined, 3)).toBe('Đạt cơ bản');
+    expect(rubricBand(false, undefined, ['Trượt'], 1)).toBe('Not met');
+    expect(rubricBand(false, undefined, undefined, 5)).toBe('Fully meets expectations');
   });
 });
