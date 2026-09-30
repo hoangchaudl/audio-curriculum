@@ -14,7 +14,7 @@ import { sortCategories } from '../access';
 import { BatchFilter, batchNames, inBatch, saveWith, useBatchFilter } from './assessment/ui';
 import { ClipTimes } from './assessment/ClipTimes';
 import { DesignerCard, STATUS_ORDER } from './DesignerCard';
-import { behindReasons, traineeStanding, week2CheckpointDue } from '../assessment/standing';
+import { REVIEW_LAG_DAYS, behindReasons, slotName, traineeStanding, waitingReviews, week2CheckpointDue } from '../assessment/standing';
 import { traineeDataFrom } from '../assessment/traineeData';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
@@ -95,6 +95,24 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const batches = batchNames(enrollments, invites);
   const [batch, setBatch] = useBatchFilter(batches);
   const shownRoster = roster.filter(r => inBatch(enrollments.find(e => e.id === r.designer.id), batch));
+  // The batch at a glance, for leadership: where every trainee in it stands.
+  const count = (f: (r: typeof roster[number]) => boolean) => shownRoster.filter(f).length;
+  const undecided = (r: typeof roster[number]) => r.designer.status !== 'released' && !outcomeOf(r.designer.id)?.decision;
+  const summary = [
+    { label: 'Trainees', n: shownRoster.length, cls: 'bg-surface text-gray-800' },
+    { label: 'On track', n: count(r => undecided(r) && r.standing?.status === 'on_track'), cls: 'bg-[#3DDC97]/20 text-leaf' },
+    { label: 'Falling behind', n: count(r => undecided(r) && r.standing?.status === 'behind'), cls: 'bg-[#F4511E]/20 text-ember' },
+    { label: 'Waiting for grades', n: count(r => undecided(r) && r.standing?.status === 'grading'), cls: 'bg-sky text-navy' },
+    { label: 'Awaiting offer decision', n: count(r => undecided(r) && (r.standing?.status === 'passed' || r.standing?.status === 'not_passed')), cls: 'bg-sky text-navy' },
+    { label: 'Offered', n: count(r => outcomeOf(r.designer.id)?.decision === 'offered'), cls: 'bg-[#3DDC97] text-[#0B3D2A]' },
+    { label: 'Released', n: count(r => r.designer.status === 'released'), cls: 'bg-gray-200 text-gray-700' },
+    { label: 'Not started', n: count(r => undecided(r) && (!r.standing || r.standing.status === 'upcoming')), cls: 'bg-gray-100 text-gray-500' },
+  ].filter(x => x.n > 0 || x.label !== 'Not started');
+  // Hand-ins still waiting for a reviewer's scores after REVIEW_LAG_DAYS,
+  // for trainees whose offer isn't decided yet.
+  const waiting = active.filter(r => r.standing && !outcomeOf(r.designer.id)?.decision)
+    .flatMap(r => waitingReviews(traineeDataFrom(ctx, r.designer.id)).map(w => ({ ...w, trainee: r.designer.name })))
+    .sort((a, b) => b.days - a.days);
   const engineers = users.filter(u => u.role === 'audio_engineer');
   // The retired 1-4 homework system's data (read-only archive), as a JSON
   // download - see firestore.rules.
@@ -264,7 +282,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
         {/* Alerts for coordinators, on every tab: who's falling behind, and
             who finished probation and is waiting for an offer decision. */}
-        {(behind.length > 0 || awaitingDecision.length > 0 || checkpointDue.length > 0) && (
+        {(behind.length > 0 || awaitingDecision.length > 0 || checkpointDue.length > 0 || waiting.length > 0) && (
           <div className="space-y-3">
             {checkpointDue.length > 0 && (
               <div className="bg-sky rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
@@ -288,6 +306,20 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                   </ul>
                 </div>
                 {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#F4511E] text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+              </div>
+            )}
+            {waiting.length > 0 && (
+              <div className="bg-peach rounded-[32px] p-5">
+                <p className="text-xs font-black uppercase text-ember mb-1">
+                  ⏳ {waiting.length} hand-in{waiting.length === 1 ? ' is' : 's are'} waiting over {REVIEW_LAG_DAYS} days for scores
+                </p>
+                <ul className="text-sm text-ember font-bold space-y-0.5">
+                  {waiting.map(w => (
+                    <li key={`${w.trainee}|${w.stage}|${w.title}|${w.slot}`}>
+                      <b>{users.find(u => u.id === w.reviewerUid)?.name ?? 'Unknown reviewer'}</b> ({slotName(w.slot)}) - {w.trainee}'s {w.title} · {w.days} days
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {awaitingDecision.length > 0 && (
@@ -354,10 +386,19 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <div className="flex items-center gap-4 flex-wrap">
                 <BatchFilter value={batch} onChange={setBatch} batches={batches} />
                 <span className="text-xs font-bold text-gray-500">
-                  Pass = final score of {assessmentConfig.passThreshold}+ / 5 after week 4 → recommend a full-time offer
+                  Pass = final score of {assessmentConfig.passThreshold}+ / 5{assessmentConfig.skillFloor ? `, every skill ${assessmentConfig.skillFloor}+` : ''} after week 4 → recommend a full-time offer
                 </span>
               </div>
             </div>
+            {shownRoster.length > 0 && (
+              <div className="flex flex-wrap gap-2" aria-label="Batch summary">
+                {summary.map(x => (
+                  <span key={x.label} className={`rounded-2xl px-4 py-2 text-xs font-bold ${x.cls}`}>
+                    <span className="text-lg font-black mr-1.5">{x.n}</span>{x.label}
+                  </span>
+                ))}
+              </div>
+            )}
             {shownRoster.length === 0 && <p className="text-sm font-bold text-gray-500">No sound designers in this batch.</p>}
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {shownRoster.map(({ designer, standing }, i) => (

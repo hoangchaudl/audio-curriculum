@@ -274,7 +274,12 @@ service cloud.firestore {
       allow write: if isAdmin() &&
                    (!('passThreshold' in request.resource.data) ||
                     (request.resource.data.passThreshold is number &&
-                     request.resource.data.passThreshold >= 1 && request.resource.data.passThreshold <= 5));
+                     request.resource.data.passThreshold >= 1 && request.resource.data.passThreshold <= 5)) &&
+                   // Skill minimum: 0 = off, otherwise a 1-5 score.
+                   (!('skillFloor' in request.resource.data) ||
+                    (request.resource.data.skillFloor is number &&
+                     (request.resource.data.skillFloor == 0 ||
+                      (request.resource.data.skillFloor >= 1 && request.resource.data.skillFloor <= 5))));
     }
 
     match /exercises/{exerciseId} {

@@ -347,11 +347,18 @@ export const ProgramOverview: React.FC = () => {
               <div>
                 <h3 className={sectionTitle}>Final grade</h3>
                 <p className="text-xs text-gray-400 font-medium">
-                  Episode A × {sw.episodeA}% + Episode B × {sw.episodeB}%{hasDA ? ` + Audio Description × ${sw.da}%` : ''} + Pod Trial × {sw.pod}% · benchmark {config.passThreshold} / 5
+                  Episode A × {sw.episodeA}% + Episode B × {sw.episodeB}%{hasDA ? ` + Audio Description × ${sw.da}%` : ''} + Pod Trial × {sw.pod}% · benchmark {config.passThreshold} / 5{config.skillFloor ? ` · every skill ${config.skillFloor}+` : ''}
                 </p>
               </div>
               {allPublished ? (
-                <div className="flex items-center gap-3"><OutcomeBadge outcome={result.final} size="lg" /><BenchmarkChip meets={result.meetsBenchmark} threshold={config.passThreshold} /></div>
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-3"><OutcomeBadge outcome={result.final} size="lg" /><BenchmarkChip meets={result.meetsBenchmark} threshold={config.passThreshold} /></div>
+                  {result.weakSkills.length > 0 && (
+                    <p className="text-xs font-bold text-ember">
+                      Below the {config.skillFloor} skill minimum: {result.weakSkills.map(w => `${w.stage} › ${w.title} ${w.value.toFixed(2)}`).join(', ')}
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="text-xs font-bold text-gray-400">Appears once every stage is published</p>
               )}
@@ -369,7 +376,7 @@ export const ProgramOverview: React.FC = () => {
               <li className="bg-surface/70 rounded-2xl p-3"><b><ListTodo className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Today</b><br />This week's day-by-day plan: which lessons to do on which day. Slipping a day is fine - a lesson only turns red once you're two days behind.</li>
               <li className="bg-surface/70 rounded-2xl p-3"><b><CalendarDays className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Schedule</b><br />Every week's goal and what's due by which day. Open an assignment to read the brief and submit your work.</li>
               <li className="bg-surface/70 rounded-2xl p-3"><b><GraduationCap className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Grades</b><br />How you're graded: {stageList.length} stages - {stageList.slice(0, -1).join(', ')} and {stageList[stageList.length - 1]}. Reviewers score your work from 1 to 5.</li>
-              <li className="bg-surface/70 rounded-2xl p-3"><b><Flag className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Final grade</b><br />Also on Grades: your overall score, shown once your coordinator publishes every stage. The goal is {config.passThreshold} / 5 or higher.</li>
+              <li className="bg-surface/70 rounded-2xl p-3"><b><Flag className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Final grade</b><br />Also on Grades: your overall score, shown once your coordinator publishes every stage. The goal is {config.passThreshold} / 5 or higher{config.skillFloor ? `, with no Episode B, Pod Trial or Audio Description skill below ${config.skillFloor}` : ''}.</li>
             </ul>
           </section>
           )}

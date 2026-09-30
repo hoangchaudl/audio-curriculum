@@ -659,7 +659,23 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
               }}
               className={numInput} />/ 5
           </label>
+          <label className="flex items-center gap-2 text-sm font-bold text-gray-700"
+            title="Passing also needs every Episode B, Pod Trial and DA criterion at or above this. Blank or 0 = off.">
+            Skill minimum
+            <input type="number" min={0} max={5} step="0.1" defaultValue={config.skillFloor || ''} key={config.skillFloor ?? 0} aria-label="Skill minimum score"
+              placeholder="off"
+              onBlur={e => {
+                const n = e.target.value.trim() === '' ? 0 : parseSetting(e.target.value, 0, 5);
+                if (n === null || (n > 0 && n < 1)) e.target.value = config.skillFloor ? String(config.skillFloor) : '';
+                else if (n !== (config.skillFloor ?? 0)) saveWith(updateAssessmentConfig({ skillFloor: n }));
+              }}
+              className={numInput} />/ 5
+          </label>
         </div>
+        <p className="text-xs text-gray-500 font-bold mt-3">
+          Pass = final score of {config.passThreshold}+{config.skillFloor ? `, and no Episode B, Pod Trial or DA criterion below ${config.skillFloor}` : ''}.
+          {!config.skillFloor && ' Set a skill minimum so a strong average can’t hide one weak skill.'}
+        </p>
       </div>
 
       <AssignmentsCard onOpenOutline={onOpenOutline} />

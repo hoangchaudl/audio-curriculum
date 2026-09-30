@@ -219,6 +219,9 @@ export interface AssessmentConfig {
   // A stage weighted 0 is left out of the final grade entirely.
   stageWeights: { episodeA: number; episodeB: number; pod: number; da: number };
   passThreshold: number;
+  // Skill minimum (1-5): passing also needs every criterion of Episode B,
+  // the Pod Trial and DA at or above it. 0/unset = off.
+  skillFloor?: number;
   episodeBCells: CellWeight[];
   podCells: CellWeight[];
   daCells: CellWeight[];
@@ -290,10 +293,19 @@ export interface ProgramOutcome {
   snapshot?: ScoreSnapshot;
 }
 
+// A criterion scored below the skill minimum in a reviewer-table stage.
+export interface WeakSkill {
+  stage: string;
+  title: string;
+  value: number;
+}
+
 export interface ScoreSnapshot {
   final: number | null;
   meetsBenchmark?: boolean;
   passThreshold: number;
+  skillFloor?: number;
+  weakSkills?: WeakSkill[];
   stages: { key: 'episodeA' | 'episodeB' | 'da' | 'pod'; weight: number; value: number | null }[];
 }
 

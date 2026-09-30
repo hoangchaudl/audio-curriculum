@@ -549,6 +549,14 @@ describe('assessment program', () => {
     await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, passThreshold: 6 }));
     await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, passThreshold: '' }));
   });
+  it('the skill minimum is off (0) or a score from 1 to 5', async () => {
+    const cfg = { id: 'current', passThreshold: 3.5, stageWeights: { episodeA: 20, episodeB: 25, pod: 40, da: 15 } };
+    await assertSucceeds(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, skillFloor: 0 }));
+    await assertSucceeds(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, skillFloor: 3 }));
+    await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, skillFloor: 0.5 }));
+    await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, skillFloor: 6 }));
+    await assertFails(setDoc(doc(as('admin'), 'assessmentConfig/current'), { ...cfg, skillFloor: '' }));
+  });
   it('only admins arrange assignments and the outline', async () => {
     await assertSucceeds(getDoc(doc(as(T), 'assignments/asg1')));
     await assertFails(updateDoc(doc(as(T), 'assignments/asg1'), { dueDay: 7 }));

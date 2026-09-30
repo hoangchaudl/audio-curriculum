@@ -7,7 +7,7 @@ import {
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
-  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot,
+  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot, roundScore,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -320,6 +320,23 @@ describe('Final grade', () => {
     // 0.2*5 + 0.4*3 + 0.4*4 = 3.8
     expect(r.final).toEqual({ status: 'scored', value: expect.closeTo(3.8, 10) });
     expect(r.meetsBenchmark).toBe(true);
+  });
+
+  it('skill minimum: a strong average fails when one criterion is below it', () => {
+    const d = complete(5, 4, 4);
+    // Pod Trial dialogue: every reviewer gives a 2 -> 2.00 for that criterion.
+    const reviews = d.reviews.map(r => (r.stage === 'P1' && r.scores.dialogue ? { ...r, scores: { ...r.scores, dialogue: 2 as AssessmentScore } } : r));
+    const weak = { ...d, reviews };
+    expect(finalResult(weak).meetsBenchmark).toBe(true); // off by default
+    const floored = { ...weak, config: { ...weak.config, skillFloor: 3 } };
+    const r = finalResult(floored);
+    expect(roundScore(r.final.status === 'scored' ? r.final.value : 0)).toBeGreaterThanOrEqual(3.5);
+    expect(r.weakSkills).toEqual([{ stage: 'Pod Trial', title: 'Dialogue Import, Sync & Leveling', value: 2 }]);
+    expect(r.meetsBenchmark).toBe(false);
+    expect(scoreSnapshot(floored)).toMatchObject({ skillFloor: 3, meetsBenchmark: false, weakSkills: r.weakSkills });
+    // Criteria at the minimum pass; the unflagged trainee still passes.
+    expect(finalResult({ ...floored, config: { ...floored.config, skillFloor: 2 } }).meetsBenchmark).toBe(true);
+    expect(finalResult({ ...complete(5, 4, 4), config: floored.config }).weakSkills).toEqual([]);
   });
 
   it('a snapshot freezes the scores a decision was based on', () => {
