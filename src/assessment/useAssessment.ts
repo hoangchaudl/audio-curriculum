@@ -81,6 +81,9 @@ const stagesForSlots = (slots: ReviewerSlot[]) => STAGES.filter(stage => STAGE_S
 export const useAssessment = (authUid: string | null, currentUser: User | null) => {
   const role = currentUser?.role;
   const isAdmin = role === 'admin';
+  // Admins and leadership load everyone's program data (firestore.rules
+  // isAdminOrLeadership); only admins change it.
+  const readsAll = isAdmin || role === 'leadership';
   const ready = !!authUid && !!role;
   const uid = authUid ?? '';
 
@@ -97,13 +100,13 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   const programOutline = outlineRows[0] ?? null;
 
   // --- enrollments ---
-  const allEnrollments = useLive<Enrollment>(ready && isAdmin ? 'enr:all' : null, () => [collection(db, 'enrollments')]);
-  const ownEnrollment = useLive<Enrollment>(ready && !isAdmin ? `enr:own:${uid}` : null, () => [doc(db, 'enrollments', uid)]);
-  const assignedEnrollments = useLive<Enrollment>(ready && !isAdmin ? `enr:assigned:${uid}` : null,
+  const allEnrollments = useLive<Enrollment>(ready && readsAll ? 'enr:all' : null, () => [collection(db, 'enrollments')]);
+  const ownEnrollment = useLive<Enrollment>(ready && !readsAll ? `enr:own:${uid}` : null, () => [doc(db, 'enrollments', uid)]);
+  const assignedEnrollments = useLive<Enrollment>(ready && !readsAll ? `enr:assigned:${uid}` : null,
     () => [query(collection(db, 'enrollments'), where('reviewerUids', 'array-contains', uid))]);
-  const enrollments = isAdmin ? allEnrollments : [...ownEnrollment, ...assignedEnrollments.filter(e => e.id !== uid)];
+  const enrollments = readsAll ? allEnrollments : [...ownEnrollment, ...assignedEnrollments.filter(e => e.id !== uid)];
 
-  // What this (non-admin) reviewer may read: [traineeId, stage] pairs.
+  // What this reviewer may read: [traineeId, stage] pairs.
   const reviewScope = useMemo(
     () => assignedEnrollments.flatMap(e => stagesForSlots(slotsHeldBy(e, uid)).map(stage => [e.traineeId, stage] as const)),
     [assignedEnrollments, uid],
@@ -113,37 +116,37 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   // --- invites (admins only) ---
   const invites = useLive<Invite>(ready && isAdmin ? 'invites' : null, () => [collection(db, 'invites')]);
 
-  // --- end-of-probation decisions (admins only) ---
-  const programOutcomes = useLive<ProgramOutcome>(ready && isAdmin ? 'outcomes' : null, () => [collection(db, 'programOutcomes')]);
+  // --- end-of-probation decisions (admins and leadership) ---
+  const programOutcomes = useLive<ProgramOutcome>(ready && readsAll ? 'outcomes' : null, () => [collection(db, 'programOutcomes')]);
 
   // --- publications ---
-  const allPublications = useLive<Publication>(ready && isAdmin ? 'pub:all' : null, () => [collection(db, 'publications')]);
+  const allPublications = useLive<Publication>(ready && readsAll ? 'pub:all' : null, () => [collection(db, 'publications')]);
   const pubTrainees = [...new Set<string>([uid, ...assignedEnrollments.map(e => e.traineeId)])].sort();
   const scopedPublications = useLive<Publication>(
-    ready && !isAdmin ? `pub:${pubTrainees.join(',')}` : null,
+    ready && !readsAll ? `pub:${pubTrainees.join(',')}` : null,
     () => pubTrainees.map(t => doc(db, 'publications', t)),
   );
-  const publications = isAdmin ? allPublications : scopedPublications;
+  const publications = readsAll ? allPublications : scopedPublications;
   const ownPublication = publications.find(p => p.id === uid);
 
   // --- submissions ---
-  const allSubmissions = useLive<AssessmentSubmission>(ready && isAdmin ? 'sub:all' : null, () => [collection(db, 'assessmentSubmissions')]);
-  const scopedSubmissions = useLive<AssessmentSubmission>(ready && !isAdmin ? `sub:${uid}:${reviewScopeKey}` : null, () => [
+  const allSubmissions = useLive<AssessmentSubmission>(ready && readsAll ? 'sub:all' : null, () => [collection(db, 'assessmentSubmissions')]);
+  const scopedSubmissions = useLive<AssessmentSubmission>(ready && !readsAll ? `sub:${uid}:${reviewScopeKey}` : null, () => [
     query(collection(db, 'assessmentSubmissions'), where('traineeId', '==', uid)),
     ...reviewScope.map(([traineeId, stage]) =>
       query(collection(db, 'assessmentSubmissions'), where('traineeId', '==', traineeId), where('stage', '==', stage))),
   ]);
-  const submissions = isAdmin ? allSubmissions : scopedSubmissions;
+  const submissions = readsAll ? allSubmissions : scopedSubmissions;
 
   // --- reviews ---
   const publishedStages = STAGES.filter(s => ownPublication?.[publicationKey(s)]);
-  const allReviews = useLive<AssessmentReview>(ready && isAdmin ? 'rev:all' : null, () => [collection(db, 'reviews')]);
-  const scopedReviews = useLive<AssessmentReview>(ready && !isAdmin ? `rev:${uid}:${publishedStages.join(',')}` : null, () => [
+  const allReviews = useLive<AssessmentReview>(ready && readsAll ? 'rev:all' : null, () => [collection(db, 'reviews')]);
+  const scopedReviews = useLive<AssessmentReview>(ready && !readsAll ? `rev:${uid}:${publishedStages.join(',')}` : null, () => [
     query(collection(db, 'reviews'), where('reviewerUid', '==', uid)),
     ...publishedStages.map(stage =>
       query(collection(db, 'reviews'), where('traineeId', '==', uid), where('stage', '==', stage))),
   ]);
-  const reviews = isAdmin ? allReviews : scopedReviews;
+  const reviews = readsAll ? allReviews : scopedReviews;
 
   // --- actions -----------------------------------------------------------
 
@@ -367,7 +370,7 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
 
   return {
     exercises, assignments, programOutline, assessmentConfig: config, assessmentConfigSaved: configSaved,
-    enrollments, ownEnrollmentLoaded: isAdmin || !!ownEnrollment.loaded, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome, setWeek2Checkpoint,
+    enrollments, ownEnrollmentLoaded: readsAll || !!ownEnrollment.loaded, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome, setWeek2Checkpoint,
     invites, createInvite, deleteInvite,
     submitAssessmentVersion, saveReview, upsertEnrollment, setPublication, upsertExercise, deleteExercise,
     updateAssessmentConfig, setupAssessmentProgram, updateAssignment, convertToAssignmentGrading, saveOutline, saveAssignment, deleteAssignment,

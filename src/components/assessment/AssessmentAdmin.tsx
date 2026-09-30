@@ -165,7 +165,7 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
   }, [existing?.startDate, existing?.podEpisodesRequired, existing?.batch, JSON.stringify(existing?.reviewers)]);
 
   const trainee = users.find(u => u.id === traineeId);
-  const candidates = users.filter(u => u.id !== traineeId).sort((a, b) => a.name.localeCompare(b.name));
+  const candidates = users.filter(u => u.id !== traineeId && u.role !== 'leadership').sort((a, b) => a.name.localeCompare(b.name));
   const save = async () => {
     await upsertEnrollment(traineeId, { startDate, reviewers, podEpisodesRequired: pods, batch });
     setSaved(true);
@@ -221,6 +221,7 @@ const INVITE_ROLES: { id: Invite['role']; label: string }[] = [
   { id: 'sound_designer', label: 'Trainee (sound designer)' },
   { id: 'reviewer', label: 'Reviewer (producer / key sound designer)' },
   { id: 'audio_engineer', label: 'Audio engineer' },
+  { id: 'leadership', label: 'Leadership (read-only progress)' },
 ];
 
 const InvitePanel: React.FC = () => {
@@ -230,7 +231,7 @@ const InvitePanel: React.FC = () => {
   const email = f.email.trim().toLowerCase();
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const taken = users.some(u => u.email?.toLowerCase() === email);
-  const reviewerOptions = users.filter(u => u.role !== 'sound_designer').sort((a, b) => a.name.localeCompare(b.name));
+  const reviewerOptions = users.filter(u => u.role !== 'sound_designer' && u.role !== 'leadership').sort((a, b) => a.name.localeCompare(b.name));
   const send = async () => {
     const ok = await saveWith(createInvite({
       email, role: f.role,
@@ -772,6 +773,7 @@ const ROLE_OPTIONS: { id: Role; label: string; help: string }[] = [
   { id: 'sound_designer', label: 'Sound Designer (trainee)', help: 'Can be enrolled and submit work.' },
   { id: 'reviewer', label: 'Reviewer', help: 'Producer / Key Sound Designer: reviews only what they are assigned. Not a trainee.' },
   { id: 'audio_engineer', label: 'Audio Engineer', help: 'Can be assigned as Audio Engineer; sees the full roster and curriculum.' },
+  { id: 'leadership', label: 'Leadership', help: 'Sees every trainee\'s progress, scores, feedback and decisions, and downloads the report. Changes nothing.' },
   { id: 'admin', label: 'Admin', help: 'Full access: curriculum, enrollment, reviewer assignment and publishing.' },
 ];
 const roleLabel = (role: Role) => ROLE_OPTIONS.find(o => o.id === role)?.label ?? role;

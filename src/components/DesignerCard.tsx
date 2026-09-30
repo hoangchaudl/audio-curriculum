@@ -109,7 +109,9 @@ export const DesignerCard: React.FC<{
   standing: Standing | null; // null = not enrolled
   accent: string;
   lockedCategories: Category[];
-}> = ({ designer, standing, accent, lockedCategories }) => {
+  // Leadership: sees everything, records and changes nothing.
+  readOnly?: boolean;
+}> = ({ designer, standing, accent, lockedCategories, readOnly }) => {
   const ctx = useAppContext();
   const { assessmentConfig: config, programOutline, assignments, videoProgress, assessmentSubmissions, programOutcomes, setProgramOutcome,
     setWeek2Checkpoint, setUserUnlockedCategories } = ctx;
@@ -245,7 +247,7 @@ export const DesignerCard: React.FC<{
             </ul>
           )}
 
-          {(standing.week >= 2 || standing.ended) && (outcome?.week2 || !outcome?.decision) && (
+          {(standing.week >= 2 || standing.ended) && (outcome?.week2 || (!outcome?.decision && !readOnly)) && (
             <div className="rounded-2xl px-4 py-3 text-xs bg-gray-50 text-gray-700 space-y-2">
               {outcome?.week2 ? (
                 <>
@@ -253,14 +255,14 @@ export const DesignerCard: React.FC<{
                     <span className="font-black">
                       Week 2 checkpoint: {outcome.week2.decision === 'continue' ? '✓ Continue' : 'Released - lessons closed, grades still visible'} · {formatDate(new Date(outcome.week2.decidedAt))}
                     </span>
-                    <button onClick={() => saveWith(setWeek2Checkpoint(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>
+                    {!readOnly && <button onClick={() => saveWith(setWeek2Checkpoint(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>}
                   </div>
                   {outcome.week2.note && <p className="text-gray-500 whitespace-pre-wrap">{outcome.week2.note}</p>}
                 </>
               ) : (
                 <>
                   <p className="font-black">Week 2 checkpoint - continue or release?</p>
-                  <textarea value={week2Note} onChange={e => setWeek2Note(e.target.value)} maxLength={2000} placeholder="Reason (optional, admins only)"
+                  <textarea value={week2Note} onChange={e => setWeek2Note(e.target.value)} maxLength={2000} placeholder="Reason (optional, admins and leadership only)"
                     aria-label="Week 2 checkpoint reason" className="w-full bg-surface rounded-xl p-2 text-xs h-14" />
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => saveWith(setWeek2Checkpoint(designer.id, 'continue', week2Note)).then(ok => ok && setWeek2Note(''))}
@@ -279,24 +281,24 @@ export const DesignerCard: React.FC<{
                   <span className="font-black">
                     {outcome.decision === 'offered' ? '🎉 Full-time offer recorded' : 'Recorded: no full-time offer - lessons closed, grades still visible'} · {formatDate(new Date(outcome.decidedAt!))}
                   </span>
-                  <button onClick={() => saveWith(setProgramOutcome(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>
+                  {!readOnly && <button onClick={() => saveWith(setProgramOutcome(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>}
                   {outcome.note && <p className="w-full whitespace-pre-wrap opacity-80">{outcome.note}</p>}
                 </div>
-              ) : (
-                <textarea value={finalNote} onChange={e => setFinalNote(e.target.value)} maxLength={2000} placeholder="Reason (optional, admins only)"
+              ) : readOnly ? null : (
+                <textarea value={finalNote} onChange={e => setFinalNote(e.target.value)} maxLength={2000} placeholder="Reason (optional, admins and leadership only)"
                   aria-label="Week 4 decision reason" className="w-full bg-surface rounded-xl p-2 text-xs h-14 mb-2 text-gray-700" />
               )}
               {outcome?.decision ? null : standing.status === 'passed' ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-black">Passed probation - recommend a full-time offer.</span>
-                  <button onClick={() => setConfirm('offered')} className="bg-[#3DDC97] text-[#0B3D2A] font-black px-3 py-1.5 rounded-full">Record full-time offer</button>
+                  {!readOnly && <button onClick={() => setConfirm('offered')} className="bg-[#3DDC97] text-[#0B3D2A] font-black px-3 py-1.5 rounded-full">Record full-time offer</button>}
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-black">
                     {r!.weakSkills.length ? `A skill is below the ${config.skillFloor} minimum` : `Final score is below ${config.passThreshold}`} - probation not passed.
                   </span>
-                  <button onClick={() => setConfirm('not_offered')} className="bg-gray-200 text-gray-700 font-black px-3 py-1.5 rounded-full">Record: no offer</button>
+                  {!readOnly && <button onClick={() => setConfirm('not_offered')} className="bg-gray-200 text-gray-700 font-black px-3 py-1.5 rounded-full">Record: no offer</button>}
                 </div>
               )}
             </div>
@@ -304,7 +306,7 @@ export const DesignerCard: React.FC<{
         </>
       )}
 
-      {lockedCategories.length > 0 && (
+      {!readOnly && lockedCategories.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[10px] font-black text-gray-400 uppercase">Locked:</span>
           {lockedCategories.map(cat => {
@@ -329,8 +331,8 @@ export const DesignerCard: React.FC<{
         title={confirm === 'release' ? `Release ${designer.name} at the Week 2 checkpoint?`
           : confirm === 'offered' ? `Record a full-time offer for ${designer.name}?` : `Record that ${designer.name} won't get an offer?`}
         message={confirm === 'offered'
-          ? "This only records the decision here for coordinators - it isn't shown to the trainee or their reviewers, and no email is sent."
-          : `${designer.name}'s lessons, schedule and submissions close right away; they can still see their grades and reviewers' feedback. The decision and reason are only visible to admins, and no email is sent. You can undo this.`}
+          ? "This only records the decision here for coordinators and leadership - it isn't shown to the trainee or their reviewers, and no email is sent."
+          : `${designer.name}'s lessons, schedule and submissions close right away; they can still see their grades and reviewers' feedback. The decision and reason are only visible to admins and leadership, and no email is sent. You can undo this.`}
         confirmLabel={confirm === 'release' ? 'Release' : 'Record'}
         onConfirm={() => {
           if (confirm === 'release') saveWith(setWeek2Checkpoint(designer.id, 'release', week2Note)).then(ok => ok && setWeek2Note(''));

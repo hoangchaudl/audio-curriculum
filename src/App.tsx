@@ -246,6 +246,19 @@ const AppContent = () => {
     return <AuthView />;
   }
 
+  // Leadership: the read-only probation dashboard and their own profile -
+  // no lessons, queues or admin tools.
+  if (currentUser.role === 'leadership') {
+    return (
+      <div className="flex flex-col h-screen w-full bg-page text-ink font-sans overflow-hidden">
+        {view === 'profile' && <AdminHeader onBack={() => { setView('module'); window.location.hash = ''; }} />}
+        <Suspense fallback={<div role="status" className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>
+          {view === 'profile' ? <ProfileView /> : <AdminDashboard readOnly />}
+        </Suspense>
+      </div>
+    );
+  }
+
   // A sound designer account that isn't enrolled yet waits here instead of
   // (real role, so an admin's preview isn't affected).
   const awaitingEnrollment = currentUser.role === 'sound_designer' && ownEnrollmentLoaded && !enrollments.some(e => e.id === currentUser.id);

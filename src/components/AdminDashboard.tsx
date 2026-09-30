@@ -66,7 +66,9 @@ const CARD_THEMES = [
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number; onPreview: (role: Role) => void }> = ({ focusModuleId, focusNonce, onPreview }) => {
+// readOnly: the leadership view - the Sound Designers roster only, with no
+// decisions, edits or previews (firestore.rules let leadership read, not write).
+export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number; onPreview?: (role: Role) => void; readOnly?: boolean }> = ({ focusModuleId, focusNonce, onPreview, readOnly }) => {
   const hasReviews = useHasReviewAssignments();
   const reviewTodo = useReviewTodoCount();
   const {
@@ -75,7 +77,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     setUserUnlockedCategories,
   } = useAppContext();
   const lockedCategories = sortCategories(categories).filter(c => c.restricted);
-  const [activeTab, setActiveTab] = useState<'designers' | 'modules' | 'assessment'>('modules');
+  const [activeTab, setActiveTab] = useState<'designers' | 'modules' | 'assessment'>(readOnly ? 'designers' : 'modules');
 
   const designers = users.filter(u => u.role === 'sound_designer');
   // Probation standing per designer (null = not enrolled), sorted so the
@@ -365,7 +367,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         )}
 
         {/* Tabs */}
-        <div className="flex gap-3 flex-wrap">
+        {!readOnly && <div className="flex gap-3 flex-wrap">
           <button
             onClick={() => setActiveTab('modules')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
@@ -397,7 +399,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           >
             Assessment (1–5)
           </button>
-        </div>
+        </div>}
 
         {activeTab === 'assessment' && (
           <AssessmentAdmin onEditModule={(id) => {
@@ -439,7 +441,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {shownRoster.map(({ designer, standing }, i) => (
                 <DesignerCard key={designer.id} designer={designer} standing={standing} accent={CARD_THEMES[i % CARD_THEMES.length].accent}
-                  lockedCategories={lockedCategories} />
+                  lockedCategories={lockedCategories} readOnly={readOnly} />
               ))}
             </div>
           </div>
