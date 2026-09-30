@@ -37,6 +37,12 @@ service cloud.firestore {
       return isSignedIn() && (callerRole() == 'audio_engineer' || callerRole() == 'admin');
     }
 
+    // Leadership: reads every trainee's progress, scores, reviews and
+    // decisions (the probation dashboard), writes nothing.
+    function isAdminOrLeadership() {
+      return isSignedIn() && (callerRole() == 'admin' || callerRole() == 'leadership');
+    }
+
     // A trainee an admin released at a checkpoint (Week 2 "Release", or
     // Week 4 "No offer"). They keep their grades and feedback; lessons, the
     // weekly outline and submitting are closed to them.
@@ -91,7 +97,7 @@ service cloud.firestore {
     // create/update their own document, and may not grant themselves a
     // different role than they signed up with - only an admin can.
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isEngineerOrAdmin() || isReviewerOf(userId));
+      allow read: if isSignedIn() && (request.auth.uid == userId || isEngineerOrAdmin() || isAdminOrLeadership() || isReviewerOf(userId));
 
       // Invite-only: a profile is created with exactly the invited role, by
       // the verified owner of the invited email. The single exception is
@@ -184,7 +190,7 @@ service cloud.firestore {
     // delete - un-mark - their own record). Read: your own records, plus
     // admins/engineers for the progress dashboards.
     match /videoProgress/{progressId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isEngineerOrAdmin());
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isEngineerOrAdmin() || isAdminOrLeadership());
       // One record per (lesson, trainee): id = moduleId_uid, so nobody can
       // create or take over another person's record.
       allow create: if isSignedIn() && progressOk(progressId);
@@ -302,7 +308,7 @@ service cloud.firestore {
     // One per trainee (doc id = trainee uid). Admins enroll trainees and
     // assign reviewer accounts; trainees can't change their own.
     match /enrollments/{traineeId} {
-      allow read: if isAdmin() ||
+      allow read: if isAdminOrLeadership() ||
                   (isSignedIn() && (request.auth.uid == traineeId || request.auth.uid in resource.data.reviewerUids));
       // An invited trainee enrolls themselves - but only with exactly the
       // settings the admin put on their invite.
@@ -326,7 +332,7 @@ service cloud.firestore {
     match /invites/{email} {
       allow read: if isAdmin() || (isSignedIn() && tokenEmail() == email);
       allow create, update: if isAdmin() && request.resource.data.id == email &&
-                            request.resource.data.role in ['sound_designer', 'reviewer', 'audio_engineer'];
+                            request.resource.data.role in ['sound_designer', 'reviewer', 'audio_engineer', 'leadership'];
       allow delete: if isAdmin() || (isSignedIn() && tokenEmail() == email);
     }
 
@@ -335,7 +341,7 @@ service cloud.firestore {
     // The deterministic id makes a second write to the same version an
     // update, which is denied, so history can't be overwritten.
     match /assessmentSubmissions/{submissionId} {
-      allow read: if isAdmin() ||
+      allow read: if isAdminOrLeadership() ||
                   (isSignedIn() && (resource.data.traineeId == request.auth.uid ||
                                     isStageReviewer(resource.data.traineeId, resource.data.stage)));
       allow create: if isSignedIn() && request.resource.data.traineeId == request.auth.uid &&
@@ -386,7 +392,7 @@ service cloud.firestore {
     // only until the coordinator publishes the stage. Trainees read their
     // reviews once published; reviewers read only their own.
     match /reviews/{reviewId} {
-      allow read: if isAdmin() ||
+      allow read: if isAdminOrLeadership() ||
                   (isSignedIn() && resource.data.reviewerUid == request.auth.uid) ||
                   (isSignedIn() && resource.data.traineeId == request.auth.uid &&
                    isPublished(request.auth.uid, resource.data.stage));
@@ -399,6 +405,8 @@ service cloud.firestore {
              d.id == reviewId &&
              reviewId == d.traineeId + '__' + d.stage + '__' + d.target + '__' + d.reviewerSlot &&
              d.reviewerUid == request.auth.uid &&
+             // Leadership is read-only, even if put in a reviewer slot.
+             callerRole() != 'leadership' &&
              allowedSlot(d.stage, d.reviewerSlot) &&
              isSlotHolder(d.traineeId, d.reviewerSlot) &&
              d.status in ['draft', 'submitted'] &&
@@ -425,17 +433,19 @@ service cloud.firestore {
     // Publication state per trainee (doc id = trainee uid). Only admins
     // (coordinators) publish; the trainee and their reviewers can read it.
     match /publications/{traineeId} {
-      allow read: if isAdmin() ||
+      allow read: if isAdminOrLeadership() ||
                   (isSignedIn() && (request.auth.uid == traineeId ||
                                     request.auth.uid in enrollmentOf(traineeId).reviewerUids));
       allow write: if isAdmin();
     }
 
     // Checkpoint decisions - Week 2 continue/release and the Week 4
-    // full-time offer: admins only, never visible to the trainee or their
-    // reviewers. (A release also sets users/{uid}.status, which is.)
+    // full-time offer: admins record them, leadership reads them; never
+    // visible to the trainee or their reviewers. (A release also sets
+    // users/{uid}.status, which is.)
     match /programOutcomes/{traineeId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdminOrLeadership();
+      allow write: if isAdmin();
     }
 
     // Deny everything else by default (no catch-all open rule).

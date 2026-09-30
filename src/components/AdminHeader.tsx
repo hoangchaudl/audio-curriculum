@@ -4,10 +4,10 @@ import { Role } from '../types';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 
-// StoryCo brand + account controls for admins, who have no sidebar: theme,
-// My Profile, "Preview as" another role, and log out. `onBack` shows a
-// "← Dashboard" link on pages other than the dashboard.
-export const AdminHeader: React.FC<{ onPreview: (role: Role) => void; onBack?: () => void; children?: React.ReactNode }> = ({ onPreview, onBack, children }) => {
+// StoryCo brand + account controls for admins and leadership, who have no
+// sidebar: theme, My Profile, "Preview as" another role (admins only), and
+// log out. `onBack` shows a "← Dashboard" link on pages other than the dashboard.
+export const AdminHeader: React.FC<{ onPreview?: (role: Role) => void; onBack?: () => void; children?: React.ReactNode }> = ({ onPreview, onBack, children }) => {
   const { currentUser, logout, updateUserTheme } = useAppContext();
   const isDark = useResolvedTheme(currentUser) === 'dark';
   const [open, setOpen] = useState(false);
@@ -28,7 +28,7 @@ export const AdminHeader: React.FC<{ onPreview: (role: Role) => void; onBack?: (
         <div className="leading-none">
           <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-4 w-auto dark:hidden" />
           <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-4 w-auto hidden dark:block" />
-          <span className="block text-[#2E9DF7] text-[10px] font-extrabold uppercase tracking-[0.08em] mt-1">Audio Training Program · Director</span>
+          <span className="block text-[#2E9DF7] text-[10px] font-extrabold uppercase tracking-[0.08em] mt-1">Audio Training Program · {currentUser?.role === 'leadership' ? 'Leadership' : 'Director'}</span>
         </div>
       </div>
       {onBack && <button onClick={onBack} className="text-sm font-bold text-[#2E9DF7] hover:underline">← Dashboard</button>}
@@ -48,8 +48,8 @@ export const AdminHeader: React.FC<{ onPreview: (role: Role) => void; onBack?: (
           {open && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-gray-100 p-2 z-50">
               <button onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className={item}>My Profile</button>
-              <p className="text-[10px] text-gray-400 font-black uppercase px-3 pt-2 pb-1 border-t mt-1">Preview as</p>
-              {(['sound_designer', 'reviewer', 'audio_engineer'] as Role[]).map(role => (
+              {onPreview && <p className="text-[10px] text-gray-400 font-black uppercase px-3 pt-2 pb-1 border-t mt-1">Preview as</p>}
+              {onPreview && (['sound_designer', 'reviewer', 'audio_engineer'] as Role[]).map(role => (
                 <button key={role} onClick={() => { setOpen(false); onPreview(role); }} className={item}>
                   {role === 'sound_designer' ? 'Sound Designer (trainee)' : role === 'reviewer' ? 'Reviewer' : 'Audio Engineer'}
                 </button>

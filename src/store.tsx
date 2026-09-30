@@ -654,9 +654,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Other people's profiles and lesson progress, by role (firestore.rules
   // reject any query that could return something you may not read):
-  // admins/engineers load everyone; reviewers load the trainees assigned to
-  // them; everyone else only themselves.
-  const staff = role === 'admin' || role === 'audio_engineer';
+  // admins/engineers/leadership load everyone; reviewers load the trainees
+  // assigned to them; everyone else only themselves.
+  const staff = role === 'admin' || role === 'audio_engineer' || role === 'leadership';
   const reviewedKey = staff ? '' : assessment.enrollments.filter(e => e.id !== authUid).map(e => e.traineeId).sort().join('|');
   useEffect(() => {
     if (!authUid || !role) return;

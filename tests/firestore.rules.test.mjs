@@ -581,3 +581,56 @@ describe('assessment program', () => {
     await assertFails(getDoc(doc(as('trainee2'), `enrollments/${T}`)));
   });
 });
+
+describe('leadership (read-only)', () => {
+  beforeEach(() => seed(async (db) => {
+    await baseUsers(db);
+    await setDoc(doc(db, 'users/leader'), { id: 'leader', role: 'leadership', name: 'L' });
+    await setDoc(doc(db, 'enrollments/designer'), { id: 'designer', traineeId: 'designer', startDate: '2026-09-21', reviewers: { trainer: 'engineer' }, reviewerUids: ['engineer'], podEpisodesRequired: 1 });
+    await setDoc(doc(db, 'assessmentSubmissions/designer__B__episode__v1'), { id: 'designer__B__episode__v1', traineeId: 'designer', stage: 'B', target: 'episode', version: 1, isComplete: true, links: [] });
+    await setDoc(doc(db, 'reviews/designer__B__episode__trainer'), { id: 'designer__B__episode__trainer', traineeId: 'designer', stage: 'B', reviewerUid: 'engineer', status: 'draft', scores: {} });
+    await setDoc(doc(db, 'publications/designer'), { id: 'designer', episodeA: false, episodeB: false, pod: false });
+    await setDoc(doc(db, 'programOutcomes/designer'), { id: 'designer', decision: 'offered' });
+    await setDoc(doc(db, 'videoProgress/m1_designer'), { id: 'm1_designer', moduleId: 'm1', userId: 'designer', watchedAt: '' });
+    await setDoc(doc(db, 'invites/new@story.co'), { id: 'new@story.co', email: 'new@story.co', role: 'reviewer' });
+    await setDoc(doc(db, 'submissions/old'), { id: 'old' });
+  }));
+
+  it('reads the whole roster, progress, scores, reviews and decisions (as the app queries them)', async () => {
+    const l = as('leader');
+    for (const name of ['users', 'enrollments', 'assessmentSubmissions', 'reviews', 'publications', 'programOutcomes', 'videoProgress']) {
+      await assertSucceeds(getDocs(collection(l, name)));
+    }
+  });
+  it('writes nothing in the program', async () => {
+    const l = as('leader');
+    await assertFails(setDoc(doc(l, 'programOutcomes/designer'), { id: 'designer', decision: 'not_offered' }));
+    await assertFails(setDoc(doc(l, 'publications/designer'), { id: 'designer', episodeB: true }));
+    await assertFails(updateDoc(doc(l, 'enrollments/designer'), { startDate: '2026-01-01' }));
+    await assertFails(updateDoc(doc(l, 'users/designer'), { status: 'released' }));
+    await assertFails(deleteDoc(doc(l, 'reviews/designer__B__episode__trainer')));
+    await assertFails(setDoc(doc(l, 'assessmentConfig/current'), { id: 'current', passThreshold: 1 }));
+    await assertFails(setDoc(doc(l, 'invites/x@story.co'), { id: 'x@story.co', email: 'x@story.co', role: 'admin' }));
+    await assertFails(updateDoc(doc(l, 'users/leader'), { role: 'admin' }));
+  });
+  it('cannot write reviews even when an admin puts them in a reviewer slot', async () => {
+    await seed(db => updateDoc(doc(db, 'enrollments/designer'), { reviewers: { trainer: 'leader' }, reviewerUids: ['leader'] }));
+    const r = { id: 'designer__B__episode__trainer', traineeId: 'designer', stage: 'B', target: 'episode', reviewerSlot: 'trainer', reviewerUid: 'leader',
+      submissionId: 'designer__B__episode__v1', scores: {}, status: 'draft', updatedAt: serverTimestamp() };
+    await assertFails(setDoc(doc(as('leader'), 'reviews/designer__B__episode__trainer'), r));
+    // The same write by a real reviewer in that slot goes through.
+    await seed(db => updateDoc(doc(db, 'enrollments/designer'), { reviewers: { trainer: 'engineer' }, reviewerUids: ['engineer'] }));
+    await seed(db => deleteDoc(doc(db, 'reviews/designer__B__episode__trainer')));
+    await assertSucceeds(setDoc(doc(as('engineer'), 'reviews/designer__B__episode__trainer'), { ...r, reviewerUid: 'engineer' }));
+  });
+  it('does not read invites or the legacy archive', async () => {
+    await assertFails(getDocs(collection(as('leader'), 'invites')));
+    await assertFails(getDoc(doc(as('leader'), 'submissions/old')));
+  });
+  it('admins can invite leadership; the invited person signs up with that role', async () => {
+    await assertSucceeds(setDoc(doc(as('admin'), 'invites/boss@story.co'), { id: 'boss@story.co', email: 'boss@story.co', role: 'leadership' }));
+    const boss = asEmail('boss', 'boss@story.co');
+    await assertFails(setDoc(doc(boss, 'users/boss'), { id: 'boss', email: 'boss@story.co', role: 'admin', name: 'B' }));
+    await assertSucceeds(setDoc(doc(boss, 'users/boss'), { id: 'boss', email: 'boss@story.co', role: 'leadership', name: 'B' }));
+  });
+});

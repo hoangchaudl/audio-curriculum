@@ -1,6 +1,7 @@
 // 'reviewer' is for assessment-only accounts (producers, key sound
 // designers) who score assigned trainees but are not trainees themselves.
-export type Role = 'sound_designer' | 'audio_engineer' | 'admin' | 'reviewer';
+// 'leadership' reads every trainee's progress and scores but changes nothing.
+export type Role = 'sound_designer' | 'audio_engineer' | 'admin' | 'reviewer' | 'leadership';
 
 export interface User {
   id: string;
@@ -264,7 +265,7 @@ export interface Enrollment {
 export interface Invite {
   id: string;
   email: string;
-  role: 'sound_designer' | 'reviewer' | 'audio_engineer';
+  role: 'sound_designer' | 'reviewer' | 'audio_engineer' | 'leadership';
   // Trainee invites only:
   startDate?: string;
   podEpisodesRequired?: 1 | 2;
