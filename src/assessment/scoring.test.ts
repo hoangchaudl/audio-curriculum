@@ -7,7 +7,7 @@ import {
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
-  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot, roundScore,
+  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot, roundScore, skillBreakdown,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -337,6 +337,24 @@ describe('Final grade', () => {
     // Criteria at the minimum pass; the unflagged trainee still passes.
     expect(finalResult({ ...floored, config: { ...floored.config, skillFloor: 2 } }).meetsBenchmark).toBe(true);
     expect(finalResult({ ...complete(5, 4, 4), config: floored.config }).weakSkills).toEqual([]);
+  });
+
+  it('skill breakdown: each skill by stage, filled in as it is scored', () => {
+    const epA = gradedEpisodeA(id => (id === 'epA_m2_ex1' ? 2 : 4));
+    const sb = sub('B', 'episode', 1), sp = sub('P1', 'episode', 1);
+    // Episode B: only the trainer has scored so far; Pod Trial not scored.
+    const partial = data({ submissions: [...epA.submissions, sb, sp], reviews: [...epA.reviews, ...fullTableReviews('B', 3, sb.id, ['trainer'])] });
+    const rows = skillBreakdown(partial);
+    expect(rows.map(r => r.id)).toEqual(['workflow', 'dialogue', 'sfx', 'music']);
+    // Dialogue in Episode A is its one tagged criterion (a 2); B waits for the engineer.
+    expect(rows.find(r => r.id === 'dialogue')).toMatchObject({ episodeA: 2, episodeB: null, pod: null });
+    // Untagged criteria stay out: tagging Week 1 workflow as none removes it.
+    const untagged = { ...partial, exercises: partial.exercises.map(e => (e.id === 'epA_m1_ex1' ? { ...e, skill: '' } : e)) };
+    expect(skillBreakdown(untagged).find(r => r.id === 'workflow')!.episodeA).toBeNull();
+    // Once every reviewer has scored, B and the Pod Trial fill in.
+    const full = data({ submissions: [...epA.submissions, sb, sp], reviews: [...epA.reviews,
+      ...fullTableReviews('B', 3, sb.id, ['trainer', 'engineer']), ...fullTableReviews('P1', 5, sp.id, ALL_SLOTS)] });
+    expect(skillBreakdown(full).find(r => r.id === 'dialogue')).toMatchObject({ episodeA: 2, episodeB: 3, pod: 5 });
   });
 
   it('a snapshot freezes the scores a decision was based on', () => {

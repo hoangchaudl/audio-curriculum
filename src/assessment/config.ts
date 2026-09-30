@@ -158,6 +158,13 @@ export const DEFAULT_CRITERIA: Exercise[] = [
   criterion('epA_m4_ex2', 'asg_w3a', 'Music editing – part 2', 2, 50),
 ];
 
+// Which skill each seeded Episode A criterion builds toward (see Exercise.skill).
+export const DEFAULT_SKILLS: Record<string, CriterionId> = {
+  epA_m1_ex1: 'workflow', epA_m2_ex1: 'dialogue', epA_m3_ex1: 'sfx', epA_m3_ex2: 'sfx', epA_m3_ex3: 'sfx',
+  epA_m4_ex1: 'music', epA_m4_ex2: 'music',
+};
+export const exerciseSkill = (e: Exercise): CriterionId | undefined => (e.skill ?? DEFAULT_SKILLS[e.id]) || undefined;
+
 const item = {
   assignment: (assignmentId: string) => ({ id: `oi_${assignmentId}`, kind: 'assignment' as const, assignmentId }),
 };

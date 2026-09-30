@@ -11,7 +11,7 @@ import {
   ScoreSnapshot, AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
   CriterionId, Enrollment, Exercise, ReviewerSlot, WeakSkill,
 } from '../types';
-import { REVIEWER_SLOTS, allowedScoreKeys, gradesFirstComplete, stageCriteria } from './config';
+import { REVIEWER_SLOTS, allowedScoreKeys, exerciseSkill, gradesFirstComplete, stageCriteria } from './config';
 
 export type AwaitingReason = 'enrollment' | 'assignment' | 'submission' | 'assessment';
 export type Outcome =
@@ -155,7 +155,8 @@ const cellStage = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellW
       missing.push(`${name}: ${slotLabel(cell.slot)} – ${stageCriteria(d.config, stage).find(c => c.id === cell.criterion)?.title ?? cell.criterion}`);
     }
   }
-  if (missing.length) return none(awaiting('assessment', missing));
+  // Scored cells are kept so single criteria can be shown before the stage is done.
+  if (missing.length) return { outcome: awaiting('assessment', missing), parts };
   // Cell weights sum to 100 by design, so this is simply Σ weight × score;
   // dividing by the actual total keeps a misconfigured table on the 1-5 scale.
   return { outcome: scored(weightedAverage(parts)), parts };
@@ -166,10 +167,13 @@ const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells
 
 // Each criterion's score in a fully scored stage: its reviewers' cells,
 // weighted (null = the stage isn't fully scored yet).
-const criterionScores = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellWeight[]): Map<CriterionId, number> | null => {
+// partial: also while the stage is being graded - each criterion once all
+// of its own cells are scored.
+const criterionScores = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellWeight[], partial = false): Map<CriterionId, number> | null => {
   const { outcome, parts } = cellStage(d, stage, cells, stage);
-  if (outcome.status !== 'scored') return null;
-  const ids = [...new Set(parts.map(p => p.criterion))];
+  if (outcome.status !== 'scored' && !partial) return null;
+  const ids = [...new Set(cells.map(c => c.criterion))]
+    .filter(id => cells.filter(c => c.criterion === id).length === parts.filter(p => p.criterion === id).length);
   return new Map(ids.map(id => [id, weightedAverage(parts.filter(p => p.criterion === id))]));
 };
 
@@ -211,6 +215,50 @@ export const podOutcome = (d: TraineeData): Outcome => {
   const episodes = ([1, 2] as const).slice(0, required).map(n => podEpisodeOutcome(d, n));
   if (episodes.some(o => o.status === 'awaiting')) return mergeAwaiting(episodes);
   return scored(episodes.reduce((sum, o) => sum + (o as { value: number }).value, 0) / episodes.length);
+};
+
+// --- Skill breakdown (admin roster) ------------------------------------
+
+export interface SkillRow {
+  id: CriterionId;
+  title: string;
+  // null = not scored yet. da is only set up when DA counts toward the grade.
+  episodeA: number | null;
+  episodeB: number | null;
+  pod: number | null;
+  da: number | null;
+}
+
+// Each skill (Episode B / Pod Trial / DA criterion) by stage, as far as it's
+// scored: Episode A from the criteria tagged with that skill (weighted by
+// their share of the final Episode A score), the other stages from their
+// reviewer tables. Shows whether a trainee improves from stage to stage.
+export const skillBreakdown = (d: TraineeData): SkillRow[] => {
+  const byId = new Map<CriterionId, string>();
+  for (const st of ['B', 'P1', 'DA'] as const) for (const c of stageCriteria(d.config, st)) if (!byId.has(c.id)) byId.set(c.id, c.title);
+  const epA = new Map<CriterionId, { weight: number; value: number }[]>();
+  for (const a of episodeAAssignments(d.assignments)) {
+    for (const e of assignmentCriteria(d.exercises, a.id)) {
+      const skill = exerciseSkill(e);
+      const o = skill ? exerciseOutcome(d, e) : null;
+      if (skill && o?.status === 'scored') epA.set(skill, [...(epA.get(skill) ?? []), { weight: (e.weight * (a.weight ?? 0)) / 100, value: o.value }]);
+    }
+  }
+  const b = criterionScores(d, 'B', d.config.episodeBCells, true)!;
+  const da = criterionScores(d, 'DA', d.config.daCells, true)!;
+  const required = d.enrollment?.podEpisodesRequired ?? 1;
+  const pods = (['P1', 'P2'] as const).slice(0, required).map(st => criterionScores(d, st, d.config.podCells, true)!);
+  const podOf = (id: CriterionId) => {
+    const vals = pods.map(m => m.get(id)).filter((v): v is number => v !== undefined);
+    return vals.length ? vals.reduce((t, v) => t + v, 0) / vals.length : null;
+  };
+  return [...byId].map(([id, title]) => ({
+    id, title,
+    episodeA: epA.has(id) ? weightedAverage(epA.get(id)!) : null,
+    episodeB: b.get(id) ?? null,
+    pod: podOf(id),
+    da: da.get(id) ?? null,
+  }));
 };
 
 // --- Final -------------------------------------------------------------
