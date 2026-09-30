@@ -4,10 +4,11 @@ import { Category, User } from '../types';
 import { traineeDataFrom } from '../assessment/traineeData';
 import { Standing, StandingStatus, behindReasons, traineeStanding } from '../assessment/standing';
 import { programProgress } from '../assessment/outline';
-import { Outcome, SkillRow, roundScore, scoreSnapshot, skillBreakdown, stageSubmissions } from '../assessment/scoring';
+import { DISAGREEMENT_GAP, Outcome, SkillRow, disagreements, roundScore, scoreSnapshot, skillBreakdown, stageSubmissions } from '../assessment/scoring';
+import { REVIEWER_SLOTS } from '../assessment/config';
 import { BenchmarkChip, OutcomeBadge, ProgressBar, STAGE_LABELS, formatDate, saveWith } from './assessment/ui';
 import { ReviewBreakdown } from './assessment/AssessmentAdmin';
-import { AssessmentStage, AssessmentSubmission } from '../types';
+import { AssessmentStage, AssessmentSubmission, ProgramOutcome } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled' | 'released', { label: string; cls: string }> = {
@@ -20,6 +21,13 @@ export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled' | 'released', 
   upcoming: { label: 'Not started yet', cls: 'bg-gray-100 text-gray-500' },
   not_enrolled: { label: 'Not enrolled', cls: 'bg-gray-100 text-gray-500' },
 };
+
+// Which badge a trainee gets: released, else a Week 4 decision's frozen
+// result, else their live standing.
+export const badgeKey = (designer: User, standing: Standing | null, outcome: ProgramOutcome | undefined) =>
+  designer.status === 'released' ? 'released' as const
+    : outcome?.decision && outcome.snapshot ? (outcome.snapshot.meetsBenchmark ? 'passed' as const : 'not_passed' as const)
+    : standing?.status ?? 'not_enrolled' as const;
 
 // Sort order for the roster: who needs attention first.
 export const STATUS_ORDER: (StandingStatus | 'not_enrolled' | 'released')[] = ['behind', 'grading', 'passed', 'not_passed', 'on_track', 'upcoming', 'not_enrolled', 'released'];
@@ -118,7 +126,8 @@ export const DesignerCard: React.FC<{
   // changed since. Decisions recorded before snapshots existed show live scores.
   const frozen = outcome?.decision ? outcome.snapshot : undefined;
   const decidedStatus = frozen ? (frozen.meetsBenchmark ? 'passed' : 'not_passed') : undefined;
-  const badge = STATUS_BADGE[released ? 'released' : decidedStatus ?? standing?.status ?? 'not_enrolled'];
+  const badge = STATUS_BADGE[badgeKey(designer, standing, outcome)];
+  const split = standing ? disagreements(data) : [];
   const w = config.stageWeights;
   const r = standing?.result;
   const LABELS = { episodeA: 'Episode A', episodeB: 'Episode B', da: 'Audio Desc.', pod: 'Pod Trial' } as const;
@@ -215,6 +224,19 @@ export const DesignerCard: React.FC<{
             <ul className="bg-rose rounded-2xl px-4 py-3 text-xs font-bold text-ember list-disc pl-7 space-y-0.5">
               {reasons.map(x => <li key={x}>{x}</li>)}
             </ul>
+          )}
+
+          {split.length > 0 && (
+            <div className="bg-sky rounded-2xl px-4 py-3 text-xs font-bold text-navy">
+              <p className="font-black mb-0.5">Reviewers {DISAGREEMENT_GAP}+ points apart - worth a calibration chat before publishing:</p>
+              <ul className="list-disc pl-5 space-y-0.5">
+                {split.map(x => (
+                  <li key={`${x.stage}|${x.title}`}>
+                    {x.stage} › {x.title}: {x.scores.map(s => `${REVIEWER_SLOTS.find(r => r.id === s.slot)?.label ?? s.slot} ${s.score}`).join(', ')}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {standing.late.length > 0 && (

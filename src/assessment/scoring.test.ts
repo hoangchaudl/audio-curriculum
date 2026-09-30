@@ -7,7 +7,7 @@ import {
 } from './config';
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
-  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot, roundScore, skillBreakdown,
+  daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot, roundScore, skillBreakdown, disagreements,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -355,6 +355,15 @@ describe('Final grade', () => {
     const full = data({ submissions: [...epA.submissions, sb, sp], reviews: [...epA.reviews,
       ...fullTableReviews('B', 3, sb.id, ['trainer', 'engineer']), ...fullTableReviews('P1', 5, sp.id, ALL_SLOTS)] });
     expect(skillBreakdown(full).find(r => r.id === 'dialogue')).toMatchObject({ episodeA: 2, episodeB: 3, pod: 5 });
+  });
+
+  it('flags reviewers 2+ points apart on one criterion (submitted scores only)', () => {
+    const sb = sub('B', 'episode', 1);
+    const [trainer, engineer] = fullTableReviews('B', 4, sb.id, ['trainer', 'engineer']);
+    const low = { ...engineer, scores: { ...engineer.scores, dialogue: 2 as AssessmentScore, sfx: 3 as AssessmentScore } };
+    const d = data({ submissions: [sb], reviews: [trainer, low] });
+    expect(disagreements(d)).toEqual([{ stage: 'Episode B', title: 'Dialogue Import, Sync & Leveling', scores: [{ slot: 'trainer', score: 4 }, { slot: 'engineer', score: 2 }] }]);
+    expect(disagreements(data({ submissions: [sb], reviews: [trainer, { ...low, status: 'draft' }] }))).toEqual([]);
   });
 
   it('a snapshot freezes the scores a decision was based on', () => {
