@@ -1,5 +1,6 @@
-import { Assignment, ProgramOutcome, ProgramOutline, VideoProgress } from '../types';
-import { FinalResult, TraineeData, finalResult, roundScore } from './scoring';
+import { AssessmentStage, Assignment, ProgramOutcome, ProgramOutline, ReviewerSlot, VideoProgress } from '../types';
+import { FinalResult, TraineeData, assignmentCriteria, episodeAAssignments, exerciseSubmissions, finalResult, roundScore, stageSubmissions } from './scoring';
+import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys } from './config';
 import { assignmentApplies, assignmentStatus, daysLate, programDate, weekGroups } from './outline';
 
 // Where a trainee stands in the probation program right now - one place
@@ -87,7 +88,7 @@ export const traineeStanding = (d: TraineeData, outline: ProgramOutline | null, 
     result.final.status === 'scored' ? (result.meetsBenchmark ? 'passed' : 'not_passed')
       : !start || dayIndex < 0 ? 'upcoming'
       : ended && !overdue.length ? 'grading'
-      : overdue.length || pace.length || belowSoFar ? 'behind'
+      : overdue.length || pace.length || belowSoFar || result.weakSkills.length ? 'behind'
       : 'on_track';
   return { status, week, totalWeeks, ended, overdue, late, pace, scoreSoFar, result };
 };
@@ -107,4 +108,47 @@ export const behindReasons = (s: Standing, passThreshold: number): string[] => [
     ? `Week ${p.week}: only ${p.done} of ${p.total} lessons done - behind pace (half by Day ${PACE_CHECK_DAY})`
     : `Week ${p.week} ended with only ${p.done} of ${p.total} lessons done`),
   ...(s.scoreSoFar !== null && roundScore(s.scoreSoFar) < passThreshold - 1e-9 ? [`Score so far ${roundScore(s.scoreSoFar).toFixed(2)} is below the ${passThreshold} benchmark`] : []),
+  ...s.result.weakSkills.map(w => `${w.stage} › ${w.title}: ${w.value.toFixed(2)} is below the skill minimum`),
 ];
+
+// Review lag: work handed in more than this many days ago that a reviewer
+// still hasn't submitted scores for.
+export const REVIEW_LAG_DAYS = 2;
+
+export interface WaitingReview { stage: AssessmentStage; title: string; slot: ReviewerSlot; reviewerUid: string; since: Date; days: number }
+
+export const waitingReviews = (d: TraineeData, now = new Date()): WaitingReview[] => {
+  const e = d.enrollment;
+  if (!e) return [];
+  // firestore.rules only accept a submitted review with every score filled.
+  const reviewed = (stage: AssessmentStage, target: string, slot: ReviewerSlot) =>
+    d.reviews.some(r => r.stage === stage && r.target === target && r.reviewerSlot === slot && r.status === 'submitted');
+  const out: WaitingReview[] = [];
+  const add = (stage: AssessmentStage, title: string, slot: ReviewerSlot, submittedAt: string) => {
+    const reviewerUid = e.reviewers[slot];
+    const since = new Date(submittedAt);
+    const days = Math.floor((now.getTime() - since.getTime()) / DAY);
+    if (reviewerUid && days >= REVIEW_LAG_DAYS) out.push({ stage, title, slot, reviewerUid, since, days });
+  };
+  // Episode A: the trainer scores every criterion of an assignment, waiting
+  // since its first hand-in.
+  for (const a of episodeAAssignments(d.assignments)) {
+    const lines = assignmentCriteria(d.exercises, a.id);
+    const first = lines.flatMap(l => exerciseSubmissions(d.submissions, l)).sort((x, y) => x.submittedAt.localeCompare(y.submittedAt))[0];
+    if (first && lines.length && !lines.every(l => reviewed('A', l.id, 'trainer'))) add('A', a.title, 'trainer', first.submittedAt);
+  }
+  // Reviewer-table stages: from the first complete hand-in, every reviewer
+  // with a cell in the stage's table.
+  const stages: AssessmentStage[] = ['B', 'DA', 'P1', ...(e.podEpisodesRequired === 2 ? ['P2' as const] : [])];
+  for (const stage of stages) {
+    const first = stageSubmissions(d.submissions, stage, 'episode').find(v => v.isComplete);
+    if (!first) continue;
+    const title = d.assignments.find(a => a.stage === stage)?.title ?? stage;
+    for (const slot of STAGE_SLOTS[stage]) {
+      if (allowedScoreKeys(stage, slot, d.config).length && !reviewed(stage, 'episode', slot)) add(stage, title, slot, first.submittedAt);
+    }
+  }
+  return out;
+};
+
+export const slotName = (slot: ReviewerSlot) => REVIEWER_SLOTS.find(s => s.id === slot)?.label ?? slot;

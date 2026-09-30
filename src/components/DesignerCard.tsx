@@ -119,6 +119,7 @@ export const DesignerCard: React.FC<{
           {frozen && (
             <p className="text-[11px] font-bold text-gray-500 -mt-2">
               As recorded with the decision on {formatDate(new Date(outcome!.decidedAt!))} - later changes to weights or the benchmark don't apply.
+              {frozen.weakSkills?.length ? ` Below the ${frozen.skillFloor} skill minimum: ${frozen.weakSkills.map(w => `${w.stage} › ${w.title} ${w.value.toFixed(2)}`).join(', ')}.` : ''}
             </p>
           )}
 
@@ -182,7 +183,9 @@ export const DesignerCard: React.FC<{
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-black">Final score is below {config.passThreshold} - probation not passed.</span>
+                  <span className="font-black">
+                    {r!.weakSkills.length ? `A skill is below the ${config.skillFloor} minimum` : `Final score is below ${config.passThreshold}`} - probation not passed.
+                  </span>
                   <button onClick={() => setConfirm('not_offered')} className="bg-gray-200 text-gray-700 font-black px-3 py-1.5 rounded-full">Record: no offer</button>
                 </div>
               )}

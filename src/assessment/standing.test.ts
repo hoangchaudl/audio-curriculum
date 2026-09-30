@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_ASSESSMENT_CONFIG, DEFAULT_ASSIGNMENTS, DEFAULT_CRITERIA, DEFAULT_OUTLINE } from './config';
-import { behindReasons, isReleasedBy, lessonPace, traineeStanding, week2CheckpointDue } from './standing';
+import { behindReasons, isReleasedBy, lessonPace, traineeStanding, waitingReviews, week2CheckpointDue } from './standing';
 import { TraineeData } from './scoring';
 
 const T = 't';
@@ -100,5 +100,30 @@ describe('checkpoints (Week 2 continue/release, Week 4 offer)', () => {
     // Already decided at Week 4: nothing left to ask at Week 2.
     expect(week2CheckpointDue(inWeek3, { id: T, decision: 'offered' })).toBe(false);
     expect(week2CheckpointDue(null, undefined)).toBe(false);
+  });
+});
+
+describe('review lag', () => {
+  const w1 = { ...submitted('asg_w1'), submittedAt: '2026-09-25T10:00:00' };
+  const rev = (target: string, status: 'draft' | 'submitted') => ({
+    id: `r_${target}`, traineeId: T, stage: 'A' as const, target, reviewerSlot: 'trainer' as const, reviewerUid: 'u',
+    submissionId: w1.id, scores: { exercise: 3 as const }, status, updatedAt: '',
+  });
+  it('flags a hand-in unscored after 2 days, until every criterion is submitted', () => {
+    expect(waitingReviews(base({ submissions: [w1] }), at('2026-09-26'))).toEqual([]);
+    expect(waitingReviews(base({ submissions: [w1] }), at('2026-09-27')).map(w => [w.title, w.slot, w.reviewerUid, w.days]))
+      .toEqual([['Week 1 assignment: dialogue session', 'trainer', 'u', 2]]);
+    // Week 1 has two criteria: one scored, one still a draft -> still waiting.
+    const partly = base({ submissions: [w1], reviews: [rev('epA_m1_ex1', 'submitted'), rev('epA_m2_ex1', 'draft')] });
+    expect(waitingReviews(partly, at('2026-09-28'))).toHaveLength(1);
+    const done = base({ submissions: [w1], reviews: [rev('epA_m1_ex1', 'submitted'), rev('epA_m2_ex1', 'submitted')] });
+    expect(waitingReviews(done, at('2026-09-28'))).toEqual([]);
+  });
+  it('reviewer-table stages wait on each assigned reviewer, from the first complete version', () => {
+    const b = { id: 'b1', traineeId: T, stage: 'B' as const, target: 'episode', version: 1, isComplete: true, links: [], submittedAt: '2026-10-08T10:00:00' };
+    const d = base({ submissions: [b], enrollment: { ...base().enrollment!, reviewers: { trainer: 'u', engineer: 'e' } } });
+    expect(waitingReviews(d, at('2026-10-11')).map(w => w.slot)).toEqual(['trainer', 'engineer']);
+    // Unassigned slots aren't anyone's backlog.
+    expect(waitingReviews(base({ submissions: [b] }), at('2026-10-11')).map(w => w.slot)).toEqual(['trainer']);
   });
 });

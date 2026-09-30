@@ -9,7 +9,7 @@
 //   are applied once (never multiplied by a criterion weight again).
 import {
   ScoreSnapshot, AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
-  Enrollment, Exercise, ReviewerSlot,
+  CriterionId, Enrollment, Exercise, ReviewerSlot, WeakSkill,
 } from '../types';
 import { REVIEWER_SLOTS, allowedScoreKeys, gradesFirstComplete, stageCriteria } from './config';
 
@@ -127,34 +127,74 @@ export const episodeAOutcome = (d: TraineeData): Outcome => {
 
 // --- Episode B / Pod Trial (reviewer-table stages) ---------------------
 
-const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellWeight[], name: string): Outcome => {
-  if (!d.enrollment) return awaiting('enrollment', [name]);
+type CellPart = { criterion: CriterionId; weight: number; value: number };
+
+// The stage's outcome plus the scored cells it was built from.
+const cellStage = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellWeight[], name: string): { outcome: Outcome; parts: CellPart[] } => {
+  const none = (outcome: Outcome) => ({ outcome, parts: [] });
+  if (!d.enrollment) return none(awaiting('enrollment', [name]));
   const slots = [...new Set(cells.map(c => c.slot))];
   const unassigned = slots.filter(s => !d.enrollment!.reviewers[s]);
-  if (unassigned.length) return awaiting('assignment', unassigned.map(s => `${slotLabel(s)} (${name})`));
+  if (unassigned.length) return none(awaiting('assignment', unassigned.map(s => `${slotLabel(s)} (${name})`)));
 
   const complete = stageSubmissions(d.submissions, stage, 'episode').filter(s => s.isComplete);
-  if (complete.length === 0) return awaiting('submission', [name]);
+  if (complete.length === 0) return none(awaiting('submission', [name]));
   // Episode B / DA: only a review of the first complete submission counts.
   // Pod Trial: a review of any complete version of that episode counts.
   const gradedVersion = (r: AssessmentReview) =>
     gradesFirstComplete(stage) ? r.submissionId === complete[0].id : complete.some(s => s.id === r.submissionId);
 
   const missing: string[] = [];
-  const parts: { weight: number; value: number }[] = [];
+  const parts: CellPart[] = [];
   for (const cell of cells) {
     const review = findReview(d, stage, 'episode', cell.slot);
     const value = review?.scores[cell.criterion];
     if (review?.status === 'submitted' && gradedVersion(review) && isValidScore(value)) {
-      parts.push({ weight: cell.weight, value });
+      parts.push({ criterion: cell.criterion, weight: cell.weight, value });
     } else {
       missing.push(`${name}: ${slotLabel(cell.slot)} – ${stageCriteria(d.config, stage).find(c => c.id === cell.criterion)?.title ?? cell.criterion}`);
     }
   }
-  if (missing.length) return awaiting('assessment', missing);
+  if (missing.length) return none(awaiting('assessment', missing));
   // Cell weights sum to 100 by design, so this is simply Σ weight × score;
   // dividing by the actual total keeps a misconfigured table on the 1-5 scale.
-  return scored(weightedAverage(parts));
+  return { outcome: scored(weightedAverage(parts)), parts };
+};
+
+const cellStageOutcome = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellWeight[], name: string) =>
+  cellStage(d, stage, cells, name).outcome;
+
+// Each criterion's score in a fully scored stage: its reviewers' cells,
+// weighted (null = the stage isn't fully scored yet).
+const criterionScores = (d: TraineeData, stage: 'B' | 'P1' | 'P2' | 'DA', cells: CellWeight[]): Map<CriterionId, number> | null => {
+  const { outcome, parts } = cellStage(d, stage, cells, stage);
+  if (outcome.status !== 'scored') return null;
+  const ids = [...new Set(parts.map(p => p.criterion))];
+  return new Map(ids.map(id => [id, weightedAverage(parts.filter(p => p.criterion === id))]));
+};
+
+// Criteria of Episode B, the Pod Trial (averaged over the required
+// episodes) and DA scoring below the skill minimum - only stages that count
+// toward the final grade and are fully scored. Episode A is where skills
+// are learned, so it has no minimum.
+export const weakSkills = (d: TraineeData): WeakSkill[] => {
+  const floor = d.config.skillFloor ?? 0;
+  if (!floor) return [];
+  const w = d.config.stageWeights;
+  const required = d.enrollment?.podEpisodesRequired ?? 1;
+  const pods = (['P1', 'P2'] as const).slice(0, required).map(st => criterionScores(d, st, d.config.podCells));
+  const pod = pods.every(Boolean)
+    ? new Map([...pods[0]!.keys()].map(id => [id, pods.reduce((t, m) => t + (m!.get(id) ?? 0), 0) / pods.length]))
+    : null;
+  const stages = [
+    { weight: w.episodeB, stage: 'B' as const, label: 'Episode B', scores: criterionScores(d, 'B', d.config.episodeBCells) },
+    { weight: w.pod, stage: 'P1' as const, label: 'Pod Trial', scores: pod },
+    { weight: w.da ?? 0, stage: 'DA' as const, label: 'Audio Description', scores: criterionScores(d, 'DA', d.config.daCells) },
+  ];
+  return stages.filter(st => st.weight > 0 && st.scores).flatMap(st => stageCriteria(d.config, st.stage).flatMap(c => {
+    const value = st.scores!.get(c.id);
+    return value !== undefined && roundScore(value) < floor - 1e-9 ? [{ stage: st.label, title: c.title, value: roundScore(value) }] : [];
+  }));
 };
 
 export const episodeBOutcome = (d: TraineeData) => cellStageOutcome(d, 'B', d.config.episodeBCells, 'Episode B');
@@ -182,8 +222,10 @@ export interface FinalResult {
   da: Outcome;
   podEpisodes: Outcome[];
   final: Outcome;
-  // Only defined once the final score exists.
+  // Only defined once the final score exists: the final score reaches the
+  // benchmark and no skill is below the skill minimum.
   meetsBenchmark?: boolean;
+  weakSkills: WeakSkill[];
 }
 
 export const finalResult = (d: TraineeData): FinalResult => {
@@ -199,7 +241,8 @@ export const finalResult = (d: TraineeData): FinalResult => {
     { weight: w.episodeA, outcome: episodeA }, { weight: w.episodeB, outcome: episodeB },
     { weight: w.pod, outcome: pod }, { weight: w.da ?? 0, outcome: da },
   ].filter(st => st.weight > 0);
-  const base = { episodeA, episodeB, pod, da, podEpisodes };
+  const weak = weakSkills(d);
+  const base = { episodeA, episodeB, pod, da, podEpisodes, weakSkills: weak };
   if (stages.some(st => st.outcome.status === 'awaiting')) {
     return { ...base, final: mergeAwaiting(stages.map(st => st.outcome)) };
   }
@@ -207,7 +250,7 @@ export const finalResult = (d: TraineeData): FinalResult => {
   // The benchmark is judged on the score as displayed (2 decimals), so the
   // label always matches the number people see - e.g. equal 33.33/33.33/
   // 33.34 criterion weights can compute 3.4999 for what shows as 3.50.
-  return { ...base, final: scored(value), meetsBenchmark: roundScore(value) >= d.config.passThreshold - 1e-9 };
+  return { ...base, final: scored(value), meetsBenchmark: roundScore(value) >= d.config.passThreshold - 1e-9 && !weak.length };
 };
 
 // --- Configuration checks (shown to admins) ----------------------------
@@ -330,6 +373,8 @@ export const scoreSnapshot = (d: TraineeData): ScoreSnapshot => {
     final: value(r.final),
     ...(r.meetsBenchmark !== undefined ? { meetsBenchmark: r.meetsBenchmark } : {}),
     passThreshold: d.config.passThreshold,
+    ...(d.config.skillFloor ? { skillFloor: d.config.skillFloor } : {}),
+    ...(r.weakSkills.length ? { weakSkills: r.weakSkills } : {}),
     stages: ([['episodeA', r.episodeA], ['episodeB', r.episodeB], ['da', r.da], ['pod', r.pod]] as const)
       .map(([key, o]) => ({ key, weight: w[key] ?? 0, value: value(o) })),
   };
