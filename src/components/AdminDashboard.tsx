@@ -11,14 +11,12 @@ import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
-import { ALL_BATCHES, BatchFilter, NO_BATCH, batchNames, inBatch, saveWith, useBatchFilter } from './assessment/ui';
+import { BatchFilter, batchNames, inBatch, saveWith, useBatchFilter } from './assessment/ui';
 import { ClipTimes } from './assessment/ClipTimes';
-import { DesignerCard, STATUS_BADGE, STATUS_ORDER, badgeKey } from './DesignerCard';
-import { DISAGREEMENT_GAP, disagreements } from '../assessment/scoring';
-import { programProgress } from '../assessment/outline';
-import { reportRows, toCsv } from '../assessment/report';
-import { REVIEW_LAG_DAYS, behindReasons, slotName, traineeStanding, waitingReviews, week2CheckpointDue } from '../assessment/standing';
-import { traineeDataFrom } from '../assessment/traineeData';
+import { DesignerCard } from './DesignerCard';
+import { DISAGREEMENT_GAP } from '../assessment/scoring';
+import { REVIEW_LAG_DAYS, behindReasons, slotName } from '../assessment/standing';
+import { useRoster } from '../assessment/roster';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 
@@ -66,41 +64,25 @@ const CARD_THEMES = [
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-// readOnly: the leadership view - the Sound Designers roster only, with no
-// decisions, edits or previews (firestore.rules let leadership read, not write).
-export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number; onPreview?: (role: Role) => void; readOnly?: boolean }> = ({ focusModuleId, focusNonce, onPreview, readOnly }) => {
+export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: number; onPreview: (role: Role) => void }> = ({ focusModuleId, focusNonce, onPreview }) => {
   const hasReviews = useHasReviewAssignments();
   const reviewTodo = useReviewTodoCount();
   const {
-    users, categories, modules, moduleVideos, enrollments, invites, programOutline, programOutcomes, assessmentConfig,
+    users, categories, modules, moduleVideos, enrollments, invites, assessmentConfig,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo,
     setUserUnlockedCategories,
   } = useAppContext();
   const lockedCategories = sortCategories(categories).filter(c => c.restricted);
-  const [activeTab, setActiveTab] = useState<'designers' | 'modules' | 'assessment'>(readOnly ? 'designers' : 'modules');
+  const [activeTab, setActiveTab] = useState<'designers' | 'modules' | 'assessment'>('modules');
 
   const designers = users.filter(u => u.role === 'sound_designer');
-  // Probation standing per designer (null = not enrolled), sorted so the
-  // ones needing attention come first.
-  const ctx = useAppContext();
-  const roster = designers.map(designer => ({
-    designer,
-    standing: enrollments.some(e => e.id === designer.id) ? traineeStanding(traineeDataFrom(ctx, designer.id), programOutline, ctx.videoProgress) : null,
-  }));
-  const sortKey = (r: typeof roster[number]) => STATUS_ORDER.indexOf(r.designer.status === 'released' ? 'released' : r.standing?.status ?? 'not_enrolled');
-  roster.sort((a, b) => sortKey(a) - sortKey(b) || a.designer.name.localeCompare(b.designer.name));
-  // Released trainees drop out of every alert.
-  const active = roster.filter(r => r.designer.status !== 'released');
-  const outcomeOf = (id: string) => programOutcomes.find(o => o.id === id);
-  const behind = active.filter(r => r.standing?.status === 'behind');
-  const awaitingDecision = active.filter(r => (r.standing?.status === 'passed' || r.standing?.status === 'not_passed') && !outcomeOf(r.designer.id)?.decision);
-  const checkpointDue = active.filter(r => week2CheckpointDue(r.standing, outcomeOf(r.designer.id)));
+  const { roster, behind, awaitingDecision, checkpointDue, waiting, splits, outcomeOf, downloadReport } = useRoster();
   // The Sound Designers tab shows one hiring batch at a time (newest by
   // default); the alerts above always cover everyone.
   const batches = batchNames(enrollments, invites);
   const [batch, setBatch] = useBatchFilter(batches);
   const shownRoster = roster.filter(r => inBatch(enrollments.find(e => e.id === r.designer.id), batch));
-  // The batch at a glance, for leadership: where every trainee in it stands.
+  // The batch at a glance: where every trainee in it stands.
   const count = (f: (r: typeof roster[number]) => boolean) => shownRoster.filter(f).length;
   const undecided = (r: typeof roster[number]) => r.designer.status !== 'released' && !outcomeOf(r.designer.id)?.decision;
   const summary = [
@@ -113,31 +95,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     { label: 'Released', n: count(r => r.designer.status === 'released'), cls: 'bg-gray-200 text-gray-700' },
     { label: 'Not started', n: count(r => undecided(r) && (!r.standing || r.standing.status === 'upcoming')), cls: 'bg-gray-100 text-gray-500' },
   ].filter(x => x.n > 0 || x.label !== 'Not started');
-  // Hand-ins still waiting for a reviewer's scores after REVIEW_LAG_DAYS,
-  // for trainees whose offer isn't decided yet.
-  const waiting = active.filter(r => r.standing && !outcomeOf(r.designer.id)?.decision)
-    .flatMap(r => waitingReviews(traineeDataFrom(ctx, r.designer.id)).map(w => ({ ...w, trainee: r.designer.name })))
-    .sort((a, b) => b.days - a.days);
-  // Reviewers far apart on a criterion, for trainees still being decided.
-  const splits = active.filter(r => r.standing && !outcomeOf(r.designer.id)?.decision)
-    .map(r => ({ name: r.designer.name, n: disagreements(traineeDataFrom(ctx, r.designer.id)).length })).filter(x => x.n > 0);
-  // The shown batch as a CSV for leadership (no admin access needed to read it).
-  const downloadReport = () => {
-    const rows = reportRows(shownRoster.map(({ designer, standing }) => {
-      const data = traineeDataFrom(ctx, designer.id);
-      const outcome = outcomeOf(designer.id);
-      return {
-        designer, standing, data, outcome,
-        status: STATUS_BADGE[badgeKey(designer, standing, outcome)].label.replace(/^[^A-Za-z]+/, ''),
-        progress: data.enrollment ? programProgress(programOutline, ctx.assignments, data.enrollment, designer.id, ctx.videoProgress, ctx.assessmentSubmissions) : null,
-      };
-    }), (assessmentConfig.stageWeights.da ?? 0) > 0);
-    // BOM so Excel reads the Vietnamese names as UTF-8.
-    const url = URL.createObjectURL(new Blob(['\ufeff' + toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
-    const name = (batch === ALL_BATCHES ? 'all' : batch === NO_BATCH ? 'no-batch' : batch).replace(/[^\w-]+/g, '-');
-    Object.assign(document.createElement('a'), { href: url, download: `probation-report-${name}-${new Date().toISOString().slice(0, 10)}.csv` }).click();
-    URL.revokeObjectURL(url);
-  };
   const engineers = users.filter(u => u.role === 'audio_engineer');
   // The retired 1-4 homework system's data (read-only archive), as a JSON
   // download - see firestore.rules.
@@ -367,7 +324,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         )}
 
         {/* Tabs */}
-        {!readOnly && <div className="flex gap-3 flex-wrap">
+        <div className="flex gap-3 flex-wrap">
           <button
             onClick={() => setActiveTab('modules')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
@@ -399,7 +356,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           >
             Assessment (1–5)
           </button>
-        </div>}
+        </div>
 
         {activeTab === 'assessment' && (
           <AssessmentAdmin onEditModule={(id) => {
@@ -419,7 +376,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <div className="flex items-center gap-4 flex-wrap">
                 <BatchFilter value={batch} onChange={setBatch} batches={batches} />
                 {shownRoster.length > 0 && (
-                  <button onClick={downloadReport} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+                  <button onClick={() => downloadReport(shownRoster, batch)} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
                     Download report (CSV)
                   </button>
                 )}
@@ -441,7 +398,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {shownRoster.map(({ designer, standing }, i) => (
                 <DesignerCard key={designer.id} designer={designer} standing={standing} accent={CARD_THEMES[i % CARD_THEMES.length].accent}
-                  lockedCategories={lockedCategories} readOnly={readOnly} />
+                  lockedCategories={lockedCategories} />
               ))}
             </div>
           </div>
