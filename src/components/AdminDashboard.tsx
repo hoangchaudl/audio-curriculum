@@ -11,9 +11,12 @@ import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
-import { BatchFilter, batchNames, inBatch, saveWith, useBatchFilter } from './assessment/ui';
+import { ALL_BATCHES, BatchFilter, NO_BATCH, batchNames, inBatch, saveWith, useBatchFilter } from './assessment/ui';
 import { ClipTimes } from './assessment/ClipTimes';
-import { DesignerCard, STATUS_ORDER } from './DesignerCard';
+import { DesignerCard, STATUS_BADGE, STATUS_ORDER, badgeKey } from './DesignerCard';
+import { DISAGREEMENT_GAP, disagreements } from '../assessment/scoring';
+import { programProgress } from '../assessment/outline';
+import { reportRows, toCsv } from '../assessment/report';
 import { REVIEW_LAG_DAYS, behindReasons, slotName, traineeStanding, waitingReviews, week2CheckpointDue } from '../assessment/standing';
 import { traineeDataFrom } from '../assessment/traineeData';
 
@@ -113,6 +116,26 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const waiting = active.filter(r => r.standing && !outcomeOf(r.designer.id)?.decision)
     .flatMap(r => waitingReviews(traineeDataFrom(ctx, r.designer.id)).map(w => ({ ...w, trainee: r.designer.name })))
     .sort((a, b) => b.days - a.days);
+  // Reviewers far apart on a criterion, for trainees still being decided.
+  const splits = active.filter(r => r.standing && !outcomeOf(r.designer.id)?.decision)
+    .map(r => ({ name: r.designer.name, n: disagreements(traineeDataFrom(ctx, r.designer.id)).length })).filter(x => x.n > 0);
+  // The shown batch as a CSV for leadership (no admin access needed to read it).
+  const downloadReport = () => {
+    const rows = reportRows(shownRoster.map(({ designer, standing }) => {
+      const data = traineeDataFrom(ctx, designer.id);
+      const outcome = outcomeOf(designer.id);
+      return {
+        designer, standing, data, outcome,
+        status: STATUS_BADGE[badgeKey(designer, standing, outcome)].label.replace(/^[^A-Za-z]+/, ''),
+        progress: data.enrollment ? programProgress(programOutline, ctx.assignments, data.enrollment, designer.id, ctx.videoProgress, ctx.assessmentSubmissions) : null,
+      };
+    }), (assessmentConfig.stageWeights.da ?? 0) > 0);
+    // BOM so Excel reads the Vietnamese names as UTF-8.
+    const url = URL.createObjectURL(new Blob(['\ufeff' + toCsv(rows)], { type: 'text/csv;charset=utf-8' }));
+    const name = (batch === ALL_BATCHES ? 'all' : batch === NO_BATCH ? 'no-batch' : batch).replace(/[^\w-]+/g, '-');
+    Object.assign(document.createElement('a'), { href: url, download: `probation-report-${name}-${new Date().toISOString().slice(0, 10)}.csv` }).click();
+    URL.revokeObjectURL(url);
+  };
   const engineers = users.filter(u => u.role === 'audio_engineer');
   // The retired 1-4 homework system's data (read-only archive), as a JSON
   // download - see firestore.rules.
@@ -282,7 +305,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
         {/* Alerts for coordinators, on every tab: who's falling behind, and
             who finished probation and is waiting for an offer decision. */}
-        {(behind.length > 0 || awaitingDecision.length > 0 || checkpointDue.length > 0 || waiting.length > 0) && (
+        {(behind.length > 0 || awaitingDecision.length > 0 || checkpointDue.length > 0 || waiting.length > 0 || splits.length > 0) && (
           <div className="space-y-3">
             {checkpointDue.length > 0 && (
               <div className="bg-sky rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
@@ -320,6 +343,14 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {splits.length > 0 && (
+              <div className="bg-sky rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-bold text-navy">
+                  ⚖ Reviewers disagree by {DISAGREEMENT_GAP}+ points for {splits.map(x => `${x.name} (${x.n})`).join(', ')} - check before publishing.
+                </p>
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
               </div>
             )}
             {awaitingDecision.length > 0 && (
@@ -385,6 +416,11 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               </h3>
               <div className="flex items-center gap-4 flex-wrap">
                 <BatchFilter value={batch} onChange={setBatch} batches={batches} />
+                {shownRoster.length > 0 && (
+                  <button onClick={downloadReport} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+                    Download report (CSV)
+                  </button>
+                )}
                 <span className="text-xs font-bold text-gray-500">
                   Pass = final score of {assessmentConfig.passThreshold}+ / 5{assessmentConfig.skillFloor ? `, every skill ${assessmentConfig.skillFloor}+` : ''} after week 4 → recommend a full-time offer
                 </span>

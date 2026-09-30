@@ -261,6 +261,27 @@ export const skillBreakdown = (d: TraineeData): SkillRow[] => {
   }));
 };
 
+// --- Reviewer disagreement ---------------------------------------------
+
+// Reviewers this many points apart on one criterion should talk it
+// through before the stage is published.
+export const DISAGREEMENT_GAP = 2;
+
+export interface Disagreement { stage: string; title: string; scores: { slot: ReviewerSlot; score: number }[] }
+
+const TABLE_STAGES = [['B', 'Episode B'], ['P1', 'Pod Trial ep 1'], ['P2', 'Pod Trial ep 2'], ['DA', 'Audio Description']] as const;
+
+// Submitted scores on the same criterion that are DISAGREEMENT_GAP or more
+// apart (reviewer-table stages; Episode A has a single reviewer).
+export const disagreements = (d: TraineeData): Disagreement[] => TABLE_STAGES.flatMap(([stage, label]) => {
+  const reviews = d.reviews.filter(r => r.stage === stage && r.target === 'episode' && r.status === 'submitted');
+  return stageCriteria(d.config, stage).flatMap(c => {
+    const scores = reviews.flatMap(r => (isValidScore(r.scores[c.id]) ? [{ slot: r.reviewerSlot, score: r.scores[c.id]! }] : []));
+    const vals = scores.map(x => x.score);
+    return scores.length > 1 && Math.max(...vals) - Math.min(...vals) >= DISAGREEMENT_GAP ? [{ stage: label, title: c.title, scores }] : [];
+  });
+});
+
 // --- Final -------------------------------------------------------------
 
 export interface FinalResult {
