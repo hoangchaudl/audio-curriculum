@@ -4,8 +4,10 @@ import { Category, User } from '../types';
 import { traineeDataFrom } from '../assessment/traineeData';
 import { Standing, StandingStatus, behindReasons, traineeStanding } from '../assessment/standing';
 import { programProgress } from '../assessment/outline';
-import { Outcome, roundScore, scoreSnapshot } from '../assessment/scoring';
-import { BenchmarkChip, OutcomeBadge, ProgressBar, formatDate, saveWith } from './assessment/ui';
+import { Outcome, SkillRow, roundScore, scoreSnapshot, skillBreakdown, stageSubmissions } from '../assessment/scoring';
+import { BenchmarkChip, OutcomeBadge, ProgressBar, STAGE_LABELS, formatDate, saveWith } from './assessment/ui';
+import { ReviewBreakdown } from './assessment/AssessmentAdmin';
+import { AssessmentStage, AssessmentSubmission } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled' | 'released', { label: string; cls: string }> = {
@@ -22,6 +24,73 @@ export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled' | 'released', 
 // Sort order for the roster: who needs attention first.
 export const STATUS_ORDER: (StandingStatus | 'not_enrolled' | 'released')[] = ['behind', 'grading', 'passed', 'not_passed', 'on_track', 'upcoming', 'not_enrolled', 'released'];
 
+// Change between the last two stages a skill was scored in (A -> B -> Pod)
+// that counts as a real move rather than noise.
+const TREND_STEP = 0.25;
+const trend = (row: SkillRow) => {
+  const vals = [row.episodeA, row.episodeB, row.pod].filter((v): v is number => v !== null);
+  if (vals.length < 2) return null;
+  const diff = vals[vals.length - 1] - vals[vals.length - 2];
+  return diff >= TREND_STEP ? { icon: '▲', label: 'improving', cls: 'text-leaf' }
+    : diff <= -TREND_STEP ? { icon: '▼', label: 'slipping', cls: 'text-ember' }
+    : { icon: '→', label: 'steady', cls: 'text-gray-400' };
+};
+
+// Every skill by stage, so a reviewer sees what the single average hides.
+const SkillTable: React.FC<{ rows: SkillRow[]; showDA: boolean; floor: number }> = ({ rows, showDA, floor }) => {
+  const cols = [['episodeA', 'Ep A'], ['episodeB', 'Ep B'], ['pod', 'Pod'], ...(showDA ? [['da', 'DA']] : [])] as [keyof SkillRow, string][];
+  const cell = (v: number | null, floored: boolean) => (
+    <td className={`px-1.5 py-1 text-right tabular-nums ${v !== null && floored && floor && roundScore(v) < floor - 1e-9 ? 'text-ember font-black' : ''}`}>
+      {v === null ? '–' : roundScore(v).toFixed(2)}
+    </td>
+  );
+  return (
+    <table className="w-full text-[11px] font-bold text-gray-700">
+      <caption className="sr-only">Score per skill and stage</caption>
+      <thead>
+        <tr className="text-[10px] uppercase text-gray-400">
+          <th scope="col" className="text-left font-black py-1">Skill</th>
+          {cols.map(([, label]) => <th key={label} scope="col" className="text-right font-black px-1.5">{label}</th>)}
+          <th scope="col" className="w-5"><span className="sr-only">Trend</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(r => {
+          const t = trend(r);
+          return (
+            <tr key={r.id} className="border-t border-gray-100">
+              <th scope="row" className="text-left font-bold py-1 pr-1 truncate max-w-[9rem]" title={r.title}>{r.title}</th>
+              {cols.map(([key]) => <React.Fragment key={key}>{cell(r[key] as number | null, key !== 'episodeA')}</React.Fragment>)}
+              <td className={`text-center ${t?.cls ?? ''}`} title={t?.label}>{t ? <><span aria-hidden="true">{t.icon}</span><span className="sr-only">{t.label}</span></> : ''}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
+
+// What the trainee handed in: the latest version of each assignment, with its links.
+const HandIns: React.FC<{ submissions: AssessmentSubmission[]; titleOf: (stage: AssessmentStage, target: string) => string }> = ({ submissions, titleOf }) => {
+  const latest = [...new Map(submissions.map(s => [`${s.stage}|${s.target}`, s])).keys()]
+    .map(k => { const [stage, target] = k.split('|') as [AssessmentStage, string]; return stageSubmissions(submissions, stage, target).at(-1)!; })
+    .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
+  if (!latest.length) return <p className="text-xs text-gray-500">Nothing handed in yet.</p>;
+  return (
+    <ul className="grid gap-1.5">
+      {latest.map(s => (
+        <li key={s.id} className="bg-gray-50 rounded-2xl px-3 py-2 text-xs">
+          <p className="font-black text-gray-700">{titleOf(s.stage, s.target)} · v{s.version}{s.isComplete ? '' : ' (not marked complete)'} · {formatDate(new Date(s.submittedAt))}</p>
+          <p className="flex flex-wrap gap-x-3">
+            {s.links.map((l, i) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="font-bold text-[#2E9DF7] underline break-all">{l.label}</a>)}
+          </p>
+          {s.note && <p className="text-gray-500 whitespace-pre-wrap mt-1">{s.note}</p>}
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
 // One sound designer in the admin roster, on the 1-5 probation program:
@@ -37,6 +106,7 @@ export const DesignerCard: React.FC<{
   const { assessmentConfig: config, programOutline, assignments, videoProgress, assessmentSubmissions, programOutcomes, setProgramOutcome,
     setWeek2Checkpoint, setUserUnlockedCategories } = ctx;
   const [confirm, setConfirm] = useState<'offered' | 'not_offered' | 'release' | null>(null);
+  const [showEvidence, setShowEvidence] = useState(false);
   // Optional reason recorded with each checkpoint decision (admins only).
   const [week2Note, setWeek2Note] = useState('');
   const [finalNote, setFinalNote] = useState('');
@@ -61,6 +131,10 @@ export const DesignerCard: React.FC<{
       { label: 'Audio Desc.', weight: w.da ?? 0, o: r.da },
       { label: 'Pod Trial', weight: w.pod, o: r.pod },
     ].filter(s => s.weight > 0) : [];
+  const skills = standing ? skillBreakdown(data).filter(r => [r.episodeA, r.episodeB, r.pod, r.da].some(v => v !== null)) : [];
+  const titleOf = (stage: AssessmentStage, target: string) => stage === 'A'
+    ? assignments.find(a => a.id === target)?.title ?? ctx.exercises.find(e => e.id === target)?.title ?? 'Episode A assignment'
+    : STAGE_LABELS[stage];
   const progress = data.enrollment ? programProgress(programOutline, assignments, data.enrollment, designer.id, videoProgress, assessmentSubmissions) : null;
   // Once decided, "falling behind" no longer applies.
   const reasons = standing && !outcome?.decision ? behindReasons(standing, config.passThreshold) : [];
@@ -122,6 +196,20 @@ export const DesignerCard: React.FC<{
               {frozen.weakSkills?.length ? ` Below the ${frozen.skillFloor} skill minimum: ${frozen.weakSkills.map(w => `${w.stage} › ${w.title} ${w.value.toFixed(2)}`).join(', ')}.` : ''}
             </p>
           )}
+
+          {skills.length > 0 && <SkillTable rows={skills} showDA={(w.da ?? 0) > 0} floor={config.skillFloor ?? 0} />}
+
+          <div>
+            <button onClick={() => setShowEvidence(o => !o)} aria-expanded={showEvidence} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">
+              {showEvidence ? 'Hide' : 'Show'} evidence: hand-ins, scores & feedback
+            </button>
+            {showEvidence && (
+              <div className="mt-2 space-y-3">
+                <HandIns submissions={data.submissions} titleOf={titleOf} />
+                <ReviewBreakdown traineeId={designer.id} />
+              </div>
+            )}
+          </div>
 
           {reasons.length > 0 && (
             <ul className="bg-rose rounded-2xl px-4 py-3 text-xs font-bold text-ember list-disc pl-7 space-y-0.5">

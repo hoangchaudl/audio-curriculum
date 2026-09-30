@@ -49,7 +49,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 // Every reviewer's scores and feedback for one trainee - what the trainee
 // will see once a stage is published - so the coordinator can check them first.
-const ReviewBreakdown: React.FC<{ traineeId: string }> = ({ traineeId }) => {
+export const ReviewBreakdown: React.FC<{ traineeId: string }> = ({ traineeId }) => {
   const { users, exercises, assignments, assessmentConfig } = useAppContext();
   const summaries = reviewSummaries(useTraineeData(traineeId).reviews, exercises, assignments, assessmentConfig);
   if (!summaries.length) return <p className="text-xs text-gray-500">No reviews yet.</p>;

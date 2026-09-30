@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
 import { BandInputs, RubricPaste, VietnameseStatus } from './RubricTools';
 import { withVietnamese } from '../../assessment/rubricPaste';
-import { DEFAULT_WEEK_GOALS } from '../../assessment/config';
+import { DEFAULT_SKILLS, DEFAULT_WEEK_GOALS, stageCriteria } from '../../assessment/config';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
 import { splitEvenly } from '../../assessment/scoring';
@@ -42,6 +42,8 @@ export const AssignmentForm: React.FC<{
   const linesOk = Math.abs(lineTotal - 100) < 0.01;
   const [busy, setBusy] = useState(false);
   const setLine = (i: number, patch: Partial<Exercise>) => setLines(ls => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  // Skills an Episode A criterion can build toward: the reviewer-table criteria.
+  const skills = [...new Map((['B', 'P1', 'DA'] as const).flatMap(st => stageCriteria(assessmentConfig, st)).map(c => [c.id, c.title])).entries()];
 
   return (
     <div className="bg-gray-50 rounded-2xl p-4 space-y-3 mt-2">
@@ -86,7 +88,7 @@ export const AssignmentForm: React.FC<{
               <RubricPaste onApply={r => {
                 const even = splitEvenly(r.criteria.length);
                 setLines(r.criteria.map((c, i) => ({ id: lines[i]?.id ?? uid('ex'), assignmentId: a.id, title: c.title, order: i + 1,
-                  weight: c.weight ?? even[i], levels: c.levels, ...(c.outcome ? { outcome: c.outcome } : {}), ...(lines[i]?.vi ? { vi: lines[i].vi } : {}) })));
+                  weight: c.weight ?? even[i], levels: c.levels, ...(c.outcome ? { outcome: c.outcome } : {}), ...(lines[i]?.vi ? { vi: lines[i].vi } : {}), ...(lines[i]?.skill !== undefined ? { skill: lines[i].skill } : {}) })));
                 if (r.bands) setA(x => ({ ...x, bands: r.bands }));
               }} />
               {lines.length > 0 && (
@@ -112,6 +114,14 @@ export const AssignmentForm: React.FC<{
                 </label>
                 <button type="button" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove criterion">✕</button>
               </div>
+              <label className="flex flex-wrap items-center gap-2 text-xs font-bold text-gray-500">
+                Builds toward skill
+                <select value={l.skill ?? DEFAULT_SKILLS[l.id] ?? ''} onChange={e => setLine(i, { skill: e.target.value })}
+                  aria-label={`${l.title || 'Criterion'} - skill it builds toward`} className={`${input} bg-surface w-auto py-1.5 text-xs`}>
+                  <option value="">None (not in the skill breakdown)</option>
+                  {skills.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+                </select>
+              </label>
               <textarea value={l.outcome ?? ''} onChange={e => setLine(i, { outcome: e.target.value })} placeholder="What it assesses, e.g. the module learning outcome (optional)"
                 aria-label={`${l.title || 'Criterion'} - what it assesses`} className={`${input} bg-surface h-14 text-xs`} />
               <div className="grid gap-2 sm:grid-cols-5">

@@ -151,6 +151,10 @@ export interface Exercise {
   // What the criterion assesses (e.g. the module learning outcome).
   outcome?: string;
   vi?: RubricVi;
+  // The Episode B / Pod Trial criterion (skill) it builds toward, for the
+  // admin's per-skill breakdown. Unset = the default for seeded criteria
+  // (DEFAULT_SKILLS); '' = none.
+  skill?: CriterionId;
 }
 
 // Something trainees submit, placed on a day of the program outline.
