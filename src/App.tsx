@@ -21,6 +21,7 @@ import { EpisodeView } from './components/assessment/EpisodeView';
 import { SavedToast, SyncErrorBanner } from './components/assessment/ui';
 // Loaded on demand so trainees never download the admin screens.
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const LeadershipDashboard = lazy(() => import('./components/LeadershipDashboard').then(m => ({ default: m.LeadershipDashboard })));
 const ReviewerQueue = lazy(() => import('./components/assessment/ReviewerQueue').then(m => ({ default: m.ReviewerQueue })));
 
 // Modules are addressable via the URL hash (#/module/<id>) so each one has
@@ -253,7 +254,7 @@ const AppContent = () => {
       <div className="flex flex-col h-screen w-full bg-page text-ink font-sans overflow-hidden">
         {view === 'profile' && <AdminHeader onBack={() => { setView('module'); window.location.hash = ''; }} />}
         <Suspense fallback={<div role="status" className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>
-          {view === 'profile' ? <ProfileView /> : <AdminDashboard readOnly />}
+          {view === 'profile' ? <ProfileView /> : <LeadershipDashboard />}
         </Suspense>
       </div>
     );
