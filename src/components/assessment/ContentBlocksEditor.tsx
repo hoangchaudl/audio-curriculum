@@ -3,6 +3,7 @@ import { ClipTimes } from './ClipTimes';
 import { clipFields } from '../../videoClip';
 import { ContentBlock } from '../../types';
 import { input, secondaryBtn } from './ui';
+import { MarkdownEditor } from './MarkdownEditor';
 
 const newId = () => `blk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -49,9 +50,8 @@ export const ContentBlocksEditor: React.FC<{ blocks: ContentBlock[]; onChange: (
           </div>
 
           {block.type === 'richText' && (
-            <textarea value={block.markdown} onChange={e => update(block.id, { markdown: e.target.value })}
-              placeholder={'## What to do this week\n- Point one\n- Point two\n\n**Bold**, *italic*, [links](https://...)'}
-              className={`${input} h-32 font-mono text-xs`} />
+            <MarkdownEditor value={block.markdown} onChange={markdown => update(block.id, { markdown })}
+              placeholder={'## What to do this week\n- Point one\n- Point two\n\nSelect text, then use the toolbar to format it.'} />
           )}
 
           {block.type === 'expectation' && (

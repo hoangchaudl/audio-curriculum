@@ -138,12 +138,26 @@ export const dateFor = (startDate: string | undefined, week: number, day = 1) =>
 export const formatDate = (d: Date | null) =>
   d ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : null;
 
+// Text colors for `[text](#color-name)` in Markdown (see MarkdownEditor).
+export const TEXT_COLORS: Record<string, string> = {
+  blue: 'text-[#2E9DF7]',
+  red: 'text-ember',
+  green: 'text-leaf',
+  navy: 'text-navy',
+};
+
 // Safe Markdown (react-markdown never renders raw HTML by default).
 export const Md: React.FC<{ children: string }> = ({ children }) => (
-  <div className="text-sm text-gray-700 leading-relaxed space-y-2 [&_h1]:text-lg [&_h1]:font-black [&_h2]:font-black [&_h3]:font-bold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#2E9DF7] [&_a]:underline [&_strong]:text-gray-800">
+  <div className="text-sm text-gray-700 leading-relaxed space-y-2 [&_h1]:text-lg [&_h1]:font-black [&_h2]:text-base [&_h2]:font-black [&_h2]:text-gray-800 [&_h2]:pt-2 [&_h3]:font-bold [&_h3]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#2E9DF7] [&_a]:underline [&_strong]:text-gray-800 [&_blockquote]:bg-sky [&_blockquote]:text-navy [&_blockquote]:rounded-2xl [&_blockquote]:px-4 [&_blockquote]:py-3 [&_blockquote]:border-l-4 [&_blockquote]:border-[#2E9DF7] [&_hr]:border-gray-200 [&_hr]:my-4">
     <Suspense fallback={<p className="whitespace-pre-wrap">{children}</p>}>
       <Markdown
-        components={{ a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" /> }}
+        components={{
+          a: ({ node: _node, href, ...props }) => {
+            const color = href?.match(/^#color-(\w+)$/)?.[1];
+            if (color) return <span className={`${TEXT_COLORS[color] ?? ''} font-semibold`}>{props.children}</span>;
+            return <a href={href} {...props} target="_blank" rel="noreferrer" />;
+          },
+        }}
       >
         {children}
       </Markdown>
