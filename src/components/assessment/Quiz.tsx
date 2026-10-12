@@ -65,8 +65,9 @@ export const QuizEditor: React.FC<{ questions: QuizQuestion[]; onChange: (questi
 };
 
 // Trainee: answer, check, see what was right and why. Nothing is saved.
-// onChecked: the trainee checked their answers (a quiz page counts as done).
-export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[]; onChecked?: () => void }> = ({ title, questions, onChecked }) => {
+// onChecked: the trainee checked their answers (saved as an attempt; a quiz
+// page counts as done). note: e.g. "Your best: 8 / 10 · 3 tries".
+export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[]; onChecked?: (score: number, total: number) => void; note?: string | null }> = ({ title, questions, onChecked, note }) => {
   const [picked, setPicked] = useState<number[][]>(() => questions.map(() => []));
   const [checked, setChecked] = useState(false);
   const right = (i: number) => {
@@ -83,7 +84,10 @@ export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[]; onC
   return (
     <div className={card}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <h4 className={sectionTitle}>📝 {title || 'Quick check'}</h4>
+        <div>
+          <h4 className={sectionTitle}>📝 {title || 'Quick check'}</h4>
+          {note && <p className="text-xs font-bold text-gray-400 mt-0.5">{note}</p>}
+        </div>
         {checked && <span className={`text-sm font-black ${score === questions.length ? 'text-leaf' : 'text-navy'}`}>{score} / {questions.length} correct</span>}
       </div>
       <ol className="space-y-5">
@@ -117,7 +121,7 @@ export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[]; onC
       <div className="mt-5">
         {checked
           ? <button onClick={() => { setChecked(false); setPicked(questions.map(() => [])); }} className={secondaryBtn}>Try again</button>
-          : <button onClick={() => { setChecked(true); onChecked?.(); }} disabled={picked.some(p => !p.length)} className={primaryBtn}>Check answers</button>}
+          : <button onClick={() => { setChecked(true); onChecked?.(score, questions.length); }} disabled={picked.some(p => !p.length)} className={primaryBtn}>Check answers</button>}
       </div>
     </div>
   );

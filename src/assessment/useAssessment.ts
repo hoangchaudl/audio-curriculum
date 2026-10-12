@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase';
 import {
   AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, Enrollment, Exercise,
-  Invite, Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, ReviewerSlot, ScoreSnapshot, User,
+  Invite, Module, ModuleVideo, ProgramOutcome, ProgramOutline, Publication, QuizAttempt, ReviewerSlot, ScoreSnapshot, User,
 } from '../types';
 import { convertSkillGrading } from './migrate';
 import { isReleasedBy } from './standing';
@@ -148,7 +148,18 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   ]);
   const reviews = readsAll ? allReviews : scopedReviews;
 
+  // --- quiz attempts (everyone's for admins/leadership, else your own) ---
+  const allQuizAttempts = useLive<QuizAttempt>(ready && readsAll ? 'quiz:all' : null, () => [collection(db, 'quizAttempts')]);
+  const ownQuizAttempts = useLive<QuizAttempt>(ready && !readsAll ? `quiz:${uid}` : null,
+    () => [query(collection(db, 'quizAttempts'), where('traineeId', '==', uid))]);
+  const quizAttempts = readsAll ? allQuizAttempts : ownQuizAttempts;
+
   // --- actions -----------------------------------------------------------
+
+  const saveQuizAttempt = async (moduleId: string, blockId: string, score: number, total: number) => {
+    if (!authUid || role !== 'sound_designer') return;
+    await setDoc(doc(collection(db, 'quizAttempts')), { traineeId: uid, moduleId, blockId, score, total, at: serverTimestamp() });
+  };
 
   // Trainee: add a new version; earlier versions are never touched.
   const submitAssessmentVersion = async (
@@ -371,7 +382,7 @@ export const useAssessment = (authUid: string | null, currentUser: User | null) 
   return {
     exercises, assignments, programOutline, assessmentConfig: config, assessmentConfigSaved: configSaved,
     enrollments, ownEnrollmentLoaded: readsAll || !!ownEnrollment.loaded, assessmentSubmissions: submissions, assessmentReviews: reviews, publications, programOutcomes, setProgramOutcome, setWeek2Checkpoint,
-    invites, createInvite, deleteInvite,
+    invites, createInvite, deleteInvite, quizAttempts, saveQuizAttempt,
     submitAssessmentVersion, saveReview, upsertEnrollment, setPublication, upsertExercise, deleteExercise,
     updateAssessmentConfig, setupAssessmentProgram, updateAssignment, convertToAssignmentGrading, saveOutline, saveAssignment, deleteAssignment,
   };

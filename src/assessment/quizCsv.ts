@@ -1,4 +1,4 @@
-import { QuizQuestion } from '../types';
+import { Module, ProgramOutline, QuizAttempt, QuizQuestion } from '../types';
 import { tsvRows } from './rubricPaste';
 
 // Quiz questions from CSV (e.g. written by an AI with QUIZ_AI_PROMPT), one
@@ -44,4 +44,33 @@ export const parseQuizCsv = (text: string): { questions: QuizQuestion[]; errors:
     questions.push({ q, options: kept.map(k => options[k]), correct: correct.map(k => kept.indexOf(k)), ...(explain ? { explain } : {}) });
   });
   return { questions, errors };
+};
+
+export interface QuizRow {
+  key: string;
+  moduleId: string;
+  blockId: string;
+  title: string;
+  attempts: number;
+  best?: { score: number; total: number };
+  last?: { score: number; total: number };
+}
+
+// One trainee's quiz results, in outline order: every quiz page in the
+// outline (taken or not), plus quizzes inside lessons they've taken.
+export const quizSummary = (
+  outline: ProgramOutline | null, modules: Module[], attempts: QuizAttempt[], traineeId: string,
+): QuizRow[] => {
+  const ids = [...new Set((outline?.weeks ?? []).flatMap(w => w.items.flatMap(i => (i.kind === 'content' ? [i.moduleId] : []))))];
+  return ids.flatMap(id => {
+    const mod = modules.find(m => m.id === id);
+    return (mod?.contentBlocks ?? []).flatMap(b => {
+      if (b.type !== 'quiz') return [];
+      const mine = attempts.filter(a => a.traineeId === traineeId && a.moduleId === id && a.blockId === b.id).sort((x, y) => x.at.localeCompare(y.at));
+      if (!mod!.quiz && !mine.length) return [];
+      const pick = (a?: QuizAttempt) => (a ? { score: a.score, total: a.total } : undefined);
+      const best = [...mine].sort((x, y) => y.score / y.total - x.score / x.total)[0];
+      return [{ key: `${id}|${b.id}`, moduleId: id, blockId: b.id, title: b.title || mod!.title, attempts: mine.length, best: pick(best), last: pick(mine.at(-1)) }];
+    });
+  });
 };

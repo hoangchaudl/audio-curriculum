@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseQuizCsv } from './quizCsv';
+import { parseQuizCsv, quizSummary } from './quizCsv';
+import { Module, ProgramOutline } from '../types';
 
 describe('quiz CSV import', () => {
   it('reads AI-style CSV with a header, quoted commas, blank options and multi answers', () => {
@@ -29,6 +30,28 @@ describe('quiz CSV import', () => {
       'Row 1: needs at least 2 options',
       'Row 2: answer "D" doesn\'t match a filled option',
       'Row 3: answer "" doesn\'t match a filled option',
+    ]);
+  });
+
+  it('summarises a trainee\'s quiz results in outline order, including quizzes not taken', () => {
+    const quiz = (id: string) => ({ id, type: 'quiz' as const, title: '', questions: [] });
+    const modules: Module[] = [
+      { id: 'q1', order: 1, title: 'Quiz 1', description: '', quiz: true, contentBlocks: [quiz('b1')] },
+      { id: 'l1', order: 2, title: 'Lesson', description: '', contentBlocks: [quiz('b2')] },
+      { id: 'q2', order: 3, title: 'Quiz 2', description: '', quiz: true, contentBlocks: [quiz('b3')] },
+    ];
+    const outline = { id: 'current', weeks: [{ id: 'w1', title: 'Week 1', items: [
+      { id: 'i1', kind: 'content', moduleId: 'q2' }, { id: 'i2', kind: 'content', moduleId: 'l1' }, { id: 'i3', kind: 'content', moduleId: 'q1' },
+    ] }] } as ProgramOutline;
+    const at = (n: number) => `2026-01-0${n}T00:00:00Z`;
+    const attempts = [
+      { id: 'a', traineeId: 't', moduleId: 'q1', blockId: 'b1', score: 8, total: 10, at: at(1) },
+      { id: 'b', traineeId: 't', moduleId: 'q1', blockId: 'b1', score: 5, total: 10, at: at(2) },
+      { id: 'c', traineeId: 'other', moduleId: 'q2', blockId: 'b3', score: 1, total: 1, at: at(1) },
+    ];
+    expect(quizSummary(outline, modules, attempts, 't')).toEqual([
+      { key: 'q2|b3', moduleId: 'q2', blockId: 'b3', title: 'Quiz 2', attempts: 0, best: undefined, last: undefined },
+      { key: 'q1|b1', moduleId: 'q1', blockId: 'b1', title: 'Quiz 1', attempts: 2, best: { score: 8, total: 10 }, last: { score: 5, total: 10 } },
     ]);
   });
 });

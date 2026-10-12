@@ -332,6 +332,18 @@ export interface ScoreSnapshot {
 
 // Append-only: every revision is a new document; firestore.rules forbid
 // updating or deleting one. Id = `${traineeId}__${stage}__${target}__v${version}`.
+// One go at a quiz block: the trainee's score when they checked their
+// answers. Self-reported by the trainee's browser (it's a self-check).
+export interface QuizAttempt {
+  id: string;
+  traineeId: string;
+  moduleId: string;
+  blockId: string;
+  score: number;
+  total: number;
+  at: string;
+}
+
 export interface AssessmentSubmission {
   id: string;
   traineeId: string;

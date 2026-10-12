@@ -3,7 +3,7 @@ import { useAppContext } from '../../store';
 import { ContentBlocks } from './ContentBlocks';
 import { lessonContext, Step } from '../../assessment/outline';
 import { formatLength, youTubeId } from '../../videoClip';
-import { Md, ProgressBar, card, sectionTitle } from './ui';
+import { Md, ProgressBar, card, saveWith, sectionTitle } from './ui';
 
 const go = (hash: string) => { window.location.hash = hash; };
 // Tighter than the shared card so the lesson fills wide screens.
@@ -15,7 +15,7 @@ const MATERIAL_ICON: Record<string, string> = { video: '🎥', book: '📖', art
 // right; previous / next at the bottom. Submitting happens on assignment
 // pages.
 export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
-  const { modules, moduleVideos, programOutline, assignments, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched } = useAppContext();
+  const { modules, moduleVideos, programOutline, assignments, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched, quizAttempts, saveQuizAttempt } = useAppContext();
   const scrollRef = useRef<HTMLDivElement>(null);
   // Videos on this page played to the end (clips count at their end time).
   const [finished, setFinished] = useState<string[]>([]);
@@ -107,7 +107,16 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
               <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, start: video.start, end: video.end }]} onVideoEnded={onVideoEnded} />
             )}
             <ContentBlocks blocks={mod.contentBlocks} startDate={enrollment?.startDate} onVideoEnded={onVideoEnded}
-              onQuizChecked={mod.quiz && !done ? () => markVideoWatched(mod.id) : undefined} />
+              onQuizChecked={(blockId, score, total) => {
+                saveWith(saveQuizAttempt(mod.id, blockId, score, total));
+                if (mod.quiz && !done) markVideoWatched(mod.id);
+              }}
+              quizNote={blockId => {
+                const mine = quizAttempts.filter(a => a.traineeId === currentUser?.id && a.moduleId === mod.id && a.blockId === blockId);
+                if (!mine.length) return null;
+                const best = mine.reduce((b, a) => (a.score / a.total > b.score / b.total ? a : b));
+                return `Your best: ${best.score} / ${best.total} · ${mine.length} ${mine.length === 1 ? 'try' : 'tries'}`;
+              }} />
             {!video && !mod.description && !mod.contentBlocks?.length && (
               <section className={`${box} text-center text-sm text-gray-400`}>This lesson's material is on its way - check the materials on the right, or move on to the next item.</section>
             )}

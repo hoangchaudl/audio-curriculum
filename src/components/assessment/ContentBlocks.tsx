@@ -8,7 +8,10 @@ import { Md, card, dateFor, formatDate, sectionTitle } from './ui';
 // Renders admin-authored module/stage content. Every block is optional -
 // a module with no video (or no blocks at all) simply renders less.
 // onVideoEnded fires when a YouTube video (or its clip) plays to the end.
-export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: string; onVideoEnded?: (blockId: string) => void; onQuizChecked?: () => void }> = ({ blocks, startDate, onVideoEnded, onQuizChecked }) => {
+export const ContentBlocks: React.FC<{
+  blocks?: ContentBlock[]; startDate?: string; onVideoEnded?: (blockId: string) => void;
+  onQuizChecked?: (blockId: string, score: number, total: number) => void; quizNote?: (blockId: string) => string | null;
+}> = ({ blocks, startDate, onVideoEnded, onQuizChecked, quizNote }) => {
   if (!blocks?.length) return null;
   return (
     <div className="space-y-6">
@@ -64,7 +67,8 @@ export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: stri
               </div>
             );
           case 'quiz':
-            return <QuizView key={block.id} title={block.title} questions={block.questions} onChecked={onQuizChecked} />;
+            return <QuizView key={block.id} title={block.title} questions={block.questions} note={quizNote?.(block.id)}
+              onChecked={onQuizChecked && ((score, total) => onQuizChecked(block.id, score, total))} />;
           case 'video': {
             const yt = youTubeId(block.url);
             return (
