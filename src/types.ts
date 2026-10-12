@@ -65,6 +65,12 @@ export interface Module {
   // Mixed-media content shown instead of (or alongside) a video. A module
   // never requires a video.
   contentBlocks?: ContentBlock[];
+  // A quiz page in the outline (its content is a quiz block); checking the
+  // answers completes it, like finishing a lesson.
+  quiz?: boolean;
+  // Video watch time in seconds (clips only), measured in an admin's browser
+  // and saved here so trainees see it without measuring (see videoLength.ts).
+  videoSeconds?: number;
 }
 
 // Admin-authored module content. Weeks/days are relative to the trainee's
@@ -180,6 +186,8 @@ export interface Assignment {
   // Episode A-style practice: submitted, scored and given feedback like
   // Episode A, but left out of every grade (see episodeAAssignments).
   practice?: boolean;
+  // Admin's estimate of how long the work takes, shown to trainees.
+  hours?: number;
   // Episode A only: names for scores 1-5 in its rubric (e.g. "Fail (<50)").
   bands?: string[];
   bandsVi?: string[];
@@ -324,6 +332,18 @@ export interface ScoreSnapshot {
 
 // Append-only: every revision is a new document; firestore.rules forbid
 // updating or deleting one. Id = `${traineeId}__${stage}__${target}__v${version}`.
+// One go at a quiz block: the trainee's score when they checked their
+// answers. Self-reported by the trainee's browser (it's a self-check).
+export interface QuizAttempt {
+  id: string;
+  traineeId: string;
+  moduleId: string;
+  blockId: string;
+  score: number;
+  total: number;
+  at: string;
+}
+
 export interface AssessmentSubmission {
   id: string;
   traineeId: string;

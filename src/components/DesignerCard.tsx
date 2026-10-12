@@ -1,3 +1,4 @@
+import { quizSummary } from '../assessment/quizCsv';
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
 import { Category, User } from '../types';
@@ -133,6 +134,7 @@ export const DesignerCard: React.FC<{
   const w = config.stageWeights;
   const r = standing?.result;
   const LABELS = { episodeA: 'Episode A', episodeB: 'Episode B', da: 'Audio Desc.', pod: 'Pod Trial' } as const;
+  const quizzes = quizSummary(ctx.programOutline, ctx.modules, ctx.quizAttempts, designer.id);
   const scored = (value: number | null): Outcome => (value === null ? { status: 'awaiting', reason: 'assessment', missing: [] } : { status: 'scored', value });
   const stages = frozen
     ? frozen.stages.map(x => ({ label: LABELS[x.key], weight: x.weight, o: scored(x.value) })).filter(s => s.weight > 0)
@@ -209,6 +211,27 @@ export const DesignerCard: React.FC<{
           )}
 
           {skills.length > 0 && <SkillTable rows={skills} showDA={(w.da ?? 0) > 0} floor={config.skillFloor ?? 0} />}
+
+          {quizzes.length > 0 && (
+            <div className="bg-gray-50 rounded-2xl p-3">
+              <p className="text-[10px] font-black uppercase text-gray-500 mb-2">
+                ❓ Quizzes · {quizzes.filter(q => q.attempts).length} of {quizzes.length} taken <span className="normal-case font-bold text-gray-400">(practice only - not in the grade)</span>
+              </p>
+              <ul className="space-y-1">
+                {quizzes.map(q => (
+                  <li key={q.key} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="font-bold text-gray-700">{q.title}</span>
+                    {q.best ? (
+                      <span className="font-bold text-gray-500">
+                        best <b className={q.best.score === q.best.total ? 'text-leaf' : 'text-gray-800'}>{q.best.score} / {q.best.total}</b>
+                        {q.attempts > 1 && <> · last {q.last!.score} / {q.last!.total} · {q.attempts} tries</>}
+                      </span>
+                    ) : <span className="font-bold text-gray-400">Not taken yet</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div>
             <button onClick={() => setShowEvidence(o => !o)} aria-expanded={showEvidence} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">

@@ -3,7 +3,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 // Loaded when the first Markdown text is shown, not with the app.
 const Markdown = lazy(() => import('react-markdown'));
 import { AssessmentStage, Enrollment, Invite, RubricVi } from '../../types';
-import { Outcome, outcomeLabel, roundScore } from '../../assessment/scoring';
+import { Outcome, outcomeLabel, roundScore, scoreRange } from '../../assessment/scoring';
 import { SCORE_LABELS_5 } from '../../assessment/config';
 
 export const STAGE_LABELS: Record<AssessmentStage, string> = {
@@ -97,7 +97,8 @@ export const ProgressBar: React.FC<{ done: number; total: number; label?: string
 };
 
 // "3.80 / 5 · Production Ready" for scores, or the awaiting label.
-export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg' }> = ({ outcome, size = 'sm' }) => {
+// max 3 (practice): no 1-5 band name.
+export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg'; max?: number }> = ({ outcome, size = 'sm', max = 5 }) => {
   if (outcome.status === 'awaiting') {
     return (
       <span className="inline-block bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide">
@@ -112,8 +113,8 @@ export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg' }> = 
   return (
     <span className="inline-flex items-baseline gap-1.5">
       <span className={`font-black text-gray-800 ${size === 'lg' ? 'text-3xl' : 'text-base'}`}>{shown.toFixed(2)}</span>
-      <span className="text-xs font-bold text-gray-400">/ 5</span>
-      <span className="text-[10px] font-black uppercase tracking-wide text-leaf ml-1">{band}</span>
+      <span className="text-xs font-bold text-gray-400">/ {max}</span>
+      {max === 5 && <span className="text-[10px] font-black uppercase tracking-wide text-leaf ml-1">{band}</span>}
     </span>
   );
 };
@@ -171,7 +172,10 @@ export const isHttpUrl = (s: string) => /^https?:\/\/\S+\.\S+/i.test(s.trim());
 // Names for scores 1-5 when an admin hasn't set the rubric's own.
 export const DEFAULT_BANDS = ['Not met', 'Needs major improvement', 'Meets basic expectations', 'Meets expectations well', 'Fully meets expectations'];
 export const DEFAULT_BANDS_VI = ['Chưa đạt', 'Cần cải thiện nhiều', 'Đạt cơ bản', 'Đạt tốt', 'Hoàn thành đầy đủ'];
-export const bandLabel = (bands: string[] | undefined, n: number) => bands?.[n - 1]?.trim() || DEFAULT_BANDS[n - 1];
+// Practice is scored 1-3, with its own default names.
+export const DEFAULT_BANDS_3 = ['Needs work', 'Almost there', 'Got it'];
+export const DEFAULT_BANDS_3_VI = ['Cần cải thiện', 'Gần đạt', 'Đạt'];
+export const bandLabel = (bands: string[] | undefined, n: number, max = 5) => bands?.[n - 1]?.trim() || (max === 3 ? DEFAULT_BANDS_3 : DEFAULT_BANDS)[n - 1];
 
 // Rubric table: one row per criterion (with what it assesses and its
 // weighting when set), one column per score 1-5 with the admin's
@@ -218,15 +222,15 @@ export const rubricText = (vi: boolean, row: { title?: string; outcome?: string;
   outcome: (vi && row?.vi?.outcome?.trim()) || row?.outcome,
   level: (n: number) => (vi && row?.vi?.levels?.[n - 1]?.trim()) || row?.levels?.[n - 1],
 });
-export const rubricBand = (vi: boolean, bands: string[] | undefined, bandsVi: string[] | undefined, n: number) =>
-  vi ? bandsVi?.[n - 1]?.trim() || bands?.[n - 1]?.trim() || DEFAULT_BANDS_VI[n - 1] : bandLabel(bands, n);
+export const rubricBand = (vi: boolean, bands: string[] | undefined, bandsVi: string[] | undefined, n: number, max = 5) =>
+  vi ? bandsVi?.[n - 1]?.trim() || bands?.[n - 1]?.trim() || (max === 3 ? DEFAULT_BANDS_3_VI : DEFAULT_BANDS_VI)[n - 1] : bandLabel(bands, n, max);
 const RUBRIC_TEXT = {
   en: { criterion: 'Criterion', assesses: 'What it assesses', weighting: 'Weighting' },
   vi: { criterion: 'Tiêu chí', assesses: 'Đánh giá điều gì', weighting: 'Trọng số' },
 };
 // `scores` (criterion id -> 1-5): once results are published, the level
 // each criterion got is highlighted.
-export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; bandsVi?: string[]; scores?: Record<string, number | undefined> }> = ({ lines, bands, bandsVi, scores }) => {
+export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; bandsVi?: string[]; scores?: Record<string, number | undefined>; max?: number }> = ({ lines, bands, bandsVi, scores, max = 5 }) => {
   const hasVi = lines.some(l => l.vi) || !!bandsVi?.some(b => b.trim());
   const [lang, choose] = useRubricLang();
   const vi = hasVi && lang === 'vi';
@@ -234,7 +238,7 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
   const title = (l: RubricLine) => rubricText(vi, l).title;
   const outcome = (l: RubricLine) => rubricText(vi, l).outcome;
   const level = (l: RubricLine, n: number) => rubricText(vi, l).level(n);
-  const band = (n: number) => rubricBand(vi, bands, bandsVi, n);
+  const band = (n: number) => rubricBand(vi, bands, bandsVi, n, max);
   // What a criterion assesses sits under its name (not a column of its
   // own), so the five score descriptions get the width.
   const notes = lines.some(l => l.note);
@@ -249,7 +253,7 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
           {notes && <th className="text-center px-1 py-1 w-16">{t.weighting}</th>}
           {/* A minimum width per score column: on small screens the table
               scrolls sideways instead of squeezing the text into slivers. */}
-          {[1, 2, 3, 4, 5].map(n => <th key={n} className="text-left px-2 py-1 min-w-[9rem]">{n} — {band(n)}</th>)}
+          {scoreRange(max).map(n => <th key={n} className="text-left px-2 py-1 min-w-[9rem]">{n} — {band(n)}</th>)}
         </tr>
       </thead>
       <tbody>
@@ -260,7 +264,7 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
               {outcome(l) && <p className="mt-1.5 text-[11px] font-medium whitespace-pre-wrap"><span className="block text-[9px] font-black uppercase opacity-70">{t.assesses}</span>{outcome(l)}</p>}
             </td>
             {notes && <td className="bg-gray-50 rounded-xl px-1 py-2 text-center font-black text-gray-700">{l.note}</td>}
-            {[1, 2, 3, 4, 5].map(n => {
+            {scoreRange(max).map(n => {
               const got = scores?.[l.id] === n;
               return (
                 <td key={n} aria-current={got ? 'true' : undefined}

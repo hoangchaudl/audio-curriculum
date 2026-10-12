@@ -102,6 +102,10 @@ export const exerciseOutcome = (d: TraineeData, exercise: Exercise, parentTitle 
   return scored(review.scores.exercise!);
 };
 
+// Highest score for an assignment: practice is scored 1-3, everything else 1-5.
+export const maxScore = (a?: Assignment) => (a?.practice ? 3 : 5);
+export const scoreRange = (max = 5) => Array.from({ length: max }, (_, i) => i + 1);
+
 // Graded Episode A assignments - practice ones never count.
 export const episodeAAssignments = (assignments: Assignment[]) => assignments.filter(a => a.stage === 'A' && !a.practice);
 

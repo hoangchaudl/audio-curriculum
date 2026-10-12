@@ -205,6 +205,27 @@ service cloud.firestore {
              d.moduleId is string && progressId == d.moduleId + '_' + request.auth.uid;
     }
 
+    // Quiz scores: a trainee records their own attempts (score is computed in
+    // their browser - quizzes are self-checks); admins and leadership read all.
+    // Attempts are never edited; admins can delete one.
+    match /quizAttempts/{attemptId} {
+      allow read: if isAdminOrLeadership() || (isSignedIn() && resource.data.traineeId == request.auth.uid);
+      allow create: if isMember() && callerRole() == 'sound_designer' && !isReleased() && quizAttemptOk();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    function quizAttemptOk() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['traineeId', 'moduleId', 'blockId', 'score', 'total', 'at']) &&
+             d.keys().hasAll(['traineeId', 'moduleId', 'blockId', 'score', 'total', 'at']) &&
+             d.traineeId == request.auth.uid &&
+             d.moduleId is string && d.moduleId.size() <= 200 && d.blockId is string && d.blockId.size() <= 200 &&
+             d.total is int && d.total > 0 && d.total <= 500 &&
+             d.score is int && d.score >= 0 && d.score <= d.total &&
+             d.at == request.time;
+    }
+
     // ===== Assessment program (1-5 scale) =====
     // Legacy `submissions`/`grades` above are untouched; the new program
     // uses the collections below. See src/assessment/ for the data shapes.

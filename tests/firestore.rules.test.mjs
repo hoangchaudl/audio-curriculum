@@ -634,3 +634,44 @@ describe('leadership (read-only)', () => {
     await assertSucceeds(setDoc(doc(boss, 'users/boss'), { id: 'boss', email: 'boss@story.co', role: 'leadership', name: 'B' }));
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('quiz attempts', () => {
+  beforeEach(() => seed(async (db) => {
+    await baseUsers(db);
+    await setDoc(doc(db, 'users/leader'), { id: 'leader', role: 'leadership', name: 'L' });
+    await setDoc(doc(db, 'users/gone'), { id: 'gone', role: 'sound_designer', name: 'G', status: 'released' });
+    await setDoc(doc(db, 'quizAttempts/other'), { traineeId: 'unlocked', moduleId: 'q1', blockId: 'b1', score: 1, total: 2, at: '2026-01-01' });
+  }));
+  const attempt = (traineeId, extra = {}) => ({ traineeId, moduleId: 'q1', blockId: 'b1', score: 3, total: 4, at: serverTimestamp(), ...extra });
+
+  it('a trainee records their own attempt and reads only their own', async () => {
+    const d = as('designer');
+    await assertSucceeds(setDoc(doc(d, 'quizAttempts/a1'), attempt('designer')));
+    await assertSucceeds(getDocs(query(collection(d, 'quizAttempts'), where('traineeId', '==', 'designer'))));
+    await assertFails(getDoc(doc(d, 'quizAttempts/other')));
+    await assertFails(getDocs(collection(d, 'quizAttempts')));
+  });
+  it('rejects attempts for someone else, impossible scores, extra fields, client times and edits', async () => {
+    const d = as('designer');
+    await assertFails(setDoc(doc(d, 'quizAttempts/x1'), attempt('unlocked')));
+    await assertFails(setDoc(doc(d, 'quizAttempts/x2'), attempt('designer', { score: 5 })));
+    await assertFails(setDoc(doc(d, 'quizAttempts/x3'), attempt('designer', { total: 0, score: 0 })));
+    await assertFails(setDoc(doc(d, 'quizAttempts/x4'), attempt('designer', { note: 'hi' })));
+    await assertFails(setDoc(doc(d, 'quizAttempts/x5'), attempt('designer', { at: '2026-01-01' })));
+    await assertSucceeds(setDoc(doc(d, 'quizAttempts/a1'), attempt('designer')));
+    await assertFails(updateDoc(doc(d, 'quizAttempts/a1'), { score: 4 }));
+    await assertFails(deleteDoc(doc(d, 'quizAttempts/a1')));
+  });
+  it('released trainees and non-trainees cannot record attempts', async () => {
+    await assertFails(setDoc(doc(as('gone'), 'quizAttempts/g1'), attempt('gone')));
+    await assertFails(setDoc(doc(as('engineer'), 'quizAttempts/e1'), attempt('engineer')));
+  });
+  it('admins and leadership read everyone\'s attempts; only admins delete', async () => {
+    await assertSucceeds(getDocs(collection(as('admin'), 'quizAttempts')));
+    await assertSucceeds(getDocs(collection(as('leader'), 'quizAttempts')));
+    await assertFails(getDocs(collection(as('engineer'), 'quizAttempts')));
+    await assertFails(deleteDoc(doc(as('leader'), 'quizAttempts/other')));
+    await assertSucceeds(deleteDoc(doc(as('admin'), 'quizAttempts/other')));
+  });
+});

@@ -224,7 +224,8 @@ export const LESSON_GRACE_DAYS = 1;
 export const spreadDays = (n: number): number[] => Array.from({ length: n }, (_, i) => Math.floor((i * 5) / n) + 1);
 
 export type PlanStatus = 'done' | 'todo' | 'late';
-export interface PlanItem { key: string; kind: 'content' | 'assignment' | 'milestone'; title: string; hash: string; status: PlanStatus; hours?: number }
+// hours: planned (lessons) or estimated (assignments); videoSeconds: lesson watch time.
+export interface PlanItem { key: string; kind: 'content' | 'assignment' | 'milestone'; title: string; hash: string; status: PlanStatus; hours?: number; videoSeconds?: number }
 export interface PlanDay { day: number; date: Date | null; isToday: boolean; items: PlanItem[] }
 
 // One week as a day-by-day plan: lessons on their planned day, assignments
@@ -244,14 +245,14 @@ export const weekPlan = (
       if (!mod) return [];
       const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === traineeId);
       const day = it.day ?? null;
-      return [{ day, item: { key: it.id, kind: 'content', title: mod.title, hash: `#/module/${mod.id}`, hours: it.hours, status: done ? 'done' : day && isPast(day, LESSON_GRACE_DAYS) ? 'late' : 'todo' } }];
+      return [{ day, item: { key: it.id, kind: 'content', title: mod.title, hash: `#/module/${mod.id}`, hours: it.hours, videoSeconds: mod.videoSeconds || undefined, status: done ? 'done' : day && isPast(day, LESSON_GRACE_DAYS) ? 'late' : 'todo' } }];
     }
     if (it.kind === 'assignment') {
       const a = assignments.find(x => x.id === it.assignmentId);
       if (!a || !assignmentApplies(a, enrollment)) return [];
       const day = a.dueDay ?? 7;
       const done = assignmentStatus(a, traineeId, submissions) === 'submitted';
-      return [{ day, item: { key: it.id, kind: 'assignment', title: a.title, hash: `#/assignment/${a.id}`, status: done ? 'done' : isPast(day) ? 'late' : 'todo' } }];
+      return [{ day, item: { key: it.id, kind: 'assignment', title: a.title, hash: `#/assignment/${a.id}`, hours: a.hours, status: done ? 'done' : isPast(day) ? 'late' : 'todo' } }];
     }
     return [{ day: it.day ?? 7, item: { key: it.id, kind: 'milestone', title: it.title, hash: '', status: isPast(it.day ?? 7) ? 'done' : 'todo' } }];
   }) : [];

@@ -14,5 +14,8 @@ describe('rubric text in English or Vietnamese', () => {
     expect(rubricBand(true, undefined, undefined, 3)).toBe('Đạt cơ bản');
     expect(rubricBand(false, undefined, ['Trượt'], 1)).toBe('Not met');
     expect(rubricBand(false, undefined, undefined, 5)).toBe('Fully meets expectations');
+    // Practice is scored 1-3 and has its own default names.
+    expect(rubricBand(false, undefined, undefined, 3, 3)).toBe('Got it');
+    expect(rubricBand(true, undefined, undefined, 1, 3)).toBe('Cần cải thiện');
   });
 });

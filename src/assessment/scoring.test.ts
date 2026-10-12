@@ -8,7 +8,7 @@ import {
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
   daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot, roundScore, skillBreakdown, disagreements,
-  episodeAAssignments,
+  episodeAAssignments, maxScore, scoreRange,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -521,5 +521,8 @@ describe('practice assignments', () => {
     const base = { stage: 'A' as const, materials: [] };
     const list = [{ ...base, id: 'a1', title: 'Graded', weight: 100 }, { ...base, id: 'p1', title: 'Practice', practice: true }];
     expect(episodeAAssignments(list).map(a => a.id)).toEqual(['a1']);
+    expect(maxScore(list[1])).toBe(3);
+    expect(maxScore(list[0])).toBe(5);
+    expect(scoreRange(3)).toEqual([1, 2, 3]);
   });
 });

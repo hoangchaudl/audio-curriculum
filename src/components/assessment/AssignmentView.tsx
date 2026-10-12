@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppContext } from '../../store';
 import { Assignment } from '../../types';
 import { useTraineeData } from '../../assessment/traineeData';
-import { exerciseOutcome } from '../../assessment/scoring';
+import { exerciseOutcome, maxScore } from '../../assessment/scoring';
 import { assignmentLines } from '../../assessment/outline';
 import { SubmissionPanel } from './SubmissionPanel';
 import { EpisodeView } from './EpisodeView';
@@ -49,7 +49,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
           <section className={wideCard}>
             <h3 className={`${sectionTitle} mb-1`}>How it's graded</h3>
             <p className="text-xs text-gray-500 mb-4">
-              {assignment.practice ? 'This is practice - it doesn\'t count toward your grade.' : `This assignment counts ${assignment.weight ?? 0}% of Episode A (${Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade).`} Your trainer scores it from 1 to 5 separately for each criterion below. Scores appear once the coordinator publishes Episode A.
+              {assignment.practice ? 'This is practice - it doesn\'t count toward your grade.' : `This assignment counts ${assignment.weight ?? 0}% of Episode A (${Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade).`} Your trainer scores it from 1 to {maxScore(assignment)} separately for each criterion below. Scores appear once the coordinator publishes Episode A.
             </p>
             {/* With a rubric table, the table is the list: each row is a
                 criterion with its weighting, and after publishing it shows the
@@ -57,7 +57,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
             {hasRubric ? (
               <>
                 <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
-                <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} bandsVi={assignment.bandsVi}
+                <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} bandsVi={assignment.bandsVi} max={maxScore(assignment)}
                   scores={published ? Object.fromEntries(lines.map(l => [l.id, data.reviews.find(r => r.stage === 'A' && r.target === l.id)?.scores.exercise])) : undefined} />
                 {published && feedback.map(f => (
                   <div key={f} className="mt-4 bg-sky rounded-2xl p-3">
@@ -77,7 +77,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
                         <p className="font-bold text-sm text-gray-800">{l.title}</p>
                         <p className="text-[11px] text-gray-500 font-bold">{l.weight}% of this assignment</p>
                       </div>
-                      {published && <OutcomeBadge outcome={exerciseOutcome(data, l, assignment.title)} />}
+                      {published && <OutcomeBadge outcome={exerciseOutcome(data, l, assignment.title)} max={maxScore(assignment)} />}
                     </div>
                     {published && review?.feedback && <p className="text-xs text-navy bg-sky rounded-xl p-2 mt-2 whitespace-pre-wrap">{review.feedback}</p>}
                   </li>
@@ -86,7 +86,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
               {lines.length === 0 && <li className="text-sm text-gray-400">No criteria set up yet.</li>}
             </ul>
             )}
-            {!hasRubric && lines.length > 0 && <p className="text-[10px] text-gray-400 mt-3">Scale: 1 (lowest) to 5 (highest)</p>}
+            {!hasRubric && lines.length > 0 && <p className="text-[10px] text-gray-400 mt-3">Scale: 1 (lowest) to {maxScore(assignment)} (highest)</p>}
           </section>
 
           <section className={card}>

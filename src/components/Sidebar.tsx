@@ -7,6 +7,7 @@ type WeekRow = ({ key: string; kind: 'content'; mod: Module } | { key: string; k
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
+import { formatLength } from '../videoClip';
 import { NotificationBell } from './NotificationBell';
 import { ClipboardCheck, ClipboardList } from 'lucide-react';
 import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
@@ -279,10 +280,18 @@ export const Sidebar: React.FC<{
                           {row.kind === 'content' && isDone(row) ? '✓' : n}
                         </span>
                         <span className="leading-tight">
+                          {row.kind === 'content' && row.mod.quiz && (
+                            <span className={`block text-[10px] font-black uppercase tracking-widest ${selected ? 'text-navy' : 'text-[#E0F2FE]'}`}>❓ Quiz</span>
+                          )}
                           {row.kind === 'assignment' && (
                             <span className={`block text-[10px] font-black uppercase tracking-widest ${selected ? 'text-ember' : 'text-[#FFB59C]'}`}>📝 Assignment</span>
                           )}
                           {title}
+                          {(row.kind === 'content' ? row.mod.videoSeconds : row.asg.hours) ? (
+                            <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : 'text-white/60'}`}>
+                              {row.kind === 'content' ? `▶ ${formatLength(row.mod.videoSeconds!)}` : `⏱ ~${row.asg.hours} h`}
+                            </span>
+                          ) : null}
                           {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : row.kind === 'assignment' ? 'text-white' : 'text-white/60'}`}>Due {due}</span>}
                         </span>
                       </span>

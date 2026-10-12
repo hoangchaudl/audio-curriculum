@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { ClipboardPaste } from 'lucide-react';
 import { PastedRubric, htmlTableRows, parseRubricRows, tsvRows } from '../../assessment/rubricPaste';
-import { DEFAULT_BANDS, input, primaryBtn, secondaryBtn } from './ui';
+import { DEFAULT_BANDS, DEFAULT_BANDS_3, input, primaryBtn, secondaryBtn } from './ui';
+import { scoreRange } from '../../assessment/scoring';
 
 // Names for scores 1-5 (e.g. "Fail (<50)" … "Distinction (70+)"). Blank =
 // "Score n". Saved when a box loses focus.
-export const BandInputs: React.FC<{ bands?: string[]; onSave: (bands: string[]) => void }> = ({ bands, onSave }) => (
+export const BandInputs: React.FC<{ bands?: string[]; onSave: (bands: string[]) => void; max?: number }> = ({ bands, onSave, max = 5 }) => (
   <div>
     <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Score names (optional) - leave blank for the defaults shown</p>
-    <div className="grid gap-2 grid-cols-2 sm:grid-cols-5">
-      {[1, 2, 3, 4, 5].map(n => (
-        <input key={`${n}:${bands?.[n - 1] ?? ''}`} defaultValue={bands?.[n - 1] ?? ''} placeholder={DEFAULT_BANDS[n - 1]} aria-label={`Name for score ${n}`}
-          onBlur={e => { if (e.target.value.trim() !== (bands?.[n - 1] ?? '')) onSave([1, 2, 3, 4, 5].map(k => (k === n ? e.target.value : bands?.[k - 1] ?? '').trim())); }}
+    <div className={`grid gap-2 grid-cols-2 ${max === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-5'}`}>
+      {scoreRange(max).map(n => (
+        <input key={`${n}:${bands?.[n - 1] ?? ''}`} defaultValue={bands?.[n - 1] ?? ''} placeholder={(max === 3 ? DEFAULT_BANDS_3 : DEFAULT_BANDS)[n - 1]} aria-label={`Name for score ${n}`}
+          onBlur={e => { if (e.target.value.trim() !== (bands?.[n - 1] ?? '')) onSave(scoreRange(max).map(k => (k === n ? e.target.value : bands?.[k - 1] ?? '').trim())); }}
           className={`${input} bg-surface text-xs`} />
       ))}
     </div>

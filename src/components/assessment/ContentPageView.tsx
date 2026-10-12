@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../../store';
 import { ContentBlocks } from './ContentBlocks';
 import { lessonContext, Step } from '../../assessment/outline';
-import { youTubeId } from '../../videoClip';
-import { Md, ProgressBar, card, sectionTitle } from './ui';
+import { formatLength, youTubeId } from '../../videoClip';
+import { Md, ProgressBar, card, saveWith, sectionTitle } from './ui';
 
 const go = (hash: string) => { window.location.hash = hash; };
 // Tighter than the shared card so the lesson fills wide screens.
@@ -15,7 +15,7 @@ const MATERIAL_ICON: Record<string, string> = { video: '🎥', book: '📖', art
 // right; previous / next at the bottom. Submitting happens on assignment
 // pages.
 export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
-  const { modules, moduleVideos, programOutline, assignments, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched } = useAppContext();
+  const { modules, moduleVideos, programOutline, assignments, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched, quizAttempts, saveQuizAttempt } = useAppContext();
   const scrollRef = useRef<HTMLDivElement>(null);
   // Videos on this page played to the end (clips count at their end time).
   const [finished, setFinished] = useState<string[]>([]);
@@ -28,6 +28,8 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
   const ctx = lessonContext(programOutline, assignments, modules, enrollment, currentUser?.id, videoProgress, mod.id);
   const video = moduleVideos.find(v => v.moduleId === mod.id && v.url && v.url !== '#');
   const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === currentUser?.id);
+  // The admin's time estimate for this lesson in the outline.
+  const plannedHours = programOutline?.weeks.flatMap(w => w.items).flatMap(i => (i.kind === 'content' && i.moduleId === mod.id && i.hours ? [i.hours] : []))[0];
 
   // Watching every YouTube video on the page marks the lesson complete
   // (the button still works for lessons without videos).
@@ -79,12 +81,17 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
           {ctx && (
             <p className="text-[11px] font-black uppercase tracking-widest text-[#2E9DF7] truncate">
               Week {ctx.week}{ctx.section ? ` · ${ctx.section}` : ''}
-              <span className="text-gray-400"> · Lesson {ctx.lessonNumber} of {ctx.lessonCount}</span>
+              <span className="text-gray-400"> · {mod.quiz ? 'Quiz' : `Lesson ${ctx.lessonNumber} of ${ctx.lessonCount}`}</span>
             </p>
           )}
           <h2 className="text-xl md:text-3xl font-black text-gray-800 mt-1">{mod.title}</h2>
+          {(mod.videoSeconds || plannedHours) ? (
+            <p className="text-xs font-bold text-gray-500 mt-1">
+              {[mod.videoSeconds ? `▶ ${formatLength(mod.videoSeconds)} of video` : '', plannedHours ? `⏱ about ${plannedHours} h in total` : ''].filter(Boolean).join(' · ')}
+            </p>
+          ) : null}
         </div>
-        {doneButton}
+        {!mod.quiz && doneButton}
       </header>
 
       <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:px-10 lg:py-6 overflow-y-auto">
@@ -99,7 +106,17 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
             {video && (
               <ContentBlocks blocks={[{ id: 'module-video', type: 'video', url: video.url, start: video.start, end: video.end }]} onVideoEnded={onVideoEnded} />
             )}
-            <ContentBlocks blocks={mod.contentBlocks} startDate={enrollment?.startDate} onVideoEnded={onVideoEnded} />
+            <ContentBlocks blocks={mod.contentBlocks} startDate={enrollment?.startDate} onVideoEnded={onVideoEnded}
+              onQuizChecked={(blockId, score, total) => {
+                saveWith(saveQuizAttempt(mod.id, blockId, score, total));
+                if (mod.quiz && !done) markVideoWatched(mod.id);
+              }}
+              quizNote={blockId => {
+                const mine = quizAttempts.filter(a => a.traineeId === currentUser?.id && a.moduleId === mod.id && a.blockId === blockId);
+                if (!mine.length) return null;
+                const best = mine.reduce((b, a) => (a.score / a.total > b.score / b.total ? a : b));
+                return `Your best: ${best.score} / ${best.total} · ${mine.length} ${mine.length === 1 ? 'try' : 'tries'}`;
+              }} />
             {!video && !mod.description && !mod.contentBlocks?.length && (
               <section className={`${box} text-center text-sm text-gray-400`}>This lesson's material is on its way - check the materials on the right, or move on to the next item.</section>
             )}
@@ -116,7 +133,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
               <section className={box}>
                 <ProgressBar done={ctx.lessonsDone} total={ctx.lessonCount} label={`Week ${ctx.week} lessons`} />
                 <p className="text-xs text-gray-500 mt-3">
-                  {done ? '✓ You\'ve completed this lesson.' : videoIds.length ? 'Watch the video to the end to complete this lesson.' : 'Mark this lesson complete when you\'ve finished it.'}
+                  {done ? `✓ You've completed this ${mod.quiz ? 'quiz' : 'lesson'}.` : mod.quiz ? 'Answer every question and check your answers to complete this quiz.' : videoIds.length ? 'Watch the video to the end to complete this lesson.' : 'Mark this lesson complete when you\'ve finished it.'}
                 </p>
               </section>
             )}
