@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { CalendarPlus } from 'lucide-react';
+import { CalendarPlus, ChevronRight } from 'lucide-react';
 import { BandInputs, RubricPaste, VietnameseStatus } from './RubricTools';
 import { withVietnamese } from '../../assessment/rubricPaste';
 import { DEFAULT_SKILLS, DEFAULT_WEEK_GOALS, stageCriteria } from '../../assessment/config';
 import { useAppContext } from '../../store';
-import { Assignment, AssessmentStage, Exercise, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
+import { Assignment, AssessmentStage, Exercise, Module, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
 import { splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentLines, itemDay, normalizeWeek, spreadDays, weekGroups, weekLabel } from '../../assessment/outline';
 import { ConfirmModal } from '../ConfirmModal';
@@ -174,16 +174,23 @@ export const AssignmentForm: React.FC<{
 
 // --- Outline editor -------------------------------------------------------------
 
-export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void }> = ({ onEditModule }) => {
-  const { programOutline, modules, assignments, exercises, assessmentConfig, saveOutline, saveAssignment, deleteAssignment } = useAppContext();
+// `fresh` is passed for a lesson created just now, before it shows up in `modules`.
+export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: Module) => void; onOpenSetup: () => void }> = ({ onEditModule, onOpenSetup }) => {
+  const { programOutline, modules, assignments, exercises, assessmentConfig, saveOutline, saveAssignment, deleteAssignment, createModule } = useAppContext();
   const [editing, setEditing] = useState<string | null>(null); // assignment item id being edited
   // Where the admin clicked "+ Add" (a section, or null = not in a section), and what they're adding.
   const [adding, setAdding] = useState<{ weekId: string; sectionId: string | null; kind?: 'content' | 'assignment' | 'milestone' } | null>(null);
   const [contentPick, setContentPick] = useState('');
   const [milestone, setMilestone] = useState({ title: '', description: '', day: 5 });
   const [pendingDelete, setPendingDelete] = useState<{ weekId: string; item: OutlineItem } | null>(null);
+  const [collapsed, setCollapsed] = useState<string[]>([]);
 
-  if (!programOutline) return <p className={`${card} text-sm text-gray-500`}>Set up the assessment program first (button above) to create the default weekly outline.</p>;
+  if (!programOutline) return (
+    <div className={`${card} flex flex-wrap items-center justify-between gap-3`}>
+      <p className="text-sm text-gray-500">Set up the assessment program first to create the default weekly outline.</p>
+      <button onClick={onOpenSetup} className={primaryBtn}>Go to set up</button>
+    </div>
+  );
   const outline: ProgramOutline = programOutline;
   const save = (weeks: OutlineWeek[]) => saveWith(saveOutline({ ...outline, weeks }));
   const placedModules = new Set(outline.weeks.flatMap(w => w.items.flatMap(i => (i.kind === 'content' ? [i.moduleId] : []))));
@@ -287,6 +294,16 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
       : it.title;
   const closeAdd = () => { setAdding(null); setContentPick(''); setMilestone({ title: '', description: '', day: 5 }); };
   const withSection = (item: OutlineItem, sectionId: string | null) => (sectionId ? { ...item, sectionId } : item) as OutlineItem;
+  // A brand-new lesson, placed here and opened in the lesson editor.
+  const newLesson = async (weekId: string, sectionId: string | null) => {
+    const created = createModule();
+    if (!(await saveWith(created))) return;
+    const mod = await created;
+    await addItem(weekId, withSection({ id: uid('oi'), kind: 'content', moduleId: mod.id }, sectionId));
+    closeAdd();
+    onEditModule(mod.id, mod);
+  };
+  const toggleWeek = (id: string) => setCollapsed(c => (c.includes(id) ? c.filter(x => x !== id) : [...c, id]));
 
   const itemRow = (week: OutlineWeek, it: OutlineItem, ii: number, count: number) => {
     const asg = it.kind === 'assignment' ? assignments.find(a => a.id === it.assignmentId) : undefined;
@@ -366,6 +383,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
             ))}
           </select>
           <button disabled={!contentPick} onClick={() => { addItem(week.id, withSection({ id: uid('oi'), kind: 'content', moduleId: contentPick }, sectionId)); closeAdd(); }} className={primaryBtn}>Add</button>
+          <button onClick={() => newLesson(week.id, sectionId)} className={secondaryBtn}>+ New lesson</button>
           <button onClick={closeAdd} className={secondaryBtn}>Cancel</button>
         </div>
       );
@@ -409,6 +427,15 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
         The program is 4 weeks. Inside each week, group content into <b>sections</b> (e.g. "StoryCo General Onboarding") and use ▲▼ to order
         sections and the items in them - trainees see exactly this in their sidebar. Give lessons a planned day (and hours) to build each trainee's day-by-day plan; assignments and milestones have a due day. Grading lives on each assignment (click Edit).
       </p>
+      <div className="flex flex-wrap gap-2 px-2">
+        {outline.weeks.map((w, wi) => (
+          <a key={w.id} href={`#outline-${w.id}`} onClick={e => { e.preventDefault(); setCollapsed(c => c.filter(x => x !== w.id)); document.getElementById(`outline-${w.id}`)?.scrollIntoView({ behavior: 'smooth' }); }}
+            className="text-xs font-bold text-navy bg-sky px-3 py-1.5 rounded-full hover:bg-[#2E9DF7]/20">{weekLabel(wi)}</a>
+        ))}
+        <button onClick={() => setCollapsed(collapsed.length ? [] : outline.weeks.map(w => w.id))} className="ml-auto text-xs font-bold text-[#2E9DF7] hover:underline">
+          {collapsed.length ? 'Expand all weeks' : 'Collapse all weeks'}
+        </button>
+      </div>
       {outline.weeks.slice(0, DEFAULT_WEEK_GOALS.length).some(w => !w.goal) && (
         <div className="bg-[#3DDC97]/15 rounded-2xl px-4 py-3 text-xs text-gray-700 flex flex-wrap items-center justify-between gap-2">
           <span>Some weeks have no goal yet. Fill the empty ones with the program's standard weekly goals (you can edit them after).</span>
@@ -431,10 +458,20 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
         const sections = week.sections ?? [];
         const loose = groups[groups.length - 1].items;
         const legacyTitle = !/^Week \d+$/.test(week.title) && !sections.length ? week.title : null;
+        const isOpen = !collapsed.includes(week.id);
+        const all = groups.flatMap(g => g.items);
         return (
-          <div key={week.id} className={card}>
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <h4 className="text-lg font-black text-gray-800">{weekLabel(wi)}</h4>
+          <div key={week.id} id={`outline-${week.id}`} className={`${card} scroll-mt-4`}>
+            <div className={`flex flex-wrap items-center gap-2 ${isOpen ? 'mb-4' : ''}`}>
+              <button onClick={() => toggleWeek(week.id)} aria-expanded={isOpen} className="flex items-center gap-1 text-lg font-black text-gray-800 hover:text-[#2E9DF7]">
+                <ChevronRight className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-90' : ''}`} strokeWidth={3} aria-hidden="true" />{weekLabel(wi)}
+              </button>
+              {!isOpen && (
+                <span className="text-xs font-bold text-gray-400">
+                  {sections.length} section{sections.length === 1 ? '' : 's'} · {all.filter(i => i.kind === 'content').length} lessons · {all.filter(i => i.kind === 'assignment').length} assignments
+                  {week.goal ? ` · 🎯 ${week.goal}` : ''}
+                </span>
+              )}
               <div className="flex gap-1">
                 <button onClick={() => moveWeek(wi, -1)} disabled={wi === 0} aria-label="Swap with the week before" title="Swap with the week before" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▲</button>
                 <button onClick={() => moveWeek(wi, 1)} disabled={wi === outline.weeks.length - 1} aria-label="Swap with the week after" title="Swap with the week after" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▼</button>
@@ -464,6 +501,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
               )}
             </div>
 
+            {isOpen && <>
             <label className="block mb-4">
               <span className="text-[10px] font-black uppercase text-gray-400">🎯 Goal for this week (shown to trainees on My Program)</span>
               <textarea defaultValue={week.goal ?? ''} key={week.goal ?? ''} placeholder="What should trainees be able to do by the end of this week?" aria-label={`${weekLabel(wi)} goal`}
@@ -500,6 +538,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string) => void 
 
               <button onClick={() => addSection(week.id)} className={secondaryBtn}>+ New section</button>
             </div>
+            </>}
           </div>
         );
       })}
