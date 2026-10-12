@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clipAction, clipFields, clipLabel, clipProblem, formatClipTime, parseClipTime } from './videoClip';
+import { clipAction, clipFields, clipLabel, clipProblem, clipSeconds, formatClipTime, formatLength, parseClipTime } from './videoClip';
 
 describe('video clips', () => {
   it('stops at the clip end (even when dragged past) and jumps back before the start', () => {
@@ -27,5 +27,16 @@ describe('video clips', () => {
     expect(clipFields(undefined, 1080)).toEqual({ end: 1080 });
     expect(clipLabel(750, 1080)).toBe('Watch 12:30 – 18:00 (5 min 30 s)');
     expect(clipLabel()).toBeNull();
+  });
+
+  it('counts only the clipped part of a video, and formats lengths for planning', () => {
+    expect(clipSeconds(600)).toBe(600);
+    expect(clipSeconds(600, 120)).toBe(480);
+    expect(clipSeconds(undefined, 60, 90)).toBe(30);
+    expect(clipSeconds(undefined)).toBeUndefined();
+    expect(formatLength(40)).toBe('1 min');
+    expect(formatLength(1380)).toBe('23 min');
+    expect(formatLength(4500)).toBe('1 h 15 min');
+    expect(formatLength(3600)).toBe('1 h');
   });
 });

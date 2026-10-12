@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { clipAction } from '../videoClip';
+import { withYouTubeApi } from '../videoLength';
 
 // Embeds the actual YouTube player (instead of a thumbnail link out to
 // youtube.com) so we can listen for real playback completion via the
@@ -67,21 +68,7 @@ export const YouTubePlayer: React.FC<{ videoId: string; onEnded?: () => void; st
       });
     };
 
-    if (w.YT && w.YT.Player) {
-      createPlayer();
-    } else {
-      if (!document.getElementById('youtube-iframe-api')) {
-        const script = document.createElement('script');
-        script.id = 'youtube-iframe-api';
-        script.src = 'https://www.youtube.com/iframe_api';
-        document.body.appendChild(script);
-      }
-      const previous = w.onYouTubeIframeAPIReady;
-      w.onYouTubeIframeAPIReady = () => {
-        previous?.();
-        createPlayer();
-      };
-    }
+    withYouTubeApi(createPlayer);
 
     return () => {
       cancelled = true;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { YouTubePlayer } from '../YouTubePlayer';
+import { QuizView } from './Quiz';
 import { youTubeId } from '../../videoClip';
 import { ContentBlock } from '../../types';
 import { Md, card, dateFor, formatDate, sectionTitle } from './ui';
@@ -62,6 +63,8 @@ export const ContentBlocks: React.FC<{ blocks?: ContentBlock[]; startDate?: stri
                 </ul>
               </div>
             );
+          case 'quiz':
+            return <QuizView key={block.id} title={block.title} questions={block.questions} />;
           case 'video': {
             const yt = youTubeId(block.url);
             return (

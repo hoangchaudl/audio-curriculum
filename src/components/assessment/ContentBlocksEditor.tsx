@@ -4,6 +4,7 @@ import { clipFields } from '../../videoClip';
 import { ContentBlock } from '../../types';
 import { input, secondaryBtn } from './ui';
 import { MarkdownEditor } from './MarkdownEditor';
+import { QuizEditor } from './Quiz';
 
 const newId = () => `blk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -13,6 +14,7 @@ const TEMPLATES: Record<ContentBlock['type'], () => ContentBlock> = {
   milestone: () => ({ id: newId(), type: 'milestone', title: '', week: 1 }),
   expectation: () => ({ id: newId(), type: 'expectation', text: '' }),
   video: () => ({ id: newId(), type: 'video', url: '', title: '' }),
+  quiz: () => ({ id: newId(), type: 'quiz', title: '', questions: [] }),
 };
 
 const TYPE_LABELS: Record<ContentBlock['type'], string> = {
@@ -21,6 +23,7 @@ const TYPE_LABELS: Record<ContentBlock['type'], string> = {
   milestone: 'Milestone',
   expectation: 'Progress expectation',
   video: 'Video (optional)',
+  quiz: 'Quiz',
 };
 
 const num = (v: string, min = 1) => Math.max(min, parseInt(v, 10) || min);
@@ -84,6 +87,13 @@ export const ContentBlocksEditor: React.FC<{ blocks: ContentBlock[]; onChange: (
                   const { start: _s, end: _e, ...rest } = block;
                   onChange(blocks.map(b => (b.id === block.id ? { ...rest, ...clipFields(start, end) } : b)));
                 }} />
+            </div>
+          )}
+
+          {block.type === 'quiz' && (
+            <div className="space-y-2">
+              <input value={block.title ?? ''} onChange={e => update(block.id, { title: e.target.value })} placeholder="Quiz title (optional, e.g. Check your EQ basics)" className={input} />
+              <QuizEditor questions={block.questions} onChange={questions => update(block.id, { questions })} />
             </div>
           )}
 

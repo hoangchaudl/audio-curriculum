@@ -38,7 +38,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
       <header className="min-h-20 bg-surface border-b flex items-center px-4 md:px-10 py-3 flex-shrink-0">
         <div className="min-w-0">
           <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{assignment.title}</h2>
-          <p className="text-xs text-gray-400 font-medium mt-1">Episode A assignment · counts toward Episode A ({data.config.stageWeights.episodeA}% of your final grade)</p>
+          <p className="text-xs text-gray-400 font-medium mt-1">{assignment.practice ? 'Practice · gets feedback, not part of your grade' : `Episode A assignment · counts toward Episode A (${data.config.stageWeights.episodeA}% of your final grade)`}</p>
         </div>
       </header>
       <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
@@ -49,7 +49,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
           <section className={wideCard}>
             <h3 className={`${sectionTitle} mb-1`}>How it's graded</h3>
             <p className="text-xs text-gray-500 mb-4">
-              This assignment counts {assignment.weight ?? 0}% of Episode A ({Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade). Your trainer scores it from 1 to 5 separately for each criterion below. Scores appear once the coordinator publishes Episode A.
+              {assignment.practice ? 'This is practice - it doesn\'t count toward your grade.' : `This assignment counts ${assignment.weight ?? 0}% of Episode A (${Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade).`} Your trainer scores it from 1 to 5 separately for each criterion below. Scores appear once the coordinator publishes Episode A.
             </p>
             {/* With a rubric table, the table is the list: each row is a
                 criterion with its weighting, and after publishing it shows the

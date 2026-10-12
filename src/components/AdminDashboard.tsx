@@ -18,6 +18,8 @@ import { DesignerCard } from './DesignerCard';
 import { DISAGREEMENT_GAP } from '../assessment/scoring';
 import { REVIEW_LAG_DAYS, behindReasons, slotName } from '../assessment/standing';
 import { useRoster } from '../assessment/roster';
+import { useLessonLengths } from '../videoLength';
+import { formatLength } from '../videoClip';
 
 const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
 
@@ -256,6 +258,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   ]
     .map(g => ({ ...g, mods: g.all.filter(m => shownModules.includes(m)) }))
     .filter(g => g.mods.length > 0);
+  const lengths = useLessonLengths(modules, moduleVideos);
   // Which outline week (1-based) shows each lesson to trainees.
   const lessonWeek = (moduleId: string) => {
     const i = programOutline?.weeks.findIndex(w => w.items.some(it => it.kind === 'content' && it.moduleId === moduleId)) ?? -1;
@@ -699,6 +702,11 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             {programOutline && (lessonWeek(mod.id)
                               ? <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">Week {lessonWeek(mod.id)}</span>
                               : <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Trainees don't see it - add it from Program outline">Not in outline</span>)}
+                            {(lengths[mod.id]?.sec > 0 || lengths[mod.id]?.unknown > 0) && (
+                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Video watch time (only the clip, if one is set)">
+                                ▶ {lengths[mod.id].sec ? formatLength(lengths[mod.id].sec) : ''}{lengths[mod.id].unknown ? ' +?' : ''}
+                              </span>
+                            )}
                             {missingFields.length === 0 ? (
                               <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">
                                 ✓ Complete

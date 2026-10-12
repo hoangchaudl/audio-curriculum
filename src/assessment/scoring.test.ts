@@ -8,6 +8,7 @@ import {
 import {
   TraineeData, assignmentOutcome, episodeAOutcome, episodeBOutcome, exerciseOutcome, finalResult, outcomeLabel,
   daOutcome, podOutcome, slotTotals, weightIssues, gradingProblems, splitEvenly, scaleShares, reviewSummaries, scoreSnapshot, roundScore, skillBreakdown, disagreements,
+  episodeAAssignments,
 } from './scoring';
 
 // --- Fixtures: fake trainee, never live data -------------------------------
@@ -512,5 +513,13 @@ describe('review summaries (coordinator check before publishing)', () => {
     // Criteria in their assignment order (Workflow is line 1), whatever order the reviews came in.
     expect(out[0].scores).toEqual([{ label: 'Workflow & session organization', score: 4 }, { label: 'Dialogue sync & leveling', score: 3 }]);
     expect(out[1].scores[0]).toEqual({ label: 'Workflow, Session Organization & Handoff', score: 4 });
+  });
+});
+
+describe('practice assignments', () => {
+  it('are left out of the graded Episode A assignments', () => {
+    const base = { stage: 'A' as const, materials: [] };
+    const list = [{ ...base, id: 'a1', title: 'Graded', weight: 100 }, { ...base, id: 'p1', title: 'Practice', practice: true }];
+    expect(episodeAAssignments(list).map(a => a.id)).toEqual(['a1']);
   });
 });

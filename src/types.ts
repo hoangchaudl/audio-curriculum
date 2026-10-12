@@ -75,7 +75,12 @@ export type ContentBlock =
   | { id: string; type: 'milestone'; title: string; week: number; day?: number; description?: string }
   | { id: string; type: 'expectation'; text: string }
   // start/end: optional clip of a YouTube video, in seconds (see videoClip.ts).
-  | { id: string; type: 'video'; url: string; title?: string; start?: number; end?: number };
+  | { id: string; type: 'video'; url: string; title?: string; start?: number; end?: number }
+  // Self-check quiz; answers aren't saved (see assessment/quizCsv.ts).
+  | { id: string; type: 'quiz'; title?: string; questions: QuizQuestion[] };
+
+// correct: indexes into options (more than one = pick all that apply).
+export interface QuizQuestion { q: string; options: string[]; correct: number[]; explain?: string }
 
 export interface ModuleVideo {
   id: string;
@@ -172,6 +177,9 @@ export interface Assignment {
   dueDay?: number;
   // Episode A only: this assignment's share of Episode A, in percent.
   weight?: number;
+  // Episode A-style practice: submitted, scored and given feedback like
+  // Episode A, but left out of every grade (see episodeAAssignments).
+  practice?: boolean;
   // Episode A only: names for scores 1-5 in its rubric (e.g. "Fail (<50)").
   bands?: string[];
   bandsVi?: string[];
