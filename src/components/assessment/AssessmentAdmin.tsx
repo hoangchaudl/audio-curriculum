@@ -8,7 +8,7 @@ import { convertSkillGrading, legacySkills } from '../../assessment/migrate';
 import { useTraineeData } from '../../assessment/traineeData';
 import { ConfirmModal } from '../ConfirmModal';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
-import { AssignmentForm, OutlineEditor } from './OutlineEditor';
+import { AssignmentForm } from './OutlineEditor';
 import { BandInputs, RubricPaste, VietnameseStatus } from './RubricTools';
 import { PastedRubric, withVietnamese } from '../../assessment/rubricPaste';
 import {
@@ -27,12 +27,11 @@ const BatchInput: React.FC<{ value: string; onChange: (v: string) => void }> = (
   );
 };
 
-type Tab = 'outline' | 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
+type Tab = 'tracking' | 'enrollment' | 'people' | 'structure' | 'briefs';
 // Grouped in the order an admin works: set the program up, add people,
-// then follow results.
+// then follow results. The weekly outline has its own top-level tab.
 const TAB_GROUPS: { label: string; tabs: { id: Tab; label: string }[] }[] = [
   { label: 'Set up', tabs: [
-    { id: 'outline', label: 'Program outline' },
     { id: 'structure', label: 'Grade formula' },
     { id: 'briefs', label: 'Stage briefs' },
   ] },
@@ -865,9 +864,9 @@ const PeopleTab: React.FC = () => {
 
 // --- Tab shell ------------------------------------------------------------------
 
-export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => void }> = ({ onEditModule }) => {
+export const AssessmentAdmin: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutline }) => {
   const { users, enrollments, invites, modules, assignments, exercises, assessmentConfig, assessmentConfigSaved, setupAssessmentProgram, programOutline } = useAppContext();
-  const [tab, setTab] = useState<Tab>('outline');
+  const [tab, setTab] = useState<Tab>('structure');
   const batches = batchNames(enrollments, invites);
   const [batch, setBatch] = useBatchFilter(batches);
   const [setupBusy, setSetupBusy] = useState(false);
@@ -933,8 +932,7 @@ export const AssessmentAdmin: React.FC<{ onEditModule: (moduleId: string) => voi
           {trainees.map(t => <EnrollmentRow key={t.id} traineeId={t.id} />)}
         </div>
       )}
-      {tab === 'outline' && <OutlineEditor onEditModule={onEditModule} />}
-      {tab === 'structure' && <GradeFormulaTab onOpenOutline={() => setTab('outline')} />}
+      {tab === 'structure' && <GradeFormulaTab onOpenOutline={onOpenOutline} />}
       {tab === 'briefs' && <BriefsTab />}
       {tab === 'people' && <PeopleTab />}
     </div>

@@ -9,6 +9,7 @@ import { db } from '../firebase';
 import { ConfirmModal } from './ConfirmModal';
 import { CategoryManager } from './CategoryManager';
 import { AssessmentAdmin } from './assessment/AssessmentAdmin';
+import { OutlineEditor } from './assessment/OutlineEditor';
 import { ContentBlocksEditor } from './assessment/ContentBlocksEditor';
 import { sortCategories } from '../access';
 import { BatchFilter, batchNames, inBatch, saveWith, useBatchFilter } from './assessment/ui';
@@ -68,12 +69,12 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const hasReviews = useHasReviewAssignments();
   const reviewTodo = useReviewTodoCount();
   const {
-    users, categories, modules, moduleVideos, enrollments, invites, assessmentConfig,
+    users, categories, modules, moduleVideos, enrollments, invites, assessmentConfig, programOutline,
     updateModule, updateUserRole, createModule, deleteModule, upsertModuleVideo, deleteModuleVideo,
     setUserUnlockedCategories,
   } = useAppContext();
   const lockedCategories = sortCategories(categories).filter(c => c.restricted);
-  const [activeTab, setActiveTab] = useState<'designers' | 'modules' | 'assessment'>('modules');
+  const [activeTab, setActiveTab] = useState<'outline' | 'designers' | 'modules' | 'assessment'>('outline');
 
   const designers = users.filter(u => u.role === 'sound_designer');
   const { roster, behind, awaitingDecision, checkpointDue, waiting, splits, outcomeOf, downloadReport } = useRoster();
@@ -135,7 +136,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   // modal, rendered once at the bottom of this component.
   const [pendingConfirm, setPendingConfirm] = useState<{ kind: 'delete-module'; mod: Module } | null>(null);
 
-  const handleEditClick = (mod: any) => {
+  // Set when a lesson was opened from the outline, so Save / Cancel go back there.
+  const [returnToOutline, setReturnToOutline] = useState(false);
+  const closeEditor = () => {
+    setEditingModule(null);
+    if (returnToOutline) setActiveTab('outline');
+    setReturnToOutline(false);
+  };
+
+  const handleEditClick = (mod: any, fromOutline = false) => {
+    setReturnToOutline(fromOutline);
     setEditingModule(mod.id);
     setEditForm({ ...mod });
     setObjectivesText((mod.objectives || []).join('\n'));
@@ -220,7 +230,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
       } else {
         deleteModuleVideo(editingModule);
       }
-      setEditingModule(null);
+      closeEditor();
     }
   };
 
@@ -246,6 +256,11 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   ]
     .map(g => ({ ...g, mods: g.all.filter(m => shownModules.includes(m)) }))
     .filter(g => g.mods.length > 0);
+  // Which outline week (1-based) shows each lesson to trainees.
+  const lessonWeek = (moduleId: string) => {
+    const i = programOutline?.weeks.findIndex(w => w.items.some(it => it.kind === 'content' && it.moduleId === moduleId)) ?? -1;
+    return i >= 0 ? i + 1 : null;
+  };
   const toggleCat = (id: string) => setCollapsedCats(c => (c.includes(id) ? c.filter(x => x !== id) : [...c, id]));
 
   return (
@@ -326,6 +341,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         {/* Tabs */}
         <div className="flex gap-3 flex-wrap">
           <button
+            onClick={() => setActiveTab('outline')}
+            className={`px-6 py-2 rounded-full font-bold transition-all ${
+              activeTab === 'outline'
+                ? 'bg-[#F4511E] text-white shadow-md'
+                : 'bg-surface text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Program outline
+          </button>
+          <button
             onClick={() => setActiveTab('modules')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'modules'
@@ -333,7 +358,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
-            Curriculum
+            Lesson library
           </button>
           <button
             onClick={() => setActiveTab('designers')}
@@ -359,12 +384,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         </div>
 
         {activeTab === 'assessment' && (
-          <AssessmentAdmin onEditModule={(id) => {
-            const mod = modules.find(m => m.id === id);
-            if (!mod) return;
-            setActiveTab('modules');
-            handleEditClick(mod);
-          }} />
+          <AssessmentAdmin onOpenOutline={() => setActiveTab('outline')} />
+        )}
+
+        {activeTab === 'outline' && (
+          <OutlineEditor
+            onOpenSetup={() => setActiveTab('assessment')}
+            onEditModule={(id, fresh) => {
+              const mod = fresh ?? modules.find(m => m.id === id);
+              if (!mod) return;
+              requestEditChange(() => { setActiveTab('modules'); handleEditClick(mod, true); });
+            }} />
         )}
 
         {activeTab === 'designers' && (
@@ -408,7 +438,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
           <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
-                📚 Curriculum Management
+                📚 Lesson library
               </h3>
               <div className="flex items-center gap-3">
                 <span className="bg-sky text-navy text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
@@ -642,7 +672,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           Save Changes
                         </button>
                         <button
-                          onClick={() => setEditingModule(null)}
+                          onClick={closeEditor}
                           className="bg-gray-200 text-gray-700 font-bold py-2 px-6 rounded-xl hover:bg-gray-300 transition-colors"
                         >
                           Cancel
@@ -666,6 +696,9 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                                 Old skill module
                               </span>
                             )}
+                            {programOutline && (lessonWeek(mod.id)
+                              ? <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">Week {lessonWeek(mod.id)}</span>
+                              : <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Trainees don't see it - add it from Program outline">Not in outline</span>)}
                             {missingFields.length === 0 ? (
                               <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">
                                 ✓ Complete
