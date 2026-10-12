@@ -15,8 +15,9 @@ const asWeight = (s: string) => {
   return m ? Number(m[1]) : undefined;
 };
 
-// Tab-separated text (Sheets/Excel). Cells with line breaks come quoted.
-export const tsvRows = (text: string): string[][] => {
+// Tab-separated text (Sheets/Excel), or CSV with sep ','. Cells with line
+// breaks or separators come quoted.
+export const tsvRows = (text: string, sep = '\t'): string[][] => {
   const rows: string[][] = [[]];
   let cell = '', quoted = false;
   for (let i = 0; i < text.length; i++) {
@@ -26,7 +27,7 @@ export const tsvRows = (text: string): string[][] => {
       else if (ch === '"') quoted = false;
       else cell += ch;
     } else if (ch === '"' && cell === '') quoted = true;
-    else if (ch === '\t') { rows[rows.length - 1].push(cell); cell = ''; }
+    else if (ch === sep) { rows[rows.length - 1].push(cell); cell = ''; }
     else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && text[i + 1] === '\n') i++;
       rows[rows.length - 1].push(cell); cell = ''; rows.push([]);

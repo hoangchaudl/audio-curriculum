@@ -48,3 +48,17 @@ export const clipLabel = (start?: number, end?: number): string | null => {
   const len = end - (start ?? 0);
   return `Watch ${from} – ${formatClipTime(end)} (${Math.floor(len / 60)} min${len % 60 ? ` ${len % 60} s` : ''})`;
 };
+
+// How long a trainee watches: the clip if one is set, else the whole video
+// (from `start` if only that is set). undefined = full length not known yet.
+export const clipSeconds = (full: number | undefined, start?: number, end?: number): number | undefined => {
+  if (end !== undefined) return Math.max(0, end - (start ?? 0));
+  return full === undefined ? undefined : Math.max(0, Math.round(full) - (start ?? 0));
+};
+
+// 4500 -> "1 h 15 min", 1380 -> "23 min", 40 -> "1 min".
+export const formatLength = (sec: number): string => {
+  const min = Math.max(1, Math.round(sec / 60));
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? `${h} h${m ? ` ${m} min` : ''}` : `${m} min`;
+};

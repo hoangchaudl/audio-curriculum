@@ -8,6 +8,8 @@ import { Assignment, AssessmentStage, Exercise, Module, OutlineItem, OutlineWeek
 import { splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentLines, itemDay, normalizeWeek, spreadDays, weekGroups, weekLabel } from '../../assessment/outline';
 import { ConfirmModal } from '../ConfirmModal';
+import { formatLength } from '../../videoClip';
+import { LessonLength, useLessonLengths } from '../../videoLength';
 import { bandLabel, card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
 
 const uid = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -16,8 +18,10 @@ const smallSelect = 'bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gr
 const round = (n: number) => Math.round(n * 100) / 100;
 const PROGRAM_WEEKS = 4;
 const dayOption = (d: number) => `Day ${d} · ${DAY_NAMES[d - 1]}`;
-const STAGE_OPTIONS: { id: AssessmentStage; label: string }[] = [
+// 'practice' is saved as stage A + practice: true.
+const STAGE_OPTIONS: { id: AssessmentStage | 'practice'; label: string }[] = [
   { id: 'A', label: 'Episode A – scored on its criteria' },
+  { id: 'practice', label: 'Practice – feedback only, not in the final grade' },
   { id: 'B', label: 'Episode B – final episode test' },
   { id: 'P1', label: 'Pod Trial – episode 1' },
   { id: 'P2', label: 'Pod Trial – episode 2 (only if 2 required)' },
@@ -37,7 +41,7 @@ export const AssignmentForm: React.FC<{
   // A new Episode A assignment starts with one criterion worth 100%.
   const [lines, setLines] = useState(initialLines.length || initial.stage !== 'A' ? initialLines
     : [{ id: uid('ex'), assignmentId: initial.id, title: '', order: 1, weight: 100 }]);
-  const othersWeight = assignments.filter(x => x.stage === 'A' && x.id !== a.id).reduce((t, x) => t + (x.weight ?? 0), 0);
+  const othersWeight = assignments.filter(x => x.stage === 'A' && !x.practice && x.id !== a.id).reduce((t, x) => t + (x.weight ?? 0), 0);
   const lineTotal = lines.reduce((t, l) => t + l.weight, 0);
   const linesOk = Math.abs(lineTotal - 100) < 0.01;
   const [busy, setBusy] = useState(false);
@@ -49,7 +53,10 @@ export const AssignmentForm: React.FC<{
     <div className="bg-gray-50 rounded-2xl p-4 space-y-3 mt-2">
       <div className="grid sm:grid-cols-2 gap-2">
         <input value={a.title} onChange={e => setA({ ...a, title: e.target.value })} placeholder="Assignment title" aria-label="Assignment title" className={`${input} bg-surface sm:col-span-2`} />
-        <select value={a.stage} onChange={e => setA({ ...a, stage: e.target.value as AssessmentStage })} aria-label="Graded as" className={`${input} bg-surface`}>
+        <select value={a.practice ? 'practice' : a.stage} aria-label="Graded as" className={`${input} bg-surface`} onChange={e => {
+          const { practice: _p, ...rest } = a;
+          setA(e.target.value === 'practice' ? { ...rest, stage: 'A', practice: true } : { ...rest, stage: e.target.value as AssessmentStage });
+        }}>
           {STAGE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
         <select value={a.dueDay ?? 7} onChange={e => setA({ ...a, dueDay: Number(e.target.value) })} aria-label="Due day" className={`${input} bg-surface`}>
@@ -74,6 +81,9 @@ export const AssignmentForm: React.FC<{
       {a.stage === 'A' ? (
         <div className="bg-surface rounded-2xl p-4 space-y-3">
           <p className="text-[10px] font-black uppercase text-gray-500">How it's graded</p>
+          {a.practice ? (
+            <p className="text-xs font-bold text-gray-500">Practice: the trainer scores the criteria below and gives feedback, but it doesn't count toward Episode A or the final grade.</p>
+          ) : (
           <label className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-700">
             Counts
             <input type="number" min={0} step="0.5" value={a.weight ?? 0} onChange={e => setA({ ...a, weight: Number(e.target.value) })}
@@ -81,6 +91,7 @@ export const AssignmentForm: React.FC<{
             % of Episode A
             <span className="text-xs font-bold text-gray-400">= {round(((a.weight ?? 0) * assessmentConfig.stageWeights.episodeA) / 100)}% of the final grade · other Episode A assignments use {round(othersWeight)}%, so {round(100 - othersWeight)}% is left</span>
           </label>
+          )}
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -160,7 +171,7 @@ export const AssignmentForm: React.FC<{
           title={a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())) ? 'Give every criterion a name' : undefined} onClick={async () => {
           setBusy(true);
           const bands = (a.bands ?? []).map(t => t.trim());
-          try { await onSave({ ...a, title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()), bands: a.stage === 'A' && bands.some(Boolean) ? bands : undefined }, lines.map((l, i) => {
+          try { await onSave({ ...a, ...(a.practice ? { weight: undefined } : {}), title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()), bands: a.stage === 'A' && bands.some(Boolean) ? bands : undefined }, lines.map((l, i) => {
             const { levels, outcome, ...rest } = l;
             const clean = (levels ?? []).map(t => t.trim());
             return { ...rest, title: l.title.trim(), order: i + 1, ...(clean.some(Boolean) ? { levels: clean } : {}), ...(outcome?.trim() ? { outcome: outcome.trim() } : {}) };
@@ -176,7 +187,8 @@ export const AssignmentForm: React.FC<{
 
 // `fresh` is passed for a lesson created just now, before it shows up in `modules`.
 export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: Module) => void; onOpenSetup: () => void }> = ({ onEditModule, onOpenSetup }) => {
-  const { programOutline, modules, assignments, exercises, assessmentConfig, saveOutline, saveAssignment, deleteAssignment, createModule } = useAppContext();
+  const { programOutline, modules, moduleVideos, assignments, exercises, assessmentConfig, saveOutline, saveAssignment, deleteAssignment, createModule } = useAppContext();
+  const lengths = useLessonLengths(modules, moduleVideos);
   const [editing, setEditing] = useState<string | null>(null); // assignment item id being edited
   // Where the admin clicked "+ Add" (a section, or null = not in a section), and what they're adding.
   const [adding, setAdding] = useState<{ weekId: string; sectionId: string | null; kind?: 'content' | 'assignment' | 'milestone' } | null>(null);
@@ -279,6 +291,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
   // "Counts 40% of Episode A → 8% of final · Workflow 50% · Dialogue 50%"
   const gradingSummary = (asg: Assignment) => {
     const w = assessmentConfig.stageWeights;
+    if (asg.practice) return 'Practice · not in the final grade';
     if (asg.stage !== 'A') {
       if (asg.stage === 'B') return `Episode B · ${w.episodeB}% of the final grade`;
       if (asg.stage === 'DA') return `Audio Description · ${w.da}% of the final grade`;
@@ -303,6 +316,12 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
     closeAdd();
     onEditModule(mod.id, mod);
   };
+  // Video watch time of a set of lessons: "1 h 5 min" (+ "?" if some can't be measured yet).
+  const watchTime = (items: OutlineItem[]) => {
+    const ls = items.flatMap(i => (i.kind === 'content' && lengths[i.moduleId] ? [lengths[i.moduleId]] : [])) as LessonLength[];
+    const sec = ls.reduce((t, l) => t + l.sec, 0), unknown = ls.some(l => l.unknown);
+    return sec || unknown ? `${sec ? formatLength(sec) : ''}${unknown ? ' +?' : ''}`.trim() : null;
+  };
   const toggleWeek = (id: string) => setCollapsed(c => (c.includes(id) ? c.filter(x => x !== id) : [...c, id]));
 
   const itemRow = (week: OutlineWeek, it: OutlineItem, ii: number, count: number) => {
@@ -318,7 +337,14 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
           <span className="text-lg" aria-hidden="true">{it.kind === 'content' ? '📖' : it.kind === 'assignment' ? '📝' : '🏁'}</span>
           <div className="flex-1 min-w-[160px]">
             <p className="text-sm font-bold text-gray-800 truncate">{itemTitle(it)}</p>
-            <p className="text-[10px] font-bold uppercase text-gray-400">{it.kind === 'content' ? 'Content' : it.kind === 'milestone' ? 'Milestone' : 'Assignment'}</p>
+            <p className="text-[10px] font-bold uppercase text-gray-400">
+              {it.kind === 'content' ? 'Content' : it.kind === 'milestone' ? 'Milestone' : 'Assignment'}
+              {it.kind === 'content' && watchTime([it]) && (
+                <span className="ml-2 normal-case text-navy" title={lengths[it.moduleId]?.unknown ? 'Some videos are still loading or aren’t on YouTube, so their length isn’t counted' : 'Video watch time (only the clip, if one is set)'}>
+                  ▶ {watchTime([it])} video
+                </span>
+              )}
+            </p>
             {asg && <p className={`text-[11px] font-bold mt-0.5 ${asg.stage === 'A' && !assignmentLines(exercises, asg.id).length ? 'text-ember' : 'text-gray-600'}`}>{gradingSummary(asg)}</p>}
           </div>
           {it.kind === 'content' ? (
@@ -469,6 +495,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
               {!isOpen && (
                 <span className="text-xs font-bold text-gray-400">
                   {sections.length} section{sections.length === 1 ? '' : 's'} · {all.filter(i => i.kind === 'content').length} lessons · {all.filter(i => i.kind === 'assignment').length} assignments
+                  {watchTime(all) ? ` · ▶ ${watchTime(all)} video` : ''}
                   {week.goal ? ` · 🎯 ${week.goal}` : ''}
                 </span>
               )}
@@ -502,6 +529,17 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
             </div>
 
             {isOpen && <>
+            {(() => {
+              // Video time per planned day, to check a day isn't overloaded.
+              const lessons = all.filter(i => i.kind === 'content');
+              const perDay = [...[1, 2, 3, 4, 5, 6, 7].map(d => ({ label: DAY_NAMES[d - 1], t: watchTime(lessons.filter(i => i.kind === 'content' && i.day === d)) })),
+                { label: 'Any day', t: watchTime(lessons.filter(i => i.kind === 'content' && !i.day)) }].filter(x => x.t);
+              return perDay.length > 0 && (
+                <p className="text-xs font-bold text-navy bg-sky rounded-2xl px-3 py-2 mb-4">
+                  ▶ Video per day: {perDay.map(x => `${x.label} ${x.t}`).join(' · ')} <span className="text-navy/70">· week total {watchTime(lessons)}</span>
+                </p>
+              );
+            })()}
             <label className="block mb-4">
               <span className="text-[10px] font-black uppercase text-gray-400">🎯 Goal for this week (shown to trainees on My Program)</span>
               <textarea defaultValue={week.goal ?? ''} key={week.goal ?? ''} placeholder="What should trainees be able to do by the end of this week?" aria-label={`${weekLabel(wi)} goal`}

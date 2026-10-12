@@ -102,7 +102,8 @@ export const exerciseOutcome = (d: TraineeData, exercise: Exercise, parentTitle 
   return scored(review.scores.exercise!);
 };
 
-export const episodeAAssignments = (assignments: Assignment[]) => assignments.filter(a => a.stage === 'A');
+// Graded Episode A assignments - practice ones never count.
+export const episodeAAssignments = (assignments: Assignment[]) => assignments.filter(a => a.stage === 'A' && !a.practice);
 
 export const assignmentCriteria = (exercises: Exercise[], assignmentId: string) =>
   exercises.filter(e => e.assignmentId === assignmentId).sort((a, b) => a.order - b.order);
