@@ -15,6 +15,7 @@ export const AssignmentIntro: React.FC<{ assignment: Assignment; startDate?: str
       <div className="flex flex-wrap gap-2">
         {week && <span className="bg-sky text-navy px-3 py-1 rounded-full text-[10px] font-black uppercase">Week {week}</span>}
         {due && <span className="bg-[#F4511E]/15 text-ember px-3 py-1 rounded-full text-[10px] font-black uppercase">Due {due}</span>}
+        {assignment.hours ? <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">⏱ Takes about {assignment.hours} h</span> : null}
       </div>
       {assignment.instructions && <Md>{assignment.instructions}</Md>}
       {assignment.materials.length > 0 && (

@@ -70,7 +70,7 @@ interface AppContextType extends AppState, AssessmentApi {
   updateUserName: (userId: string, name: string) => void;
   updateUserRole: (userId: string, role: User['role']) => void;
   updateModule: (moduleId: string, updates: Partial<Module>) => Promise<void>;
-  createModule: () => Promise<Module>;
+  createModule: (init?: Partial<Module>) => Promise<Module>;
   deleteModule: (moduleId: string) => Promise<void>;
   upsertModuleVideo: (moduleId: string, updates: Pick<ModuleVideo, 'type' | 'url' | 'title' | 'start' | 'end'>) => void;
   deleteModuleVideo: (moduleId: string) => void;
@@ -536,7 +536,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Returns the created module (not just its id) so the caller can open it
   // straight into the edit form without waiting on the modules listener to
   // round-trip the write back down.
-  const createModule = async (): Promise<Module> => {
+  const createModule = async (init: Partial<Module> = {}): Promise<Module> => {
     if (!currentUser || currentUser.role !== 'admin') throw new Error('Only admins can create modules.');
     const id = `m_${Date.now()}`;
     const nextOrder = state.modules.length > 0 ? Math.max(...state.modules.map(m => m.order)) + 1 : 1;
@@ -546,6 +546,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: [...state.categories].sort((a, b) => a.order - b.order)[0]?.id ?? 'Onboarding',
       title: 'New Module',
       description: '',
+      ...init,
     };
     await setDoc(doc(db, 'modules', id), newModule);
     return newModule;

@@ -27,6 +27,7 @@ const splitLines = (text: string) => text.split('\n').map(s => s.trim()).filter(
 // text, what it's teaching, and what it's teaching toward. Grading lives on
 // assignments, and a video is optional.
 const getMissingContentFields = (mod: Module): string[] => {
+  if (mod.quiz) return mod.contentBlocks?.some(b => b.type === 'quiz' && b.questions.length) ? [] : ['Questions'];
   const missing: string[] = [];
   if (!mod.description?.trim()) missing.push('Content');
   if (!mod.objectives?.length) missing.push('Objectives');
@@ -259,6 +260,16 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     .map(g => ({ ...g, mods: g.all.filter(m => shownModules.includes(m)) }))
     .filter(g => g.mods.length > 0);
   const lengths = useLessonLengths(modules, moduleVideos);
+  // Save measured watch times onto the lessons so trainees see them.
+  // ponytail: only syncs while an admin has the dashboard open.
+  useEffect(() => {
+    modules.forEach(m => {
+      const l = lengths[m.id];
+      if (!l || l.unknown) return;
+      if (l.sec !== (m.videoSeconds ?? 0)) updateModule(m.id, { videoSeconds: l.sec });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(lengths)]);
   // Which outline week (1-based) shows each lesson to trainees.
   const lessonWeek = (moduleId: string) => {
     const i = programOutline?.weeks.findIndex(w => w.items.some(it => it.kind === 'content' && it.moduleId === moduleId)) ?? -1;
@@ -699,6 +710,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                                 Old skill module
                               </span>
                             )}
+                            {mod.quiz && <span className="bg-[#F4511E]/15 text-ember px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">❓ Quiz</span>}
                             {programOutline && (lessonWeek(mod.id)
                               ? <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">Week {lessonWeek(mod.id)}</span>
                               : <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Trainees don't see it - add it from Program outline">Not in outline</span>)}

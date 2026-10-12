@@ -65,7 +65,8 @@ export const QuizEditor: React.FC<{ questions: QuizQuestion[]; onChange: (questi
 };
 
 // Trainee: answer, check, see what was right and why. Nothing is saved.
-export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[] }> = ({ title, questions }) => {
+// onChecked: the trainee checked their answers (a quiz page counts as done).
+export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[]; onChecked?: () => void }> = ({ title, questions, onChecked }) => {
   const [picked, setPicked] = useState<number[][]>(() => questions.map(() => []));
   const [checked, setChecked] = useState(false);
   const right = (i: number) => {
@@ -116,7 +117,7 @@ export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[] }> =
       <div className="mt-5">
         {checked
           ? <button onClick={() => { setChecked(false); setPicked(questions.map(() => [])); }} className={secondaryBtn}>Try again</button>
-          : <button onClick={() => setChecked(true)} disabled={picked.some(p => !p.length)} className={primaryBtn}>Check answers</button>}
+          : <button onClick={() => { setChecked(true); onChecked?.(); }} disabled={picked.some(p => !p.length)} className={primaryBtn}>Check answers</button>}
       </div>
     </div>
   );

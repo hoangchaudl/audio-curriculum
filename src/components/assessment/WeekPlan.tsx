@@ -3,6 +3,7 @@ import { BookOpen, Check, FileText, Flag, Target } from 'lucide-react';
 import { useAppContext } from '../../store';
 import { PlanItem, programDay, weekPlan } from '../../assessment/outline';
 import { card, sectionTitle } from './ui';
+import { formatLength } from '../../videoClip';
 
 const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const go = (hash: string) => { if (hash) window.location.hash = hash; };
@@ -34,7 +35,11 @@ export const WeekPlan: React.FC<{ traineeId: string | undefined }> = ({ traineeI
       <button key={it.key} onClick={() => go(it.hash)} disabled={!it.hash}
         className={`w-full text-left rounded-xl px-2.5 py-2 text-xs font-bold leading-snug transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-md ${tone}`}>
         <Icon className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />{it.title}
-        {it.hours ? <span className="block text-[10px] font-black opacity-70 no-underline">{it.hours} h</span> : null}
+        {it.hours || it.videoSeconds ? (
+          <span className="block text-[10px] font-black opacity-70 no-underline">
+            {[it.videoSeconds ? `▶ ${formatLength(it.videoSeconds)}` : '', it.hours ? `⏱ ~${it.hours} h` : ''].filter(Boolean).join(' · ')}
+          </span>
+        ) : null}
         {it.kind === 'assignment' && it.status !== 'done' && <span className="block text-[10px] font-black opacity-80">{it.status === 'late' ? 'Overdue' : 'Due'}</span>}
       </button>
     );

@@ -5,9 +5,10 @@ import { withVietnamese } from '../../assessment/rubricPaste';
 import { DEFAULT_SKILLS, DEFAULT_WEEK_GOALS, stageCriteria } from '../../assessment/config';
 import { useAppContext } from '../../store';
 import { Assignment, AssessmentStage, Exercise, Module, OutlineItem, OutlineWeek, ProgramOutline } from '../../types';
-import { splitEvenly } from '../../assessment/scoring';
+import { maxScore, scoreRange, splitEvenly } from '../../assessment/scoring';
 import { DAY_NAMES, assignmentLines, itemDay, normalizeWeek, spreadDays, weekGroups, weekLabel } from '../../assessment/outline';
 import { ConfirmModal } from '../ConfirmModal';
+import { MarkdownEditor } from './MarkdownEditor';
 import { formatLength } from '../../videoClip';
 import { LessonLength, useLessonLengths } from '../../videoLength';
 import { bandLabel, card, input, primaryBtn, saveWith, secondaryBtn } from './ui';
@@ -62,9 +63,19 @@ export const AssignmentForm: React.FC<{
         <select value={a.dueDay ?? 7} onChange={e => setA({ ...a, dueDay: Number(e.target.value) })} aria-label="Due day" className={`${input} bg-surface`}>
           {[1, 2, 3, 4, 5, 6, 7].map(d => <option key={d} value={d}>Due {dayOption(d)}</option>)}
         </select>
+        <label className="flex items-center gap-2 text-xs font-bold text-gray-500 sm:col-span-2">
+          ⏱ Takes about
+          <input type="number" min={0} step="0.5" value={a.hours ?? ''} placeholder="–" aria-label="Estimated hours"
+            onChange={e => setA({ ...a, hours: e.target.value === '' ? undefined : Number(e.target.value) })}
+            className="w-20 bg-surface rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-[#2E9DF7]" />
+          hours to do - trainees see this to plan their time
+        </label>
       </div>
-      <textarea value={a.instructions ?? ''} onChange={e => setA({ ...a, instructions: e.target.value })}
-        placeholder="What to submit (Markdown)" aria-label="Instructions" className={`${input} bg-surface h-20`} />
+      <div>
+        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Instructions - use • List / 1. List for steps</p>
+        <MarkdownEditor value={a.instructions ?? ''} onChange={instructions => setA({ ...a, instructions })}
+          placeholder={'What to submit, e.g.\n- Export the session as WAV\n- Name it Week1_YourName\n- Upload the Drive link below'} />
+      </div>
 
       <div className="space-y-2">
         <p className="text-[10px] font-black uppercase text-gray-500">Materials links</p>
@@ -82,7 +93,7 @@ export const AssignmentForm: React.FC<{
         <div className="bg-surface rounded-2xl p-4 space-y-3">
           <p className="text-[10px] font-black uppercase text-gray-500">How it's graded</p>
           {a.practice ? (
-            <p className="text-xs font-bold text-gray-500">Practice: the trainer scores the criteria below and gives feedback, but it doesn't count toward Episode A or the final grade.</p>
+            <p className="text-xs font-bold text-gray-500">Practice: the trainer scores the criteria below from 1 to 3 and gives feedback, but it doesn't count toward Episode A or the final grade.</p>
           ) : (
           <label className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-700">
             Counts
@@ -95,7 +106,7 @@ export const AssignmentForm: React.FC<{
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <p className="text-xs font-bold text-gray-500 flex-1 min-w-60">Criteria - each is one 1–5 score the trainer gives for this submission. Describe what each score looks like for that criterion; trainees and reviewers see it as a rubric table.</p>
+              <p className="text-xs font-bold text-gray-500 flex-1 min-w-60">Criteria - each is one {a.practice ? '1–3' : '1–5'} score the trainer gives for this submission. Describe what each score looks like for that criterion; trainees and reviewers see it as a rubric table.</p>
               <RubricPaste onApply={r => {
                 const even = splitEvenly(r.criteria.length);
                 setLines(r.criteria.map((c, i) => ({ id: lines[i]?.id ?? uid('ex'), assignmentId: a.id, title: c.title, order: i + 1,
@@ -114,7 +125,7 @@ export const AssignmentForm: React.FC<{
               setLines(lines.map(({ vi: _vi, ...l }) => l));
               setA(({ bandsVi: _b, ...x }) => x);
             }} />
-            <BandInputs key={(a.bands ?? []).join('|')} bands={a.bands} onSave={bands => setA(x => ({ ...x, bands }))} />
+            <BandInputs key={`${maxScore(a)}:${(a.bands ?? []).join('|')}`} bands={a.bands} max={maxScore(a)} onSave={bands => setA(x => ({ ...x, bands }))} />
             {lines.map((l, i) => (
               <div key={l.id} className="bg-gray-50 rounded-2xl p-3 space-y-2">
               <div className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
@@ -135,12 +146,12 @@ export const AssignmentForm: React.FC<{
               </label>
               <textarea value={l.outcome ?? ''} onChange={e => setLine(i, { outcome: e.target.value })} placeholder="What it assesses, e.g. the module learning outcome (optional)"
                 aria-label={`${l.title || 'Criterion'} - what it assesses`} className={`${input} bg-surface h-14 text-xs`} />
-              <div className="grid gap-2 sm:grid-cols-5">
-                {[1, 2, 3, 4, 5].map(n => (
+              <div className={`grid gap-2 ${a.practice ? 'sm:grid-cols-3' : 'sm:grid-cols-5'}`}>
+                {scoreRange(maxScore(a)).map(n => (
                   <label key={n} className="block">
-                    <span className="text-[10px] font-black uppercase text-gray-400">{n} — {bandLabel(a.bands, n)}</span>
+                    <span className="text-[10px] font-black uppercase text-gray-400">{n} — {bandLabel(a.bands, n, maxScore(a))}</span>
                     <textarea value={l.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${l.title || 'Criterion'} - score ${n} description`}
-                      onChange={e => { const levels = [1, 2, 3, 4, 5].map(k => (k === n ? e.target.value : l.levels?.[k - 1] ?? '')); setLine(i, { levels }); }}
+                      onChange={e => { const levels = scoreRange(maxScore(a)).map(k => (k === n ? e.target.value : l.levels?.[k - 1] ?? '')); setLine(i, { levels }); }}
                       className={`${input} bg-surface h-24 text-xs`} />
                   </label>
                 ))}
@@ -170,10 +181,10 @@ export const AssignmentForm: React.FC<{
         <button disabled={busy || !a.title.trim() || (a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())))}
           title={a.stage === 'A' && (lines.length === 0 || lines.some(l => !l.title.trim())) ? 'Give every criterion a name' : undefined} onClick={async () => {
           setBusy(true);
-          const bands = (a.bands ?? []).map(t => t.trim());
+          const bands = (a.bands ?? []).slice(0, maxScore(a)).map(t => t.trim());
           try { await onSave({ ...a, ...(a.practice ? { weight: undefined } : {}), title: a.title.trim(), materials: a.materials.filter(m => m.url.trim()), bands: a.stage === 'A' && bands.some(Boolean) ? bands : undefined }, lines.map((l, i) => {
             const { levels, outcome, ...rest } = l;
-            const clean = (levels ?? []).map(t => t.trim());
+            const clean = (levels ?? []).slice(0, maxScore(a)).map(t => t.trim());
             return { ...rest, title: l.title.trim(), order: i + 1, ...(clean.some(Boolean) ? { levels: clean } : {}), ...(outcome?.trim() ? { outcome: outcome.trim() } : {}) };
           })); } finally { setBusy(false); }
         }} className={primaryBtn}>Save assignment</button>
@@ -192,6 +203,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
   const [editing, setEditing] = useState<string | null>(null); // assignment item id being edited
   // Where the admin clicked "+ Add" (a section, or null = not in a section), and what they're adding.
   const [adding, setAdding] = useState<{ weekId: string; sectionId: string | null; kind?: 'content' | 'assignment' | 'milestone' } | null>(null);
+  const isQuiz = (it: OutlineItem) => it.kind === 'content' && !!modules.find(m => m.id === it.moduleId)?.quiz;
   const [contentPick, setContentPick] = useState('');
   const [milestone, setMilestone] = useState({ title: '', description: '', day: 5 });
   const [pendingDelete, setPendingDelete] = useState<{ weekId: string; item: OutlineItem } | null>(null);
@@ -308,8 +320,10 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
   const closeAdd = () => { setAdding(null); setContentPick(''); setMilestone({ title: '', description: '', day: 5 }); };
   const withSection = (item: OutlineItem, sectionId: string | null) => (sectionId ? { ...item, sectionId } : item) as OutlineItem;
   // A brand-new lesson, placed here and opened in the lesson editor.
-  const newLesson = async (weekId: string, sectionId: string | null) => {
-    const created = createModule();
+  const newLesson = async (weekId: string, sectionId: string | null, quiz = false) => {
+    const created = createModule(quiz
+      ? { title: 'Quiz', quiz: true, contentBlocks: [{ id: uid('blk'), type: 'quiz', title: '', questions: [] }] }
+      : undefined);
     if (!(await saveWith(created))) return;
     const mod = await created;
     await addItem(weekId, withSection({ id: uid('oi'), kind: 'content', moduleId: mod.id }, sectionId));
@@ -334,11 +348,11 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
             <button onClick={() => moveInGroup(week.id, it, -1)} disabled={ii === 0} aria-label="Move up" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▲</button>
             <button onClick={() => moveInGroup(week.id, it, 1)} disabled={ii === count - 1} aria-label="Move down" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▼</button>
           </div>
-          <span className="text-lg" aria-hidden="true">{it.kind === 'content' ? '📖' : it.kind === 'assignment' ? '📝' : '🏁'}</span>
+          <span className="text-lg" aria-hidden="true">{isQuiz(it) ? '❓' : it.kind === 'content' ? '📖' : it.kind === 'assignment' ? '📝' : '🏁'}</span>
           <div className="flex-1 min-w-[160px]">
             <p className="text-sm font-bold text-gray-800 truncate">{itemTitle(it)}</p>
             <p className="text-[10px] font-bold uppercase text-gray-400">
-              {it.kind === 'content' ? 'Content' : it.kind === 'milestone' ? 'Milestone' : 'Assignment'}
+              {isQuiz(it) ? `Quiz · ${(modules.find(m => m.id === (it as { moduleId: string }).moduleId)?.contentBlocks ?? []).reduce((t, b) => t + (b.type === 'quiz' ? b.questions.length : 0), 0)} questions` : it.kind === 'content' ? 'Content' : it.kind === 'milestone' ? 'Milestone' : 'Assignment'}
               {it.kind === 'content' && watchTime([it]) && (
                 <span className="ml-2 normal-case text-navy" title={lengths[it.moduleId]?.unknown ? 'Some videos are still loading or aren’t on YouTube, so their length isn’t counted' : 'Video watch time (only the clip, if one is set)'}>
                   ▶ {watchTime([it])} video
@@ -371,7 +385,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
           <select value={week.id} onChange={e => moveToWeek(week.id, it, e.target.value)} aria-label="Move to week" className={smallSelect}>
             {outline.weeks.map((w, n) => <option key={w.id} value={w.id}>{weekLabel(n)}</option>)}
           </select>
-          {it.kind === 'content' && <button onClick={() => onEditModule(it.moduleId)} className={secondaryBtn}>Edit content</button>}
+          {it.kind === 'content' && <button onClick={() => onEditModule(it.moduleId)} className={secondaryBtn}>{isQuiz(it) ? 'Edit quiz' : 'Edit content'}</button>}
           {it.kind === 'assignment' && <button onClick={() => setEditing(editing === it.id ? null : it.id)} className={secondaryBtn}>{editing === it.id ? 'Close' : 'Edit'}</button>}
           <button onClick={() => setPendingDelete({ weekId: week.id, item: it })} aria-label="Remove" className="text-gray-400 hover:text-ember font-bold px-2">✕</button>
         </div>
@@ -394,6 +408,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setAdding({ ...adding, kind: 'content' })} className={secondaryBtn}>📖 Content</button>
           <button onClick={() => setAdding({ ...adding, kind: 'assignment' })} className={secondaryBtn}>📝 Assignment</button>
+          <button onClick={() => newLesson(week.id, sectionId, true)} className={secondaryBtn}>❓ Quiz</button>
           <button onClick={() => setAdding({ ...adding, kind: 'milestone' })} className={secondaryBtn}>🏁 Milestone</button>
           <button onClick={closeAdd} className="text-xs font-bold text-gray-400 px-2">Cancel</button>
         </div>
@@ -451,7 +466,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
     <div className="space-y-4">
       <p className="text-xs text-gray-500 px-2">
         The program is 4 weeks. Inside each week, group content into <b>sections</b> (e.g. "StoryCo General Onboarding") and use ▲▼ to order
-        sections and the items in them - trainees see exactly this in their sidebar. Give lessons a planned day (and hours) to build each trainee's day-by-day plan; assignments and milestones have a due day. Grading lives on each assignment (click Edit).
+        sections and the items in them - trainees see exactly this in their sidebar. Add a <b>❓ Quiz</b> after the lessons it checks. Give lessons a planned day (and hours) to build each trainee's day-by-day plan; assignments and milestones have a due day. Grading lives on each assignment (click Edit).
       </p>
       <div className="flex flex-wrap gap-2 px-2">
         {outline.weeks.map((w, wi) => (

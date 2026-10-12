@@ -3,7 +3,7 @@ import { QueueItem, Status, useQueue } from '../../assessment/reviewQueue';
 import { useAppContext } from '../../store';
 import { AssessmentReview, AssessmentScore, AssessmentStage, AssessmentSubmission, Exercise, ReviewerSlot } from '../../types';
 import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys, cellGroup, gradesFirstComplete, publicationKey, stageCells, stageCriteria } from '../../assessment/config';
-import { exerciseSubmissions, stageSubmissions } from '../../assessment/scoring';
+import { exerciseSubmissions, maxScore, scoreRange, stageSubmissions } from '../../assessment/scoring';
 import { assignmentWeek, daysLate } from '../../assessment/outline';
 import { RubricLangToggle, STAGE_LABELS, card, input, notifySave, primaryBtn, rubricBand, rubricText, secondaryBtn, useRubricLang } from './ui';
 
@@ -51,6 +51,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   // Score names ("Merit (60+)") from the assignment (Episode A) or stage.
   const lineAssignment = isA ? assignments.find(a => a.id === item.lines[0]?.assignmentId) : undefined;
   const bands = isA ? lineAssignment?.bands : assessmentConfig.bands?.[cellGroup(item.stage)];
+  const max = isA ? maxScore(lineAssignment) : 5; // practice: 1-3
   const bandsVi = isA ? lineAssignment?.bandsVi : assessmentConfig.bandsVi?.[cellGroup(item.stage)];
   // The rubric in English or Vietnamese (when the admin added a Vietnamese
   // version) - the same EN / VI choice as trainees' rubric tables.
@@ -65,7 +66,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   const laterRevisions = gradesFirstComplete(item.stage) ? item.versions.filter(v => v.version > (options[0]?.version ?? Infinity)) : [];
   const locked = item.published;
 
-  // Keyboard scoring: 1-5 scores the highlighted criterion (the first
+  // Keyboard scoring: 1-5 (1-3 for practice) scores the highlighted criterion (the first
   // unscored one, or the one last clicked) and moves on to the next
   // unscored one; Ctrl/Cmd+Enter submits. Digits typed into the feedback
   // box stay text.
@@ -79,7 +80,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
         return;
       }
       if ((e.target as HTMLElement).closest('textarea, input, select')) return;
-      if (e.metaKey || e.ctrlKey || e.altKey || !/^[1-5]$/.test(e.key) || !current) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || !(Number(e.key) >= 1 && Number(e.key) <= max) || !current) return;
       e.preventDefault();
       const next = { ...scores, [current]: Number(e.key) as AssessmentScore };
       setScores(next);
@@ -153,7 +154,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {!locked ? <p className="text-[11px] text-gray-500">Tip: press 1–5 to score the highlighted criterion · Ctrl/⌘+Enter submits</p> : <span />}
+          {!locked ? <p className="text-[11px] text-gray-500">Tip: press 1–{max} to score the highlighted criterion · Ctrl/⌘+Enter submits</p> : <span />}
           {hasVi && <RubricLangToggle lang={lang} onChange={chooseLang} />}
         </div>
         {keys.map(k => (
@@ -161,14 +162,14 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
             <p className="text-xs font-bold text-gray-700">{keyLabel(k)}</p>
             {outcomeOf(k) && <p className="text-[11px] text-gray-500 whitespace-pre-wrap">{outcomeOf(k)}</p>}
             <div className="mb-1.5" />
-            <div className={[1, 2, 3, 4, 5].some(n => levelText(k, n)) ? 'grid gap-1.5 sm:grid-cols-5 text-left' : 'flex flex-wrap gap-1.5'} role="radiogroup" aria-label={keyLabel(k)}>
-              {([1, 2, 3, 4, 5] as AssessmentScore[]).map(n => (
+            <div className={scoreRange(max).some(n => levelText(k, n)) ? `grid gap-1.5 ${max === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-5'} text-left` : 'flex flex-wrap gap-1.5'} role="radiogroup" aria-label={keyLabel(k)}>
+              {(scoreRange(max) as AssessmentScore[]).map(n => (
                 <button key={n} type="button" role="radio" aria-checked={scores[k] === n} disabled={locked}
                   onClick={() => { setScores(s => ({ ...s, [k]: n })); setActive(null); }}
                   className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
                     scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
-                  {`${n} — ${rubricBand(vi, bands, bandsVi, n)}`}
+                  {`${n} — ${rubricBand(vi, bands, bandsVi, n, max)}`}
                   {levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
                 </button>
               ))}
