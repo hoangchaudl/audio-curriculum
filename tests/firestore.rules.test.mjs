@@ -675,3 +675,25 @@ describe('quiz attempts', () => {
     await assertSucceeds(deleteDoc(doc(as('admin'), 'quizAttempts/other')));
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('lesson notes (private)', () => {
+  beforeEach(() => seed(baseUsers));
+  const note = (userId, extra = {}) => ({ moduleId: 'm1', userId, text: 'remember EQ', updatedAt: serverTimestamp(), ...extra });
+
+  it('a trainee writes and reads only their own note', async () => {
+    const d = as('designer');
+    await assertSucceeds(setDoc(doc(d, 'lessonNotes/m1_designer'), note('designer')));
+    await assertSucceeds(getDoc(doc(d, 'lessonNotes/m1_designer')));
+    await assertFails(getDoc(doc(as('unlocked'), 'lessonNotes/m1_designer')));
+    await assertFails(getDoc(doc(as('admin'), 'lessonNotes/m1_designer')));
+    await assertFails(setDoc(doc(as('unlocked'), 'lessonNotes/m1_designer'), note('unlocked')));
+  });
+  it('rejects wrong ids, extra fields, client times and oversized text', async () => {
+    const d = as('designer');
+    await assertFails(setDoc(doc(d, 'lessonNotes/x'), note('designer')));
+    await assertFails(setDoc(doc(d, 'lessonNotes/m1_designer'), note('designer', { extra: 1 })));
+    await assertFails(setDoc(doc(d, 'lessonNotes/m1_designer'), note('designer', { updatedAt: '2026-01-01' })));
+    await assertFails(setDoc(doc(d, 'lessonNotes/m1_designer'), note('designer', { text: 'x'.repeat(20001) })));
+  });
+});
