@@ -3,8 +3,11 @@ import { useAppContext } from '../../store';
 import { AssessmentStage } from '../../types';
 import { stageSubmissions } from '../../assessment/scoring';
 import { gradesFirstComplete } from '../../assessment/config';
-import { input, isHttpUrl, primaryBtn, secondaryBtn } from './ui';
+import { input, isHttpUrl, primaryBtn, secondaryBtn, useRubricLang } from './ui';
 import { ConfirmModal } from '../ConfirmModal';
+
+// Shared Drive folder trainees upload their work into (one subfolder each).
+const SUBMISSION_DRIVE = 'https://drive.google.com/drive/folders/1TQS33KzUBqwbnAPS2oZz6ei5sHChelXc?usp=drive_link';
 
 // A trainee's submission history for one exercise/episode, plus a form to
 // add a new revision. History is append-only: nothing here edits or
@@ -21,6 +24,7 @@ export const SubmissionPanel: React.FC<{
   const { currentUser, assessmentSubmissions, submitAssessmentVersion } = useAppContext();
   // Released at a checkpoint: history stays visible, submitting is closed.
   if (currentUser?.status === 'released') disabledReason = 'Your place in the program has ended, so submissions are closed. Your earlier versions and results stay here.';
+  const [lang] = useRubricLang();
   const [links, setLinks] = useState([{ label: 'Session', url: '' }]);
   const [note, setNote] = useState('');
   const [isComplete, setIsComplete] = useState(false);
@@ -89,6 +93,13 @@ export const SubmissionPanel: React.FC<{
         <div className="space-y-2">
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
             {versions.length ? `Submit revision v${Math.max(...versions.map(v => v.version)) + 1}` : 'Submit your work'}
+          </p>
+          <p className="text-xs text-gray-600 bg-sky/40 rounded-xl px-3 py-2">
+            {lang === 'vi' ? (
+              <>Tạo một folder đặt tên bằng <b>họ và tên đầy đủ</b> của bạn trong <a href={SUBMISSION_DRIVE} target="_blank" rel="noreferrer" className="font-bold text-[#2E9DF7] underline">Drive nộp bài</a>, upload bài tập vào đó, rồi dán link cụ thể của bài này vào bên dưới.</>
+            ) : (
+              <>Create a folder named with your <b>full name</b> in the <a href={SUBMISSION_DRIVE} target="_blank" rel="noreferrer" className="font-bold text-[#2E9DF7] underline">submission Drive</a>, upload this assignment there, then paste the link to that specific file below.</>
+            )}
           </p>
           {links.map((l, i) => (
             <div key={i} className="grid grid-cols-[7rem_1fr_auto] gap-2">
