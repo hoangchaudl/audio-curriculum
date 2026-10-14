@@ -76,6 +76,11 @@ export const AssignmentForm: React.FC<{
         <MarkdownEditor value={a.instructions ?? ''} onChange={instructions => setA({ ...a, instructions })}
           placeholder={'What to submit, e.g.\n- Export the session as WAV\n- Name it Week1_YourName\n- Upload the Drive link below'} />
       </div>
+      <div>
+        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Instructions (Vietnamese) - optional, trainees switch EN / VI</p>
+        <MarkdownEditor value={a.instructionsVi ?? ''} onChange={instructionsVi => setA({ ...a, instructionsVi })}
+          placeholder={'Hướng dẫn nộp bài, ví dụ\n- Xuất session ra WAV\n- Đặt tên Week1_TenBan\n- Dán link Drive bên dưới'} />
+      </div>
 
       <div className="space-y-2">
         <p className="text-[10px] font-black uppercase text-gray-500">Materials links</p>
