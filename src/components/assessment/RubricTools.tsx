@@ -25,18 +25,20 @@ export const BandInputs: React.FC<{ bands?: string[]; onSave: (bands: string[]) 
 // Vietnamese version of the same table - same rows, same order - which only
 // adds text for people who switch the rubric to VI. The preview pairs each
 // English criterion with its Vietnamese row, so a wrong table is obvious.
-export const RubricPaste: React.FC<{ onApply: (r: PastedRubric) => void; vietnamese?: string[] }> = ({ onApply, vietnamese }) => {
+// levels: score columns in the table (3 for practice assignments).
+export const RubricPaste: React.FC<{ onApply: (r: PastedRubric) => void; vietnamese?: string[]; levels?: number }> = ({ onApply, vietnamese, levels = 5 }) => {
   const [open, setOpen] = useState(false);
   const [found, setFound] = useState<PastedRubric | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const read = (rows: string[][]) => {
-    const r = parseRubricRows(rows);
+    const r = parseRubricRows(rows, levels);
     const wrongCount = r && vietnamese !== undefined && r.criteria.length !== vietnamese.length;
     setFound(r && !wrongCount ? r : null);
-    setFailed(!r ? "Couldn't find a table with a criterion and five score columns - check the columns and paste again."
+    setFailed(!r ? `Couldn't find a table with a criterion and ${levelWord} score columns - check the columns and paste again.`
       : wrongCount ? `Found ${r.criteria.length} rows, but this rubric has ${vietnamese!.length} criteria - paste the same table, in the same order.` : null);
   };
   const close = () => { setOpen(false); setFound(null); setFailed(null); };
+  const levelWord = levels === 3 ? 'three' : 'five';
 
   if (!open) {
     return (
@@ -48,8 +50,8 @@ export const RubricPaste: React.FC<{ onApply: (r: PastedRubric) => void; vietnam
   return (
     <div className="bg-sky/60 rounded-2xl p-3 space-y-2">
       <p className="text-xs text-navy">
-        {vietnamese !== undefined ? <><b>Vietnamese version:</b> paste the same rubric table translated - same rows, same order. Only the text is used (criterion, what it assesses, the five descriptions and score names); weights and scores stay as they are. Trainees can then switch the rubric between EN and VI. </> : null}
-        Copy your rubric table (from Word, Google Docs/Sheets or a web page) and paste it below. Columns: <b>criterion</b>, optionally <b>what it assesses / ILO</b> and <b>weighting</b>, then the <b>five score descriptions</b> (lowest first). A header row names the scores.
+        {vietnamese !== undefined ? <><b>Vietnamese version:</b> paste the same rubric table translated - same rows, same order. Only the text is used (criterion, what it assesses, the score descriptions and names); weights and scores stay as they are. Trainees can then switch the rubric between EN and VI. </> : null}
+        Copy your rubric table (from Word, Google Docs/Sheets or a web page) and paste it below. Columns: <b>criterion</b>, optionally <b>what it assesses / ILO</b> and <b>weighting</b>, then the <b>{levelWord} score descriptions</b> (lowest first: {levels === 3 ? '1, 2, 3' : '1 to 5'}). A header row names the scores.
       </p>
       <textarea autoFocus placeholder="Paste here (Ctrl/⌘ + V)" aria-label="Paste rubric table" className={`${input} bg-surface h-20 text-xs`}
         onPaste={e => {

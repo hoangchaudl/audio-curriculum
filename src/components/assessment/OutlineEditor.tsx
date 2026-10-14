@@ -107,14 +107,14 @@ export const AssignmentForm: React.FC<{
           <div className="space-y-2">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <p className="text-xs font-bold text-gray-500 flex-1 min-w-60">Criteria - each is one {a.practice ? '1–3' : '1–5'} score the trainer gives for this submission. Describe what each score looks like for that criterion; trainees and reviewers see it as a rubric table.</p>
-              <RubricPaste onApply={r => {
+              <RubricPaste levels={maxScore(a)} onApply={r => {
                 const even = splitEvenly(r.criteria.length);
                 setLines(r.criteria.map((c, i) => ({ id: lines[i]?.id ?? uid('ex'), assignmentId: a.id, title: c.title, order: i + 1,
                   weight: c.weight ?? even[i], levels: c.levels, ...(c.outcome ? { outcome: c.outcome } : {}), ...(lines[i]?.vi ? { vi: lines[i].vi } : {}), ...(lines[i]?.skill !== undefined ? { skill: lines[i].skill } : {}) })));
                 if (r.bands) setA(x => ({ ...x, bands: r.bands }));
               }} />
               {lines.length > 0 && (
-                <RubricPaste vietnamese={lines.map(l => l.title)} onApply={r => {
+                <RubricPaste levels={maxScore(a)} vietnamese={lines.map(l => l.title)} onApply={r => {
                   const next = withVietnamese(lines, r);
                   if (next) setLines(next);
                   if (r.bands) setA(x => ({ ...x, bandsVi: r.bands }));
