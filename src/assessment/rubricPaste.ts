@@ -49,13 +49,15 @@ export const htmlTableRows = (html: string): string[][] => {
   })).filter(r => r.some(c => c.trim()));
 };
 
-export const parseRubricRows = (raw: string[][]): PastedRubric | null => {
-  const rows = raw.map(r => r.map(clean)).filter(r => r.length >= 6);
+// levels: how many score columns the table has (5, or 3 for practice).
+export const parseRubricRows = (raw: string[][], levels = 5): PastedRubric | null => {
+  const rows = raw.map(r => r.map(clean)).filter(r => r.length >= levels + 1);
   if (!rows.length) return null;
-  // Column layout from the widest row: 8 = with ILO and weighting, 7 = weighting only, 6 = neither.
+  // Column layout from the widest row (5 levels: 8 = with ILO and weighting,
+  // 7 = weighting only, 6 = neither).
   const width = Math.max(...rows.map(r => r.length));
-  const hasOutcome = width >= 8;
-  const hasWeight = width >= 7;
+  const hasOutcome = width >= levels + 3;
+  const hasWeight = width >= levels + 2;
   const weightCol = hasOutcome ? 2 : 1;
   // Header: first cell names the column ("Criteria", or Vietnamese "Tiêu chí").
   const isHeader = (r: string[]) => /^(assessment\s+)?(criteri|tiêu\s*chí)/i.test(r[0]) || (hasWeight && asWeight(r[weightCol]) === undefined && !/\d/.test(r[weightCol]));
@@ -65,10 +67,10 @@ export const parseRubricRows = (raw: string[][]): PastedRubric | null => {
     title: r[0],
     ...(hasOutcome && r[1] ? { outcome: r[1] } : {}),
     ...(hasWeight && asWeight(r[weightCol]) !== undefined ? { weight: asWeight(r[weightCol]) } : {}),
-    levels: r.slice(-5),
+    levels: r.slice(-levels),
   }));
   if (!criteria.length) return null;
-  return { criteria, ...(header ? { bands: header.slice(-5) } : {}) };
+  return { criteria, ...(header ? { bands: header.slice(-levels) } : {}) };
 };
 
 // A pasted Vietnamese version of an existing rubric: same rows, same order.

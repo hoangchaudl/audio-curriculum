@@ -20,6 +20,14 @@ describe('pasted rubric tables', () => {
     expect(parseRubricRows([['Mix', 'a', 'b', 'c', 'd', 'e']])).toEqual({ criteria: [{ title: 'Mix', levels: ['a', 'b', 'c', 'd', 'e'] }] });
     expect(parseRubricRows([['just', 'two']])).toBeNull();
   });
+  it('reads 3-level tables for practice, with or without weighting and a header', () => {
+    expect(parseRubricRows([
+      ['Criteria', 'Weighting', 'Needs work', 'Almost there', 'Got it'],
+      ['Naming', '50%', 'Wrong', 'Mostly right', 'Right'],
+    ], 3)).toEqual({ criteria: [{ title: 'Naming', weight: 50, levels: ['Wrong', 'Mostly right', 'Right'] }], bands: ['Needs work', 'Almost there', 'Got it'] });
+    expect(parseRubricRows([['Mix', 'a', 'b', 'c']], 3)).toEqual({ criteria: [{ title: 'Mix', levels: ['a', 'b', 'c'] }] });
+    expect(parseRubricRows([['Mix', 'a', 'b', 'c']])).toBeNull();
+  });
   it('splits spreadsheet text, keeping line breaks inside quoted cells', () => {
     expect(tsvRows('A\t"line 1\nline 2"\tC\r\nD\tE\tF\n')).toEqual([['A', 'line 1\nline 2', 'C'], ['D', 'E', 'F']]);
   });
