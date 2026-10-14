@@ -28,8 +28,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
 
   const disabledReason = !data.enrollment
     ? "You're not enrolled in the assessment program yet - ask a coordinator to enroll you."
-    : notRequired ? 'Only one pod episode is required for you.'
-    : published ? 'Results are published; submissions are closed.' : undefined;
+    : notRequired ? 'Only one pod episode is required for you.' : undefined;
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
@@ -103,6 +102,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
 
           <section className={card}>
             <h3 className={`${sectionTitle} mb-3`}>Your submissions</h3>
+{published && <p className="text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl px-3 py-2 mb-3">Results are published - you can still submit new versions, but they won't change your score.</p>}
             <SubmissionPanel stage={stage} target="episode" askComplete disabledReason={disabledReason} />
           </section>
         </div>

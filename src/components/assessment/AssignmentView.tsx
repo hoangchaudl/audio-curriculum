@@ -31,7 +31,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
   const feedback = [...new Set(data.reviews.filter(r => r.stage === 'A' && lines.some(l => l.id === r.target)).map(r => r.feedback?.trim()).filter((f): f is string => !!f))];
   const disabledReason = !data.enrollment
     ? "You're not enrolled in the assessment program yet - ask a coordinator to enroll you."
-    : published ? 'Episode A results are published; submissions are closed.' : undefined;
+    : undefined;
 
   return (
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
@@ -91,6 +91,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
 
           <section className={card}>
             <h3 className={`${sectionTitle} mb-3`}>Your submissions</h3>
+{published && <p className="text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl px-3 py-2 mb-3">Results are published - you can still submit new versions, but they won't change your score.</p>}
             <SubmissionPanel stage="A" target={assignment.id} gradedSubmissionId={gradedSubmissionId} disabledReason={disabledReason} />
           </section>
         </div>
