@@ -226,6 +226,22 @@ service cloud.firestore {
              d.at == request.time;
     }
 
+    // A trainee's private notes on a lesson: one doc per (lesson, trainee),
+    // id = moduleId_uid. Only the owner reads or writes - not even admins.
+    match /lessonNotes/{noteId} {
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update: if isMember() && lessonNoteOk(noteId);
+    }
+
+    function lessonNoteOk(noteId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['moduleId', 'userId', 'text', 'updatedAt']) &&
+             d.userId == request.auth.uid && d.moduleId is string &&
+             noteId == d.moduleId + '_' + request.auth.uid &&
+             d.text is string && d.text.size() <= 20000 &&
+             d.updatedAt == request.time;
+    }
+
     // ===== Assessment program (1-5 scale) =====
     // Legacy `submissions`/`grades` above are untouched; the new program
     // uses the collections below. See src/assessment/ for the data shapes.

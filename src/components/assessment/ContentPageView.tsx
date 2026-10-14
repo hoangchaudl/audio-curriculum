@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../../store';
 import { ContentBlocks } from './ContentBlocks';
+import { LessonNotes } from './LessonNotes';
 import { lessonContext, Step } from '../../assessment/outline';
 import { formatLength, youTubeId } from '../../videoClip';
 import { Md, ProgressBar, card, saveWith, sectionTitle } from './ui';
@@ -137,6 +138,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
                 </p>
               </section>
             )}
+            {currentUser && <LessonNotes key={mod.id} moduleId={mod.id} userId={currentUser.id} />}
             {mod.objectives?.length ? (
               <section className={box}>
                 <h3 className={`${sectionTitle} mb-4`}>What you'll learn</h3>
