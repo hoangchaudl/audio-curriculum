@@ -178,6 +178,8 @@ export interface Assignment {
   title: string;
   stage: AssessmentStage;
   instructions?: string;
+  // Vietnamese instructions; trainees switch EN / VI when set.
+  instructionsVi?: string;
   materials: { label: string; url: string }[];
   // Day of the program week it's due (1 = first day of that week).
   dueDay?: number;
