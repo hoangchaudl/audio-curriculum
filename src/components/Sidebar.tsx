@@ -58,7 +58,7 @@ export const Sidebar: React.FC<{
   const queueOnly = reviewsOnly(effectiveRole);
   const programLinks = [
     ...(isLeadership ? [{ page: 'overview', hash: '#/overview', label: 'Program overview', icon: <ClipboardList className="w-5 h-5" strokeWidth={2.5} /> }] : []),
-    ...(ownEnrollment && !queueOnly ? [
+    ...(ownEnrollment && !queueOnly && !isLeadership ? [
       { page: 'program', hash: '#/program', label: 'My Program', icon: <ClipboardList className="w-5 h-5" strokeWidth={2.5} /> },
       // With a weekly outline, Episode B and Pod are assignments inside
       // the weeks instead of separate links.
@@ -69,7 +69,7 @@ export const Sidebar: React.FC<{
         ...(assignments.some(a => a.stage === 'DA') ? [{ page: 'episode:DA', hash: '#/episode/DA', label: 'Audio Description', icon: '🎙️' }] : []),
       ]),
     ] : []),
-    ...(hasReviews || queueOnly ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: <ClipboardCheck className="w-5 h-5" strokeWidth={2.5} /> }] : []),
+    ...((hasReviews || queueOnly) && !isLeadership ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: <ClipboardCheck className="w-5 h-5" strokeWidth={2.5} /> }] : []),
   ];
   // Admins load every module; when previewing as a designer, hide what a
   // designer without unlocks couldn't see so the preview is realistic.
@@ -408,7 +408,7 @@ export const Sidebar: React.FC<{
                {isRealAdmin && (
                  <>
                    <p className="text-[10px] text-gray-400 font-black uppercase px-2 pt-2 mb-1 border-t">Preview As</p>
-                   {(['admin', 'sound_designer', 'audio_engineer'] as Role[]).map((role) => (
+                   {(['admin', 'sound_designer', 'audio_engineer', 'leadership'] as Role[]).map((role) => (
                      <button
                        key={role}
                        onClick={() => { setMenuOpen(false); onChangePreviewRole(role === 'admin' ? null : role); }}

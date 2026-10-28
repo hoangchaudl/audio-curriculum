@@ -9,7 +9,8 @@ import { EpisodeView } from './EpisodeView';
 import { OutcomeBadge, RubricTable, wideCard, card, sectionTitle } from './ui';
 import { AssignmentIntro } from './AssignmentIntro';
 
-export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentId }) => {
+// viewOnly (leadership): the brief and rubric without the submissions box.
+export const AssignmentView: React.FC<{ assignmentId: string; viewOnly?: boolean }> = ({ assignmentId, viewOnly }) => {
   const { assignments, currentUser, exercises } = useAppContext();
   const data = useTraineeData(currentUser?.id);
   const assignment = assignments.find(a => a.id === assignmentId);
@@ -18,7 +19,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
   // Episode B / Pod assignments are the existing episode pages plus this
   // assignment's header.
   if (assignment.stage !== 'A') {
-    return <EpisodeView stage={assignment.stage} assignment={assignment} />;
+    return <EpisodeView stage={assignment.stage} assignment={assignment} viewOnly={viewOnly} />;
   }
 
   const lines = assignmentLines(exercises, assignment.id);
@@ -89,11 +90,11 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
             {!hasRubric && lines.length > 0 && <p className="text-[10px] text-gray-400 mt-3">Scale: 1 (lowest) to {maxScore(assignment)} (highest)</p>}
           </section>
 
-          <section className={card}>
+          {!viewOnly && <section className={card}>
             <h3 className={`${sectionTitle} mb-3`}>Your submissions</h3>
 {published && <p className="text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl px-3 py-2 mb-3">Results are published - you can still submit new versions, but they won't change your score.</p>}
             <SubmissionPanel stage="A" target={assignment.id} gradedSubmissionId={gradedSubmissionId} disabledReason={disabledReason} />
-          </section>
+          </section>}
         </div>
       </div>
     </main>

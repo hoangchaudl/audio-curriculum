@@ -11,7 +11,7 @@ import { AssignmentIntro } from './AssignmentIntro';
 
 // Trainee page for a reviewer-table stage: Episode B (final test), one
 // Pod Trial episode, or Audio Description (DA).
-export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment?: Assignment }> = ({ stage, assignment }) => {
+export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment?: Assignment; viewOnly?: boolean }> = ({ stage, assignment, viewOnly }) => {
   const { currentUser, assessmentConfig } = useAppContext();
   const data = useTraineeData(currentUser?.id);
   const isPod = stage === 'P1' || stage === 'P2';
@@ -100,11 +100,11 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
             </section>
           )}
 
-          <section className={card}>
+          {!viewOnly && <section className={card}>
             <h3 className={`${sectionTitle} mb-3`}>Your submissions</h3>
 {published && <p className="text-[11px] font-bold text-gray-500 bg-gray-50 rounded-xl px-3 py-2 mb-3">Results are published - you can still submit new versions, but they won't change your score.</p>}
             <SubmissionPanel stage={stage} target="episode" askComplete disabledReason={disabledReason} />
-          </section>
+          </section>}
         </div>
       </div>
     </main>

@@ -255,11 +255,27 @@ const AppContent = () => {
   // Leadership: the read-only probation dashboard and their own profile,
   // or - once they open a lesson or assignment - the program content itself
   // in the trainee layout, read-only. No queues or admin tools.
-  const leadershipBrowsing = currentUser.role === 'leadership' && (view === 'assignment' || (view === 'module' && !!selectedModuleId));
-  if (currentUser.role === 'leadership' && !leadershipBrowsing) {
+  // (Admins can preview it too - effectiveRole.)
+  const isLeadership = effectiveRole === 'leadership';
+  const leadershipBrowsing = isLeadership && (view === 'assignment' || (view === 'module' && !!selectedModuleId));
+  const previewBanner = isRealAdmin && previewRole && (
+    <div className="bg-[#F4511E] text-white text-xs font-bold px-6 py-2 shadow-md z-10 flex items-center justify-between flex-shrink-0">
+      <span>
+        👁 Previewing as {previewRole.replace('_', ' ')} - you're still signed in as admin, this is view-only for checking the experience.
+      </span>
+      <button
+        onClick={() => setPreviewRole(null)}
+        className="bg-surface text-[#F4511E] hover:bg-white/90 px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide shadow-sm"
+      >
+        Return to Admin View
+      </button>
+    </div>
+  );
+  if (isLeadership && !leadershipBrowsing) {
     const firstLesson = programOutline?.weeks.flatMap(w => w.items).find(i => i.kind === 'content')?.moduleId ?? modules[0]?.id;
     return (
       <div className="flex flex-col h-screen w-full bg-page text-ink font-sans overflow-hidden">
+        {previewBanner}
         {view === 'profile' && <AdminHeader onBack={() => { setView('module'); window.location.hash = ''; }} />}
         <Suspense fallback={<div role="status" className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>
           {view === 'profile' ? <ProfileView /> : <LeadershipDashboard onBrowse={firstLesson ? () => { window.location.hash = `#/module/${firstLesson}`; } : undefined} />}
@@ -281,14 +297,14 @@ const AppContent = () => {
     if (view === 'program') return <ProgramOverview />;
     if (view === 'episode') return <EpisodeView key={episodeStage} stage={episodeStage} />;
     if (view === 'review') return <ReviewerQueue />;
-    if (view === 'assignment') return <AssignmentView key={assignmentId} assignmentId={assignmentId} />;
+    if (view === 'assignment') return <AssignmentView key={assignmentId} assignmentId={assignmentId} viewOnly={isLeadership} />;
 
     // Admins manage lessons from the dashboard; everyone else reads a lesson
     // as a program content page (submissions happen on assignment pages).
     if (effectiveRole === 'admin') {
       return <AdminDashboard focusModuleId={selectedModuleId} focusNonce={moduleNavNonce} onPreview={setPreviewRole} />;
     }
-    if (modules.some(m => m.id === selectedModuleId)) return <ContentPageView moduleId={selectedModuleId} />;
+    if (modules.some(m => m.id === selectedModuleId)) return <ContentPageView moduleId={selectedModuleId} viewOnly={isLeadership} />;
     // Nothing selected: a trainee's home is My Program.
     if (effectiveRole === 'sound_designer') return <ProgramOverview />;
     return null;
@@ -341,19 +357,7 @@ const AppContent = () => {
           <span className="font-black text-sm uppercase tracking-tight text-[#2E9DF7] truncate">Story Co Audio Training Program</span>
           <div className="ml-auto"><NotificationBell align="right" light /></div>
         </div>
-        {isRealAdmin && previewRole && (
-          <div className="bg-[#F4511E] text-white text-xs font-bold px-6 py-2 shadow-md z-10 flex items-center justify-between flex-shrink-0">
-            <span>
-              👁 Previewing as {previewRole.replace('_', ' ')} - you're still signed in as admin, this is view-only for checking the experience.
-            </span>
-            <button
-              onClick={() => setPreviewRole(null)}
-              className="bg-surface text-[#F4511E] hover:bg-white/90 px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide shadow-sm"
-            >
-              Return to Admin View
-            </button>
-          </div>
-        )}
+        {previewBanner}
         <Suspense fallback={<div role="status" className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>{renderContent()}</Suspense>
       </div>
     </div>

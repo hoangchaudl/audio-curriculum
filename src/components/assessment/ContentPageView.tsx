@@ -15,7 +15,8 @@ const MATERIAL_ICON: Record<string, string> = { video: '🎥', book: '📖', art
 // where it sits in the week, what it teaches and its materials on the
 // right; previous / next at the bottom. Submitting happens on assignment
 // pages.
-export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) => {
+// viewOnly (leadership): no progress, notes or quiz tries are recorded.
+export const ContentPageView: React.FC<{ moduleId: string; viewOnly?: boolean }> = ({ moduleId, viewOnly }) => {
   const { modules, moduleVideos, programOutline, assignments, enrollments, currentUser, videoProgress, markVideoWatched, unmarkVideoWatched, quizAttempts, saveQuizAttempt } = useAppContext();
   const scrollRef = useRef<HTMLDivElement>(null);
   // Videos on this page played to the end (clips count at their end time).
@@ -29,8 +30,6 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
   const ctx = lessonContext(programOutline, assignments, modules, enrollment, currentUser?.id, videoProgress, mod.id);
   const video = moduleVideos.find(v => v.moduleId === mod.id && v.url && v.url !== '#');
   const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === currentUser?.id);
-  // Leadership reads lessons without tracking progress, notes or quiz tries.
-  const viewOnly = currentUser?.role === 'leadership';
   // The admin's time estimate for this lesson in the outline.
   const plannedHours = programOutline?.weeks.flatMap(w => w.items).flatMap(i => (i.kind === 'content' && i.moduleId === mod.id && i.hours ? [i.hours] : []))[0];
 

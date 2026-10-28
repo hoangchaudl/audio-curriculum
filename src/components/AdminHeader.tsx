@@ -49,9 +49,9 @@ export const AdminHeader: React.FC<{ onPreview?: (role: Role) => void; onBack?: 
             <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-gray-100 p-2 z-50">
               <button onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className={item}>My Profile</button>
               {onPreview && <p className="text-[10px] text-gray-400 font-black uppercase px-3 pt-2 pb-1 border-t mt-1">Preview as</p>}
-              {onPreview && (['sound_designer', 'reviewer', 'audio_engineer'] as Role[]).map(role => (
+              {onPreview && (['sound_designer', 'reviewer', 'audio_engineer', 'leadership'] as Role[]).map(role => (
                 <button key={role} onClick={() => { setOpen(false); onPreview(role); }} className={item}>
-                  {role === 'sound_designer' ? 'Sound Designer (trainee)' : role === 'reviewer' ? 'Reviewer' : 'Audio Engineer'}
+                  {role === 'sound_designer' ? 'Sound Designer (trainee)' : role === 'reviewer' ? 'Reviewer' : role === 'audio_engineer' ? 'Audio Engineer' : 'Leadership'}
                 </button>
               ))}
               <button onClick={() => { setOpen(false); logout(); }} className={`${item} border-t mt-1`}>Log out</button>

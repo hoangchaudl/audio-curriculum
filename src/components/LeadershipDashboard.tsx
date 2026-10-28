@@ -151,7 +151,9 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
         )}
       </AdminHeader>
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-10 py-6 md:py-8 space-y-8 max-w-7xl w-full mx-auto">
+      {/* The full width scrolls (scrollbar at the window edge); the content is a centred column. */}
+      <div className="flex-1 overflow-y-auto">
+      <div className="px-4 md:px-10 py-6 md:py-8 space-y-8 max-w-7xl w-full mx-auto">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Probation program overview</h1>
           <p className="text-sm text-gray-500 font-medium mt-1">
@@ -324,6 +326,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
             </p>
           </section>
         )}
+      </div>
       </div>
 
       <TraineeDialog row={detail} onClose={() => setDetail(null)} />
