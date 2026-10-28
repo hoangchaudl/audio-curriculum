@@ -38,6 +38,8 @@ export const SubmissionPanel: React.FC<{
   // Episode B / Audio Description are graded on the first complete version
   // only, so marking one complete is final - confirm it first.
   const [confirmComplete, setConfirmComplete] = useState(false);
+  // Leadership browses assignment briefs read-only.
+  if (currentUser?.role === 'leadership') return null;
   const needsConfirm = askComplete && isComplete && gradesFirstComplete(stage) && !firstComplete;
   const alreadyGraded = askComplete && gradesFirstComplete(stage) && !!firstComplete;
 

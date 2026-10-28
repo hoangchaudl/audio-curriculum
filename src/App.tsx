@@ -48,7 +48,7 @@ const getPageFromHash = (): { view: View; stage?: EpisodeStage; assignmentId?: s
 };
 
 const AppContent = () => {
-  const { currentUser, authLoading, hasSession, profileMissing, authError, logout, modules, enrollments, ownEnrollmentLoaded } = useAppContext();
+  const { currentUser, authLoading, hasSession, profileMissing, authError, logout, modules, enrollments, ownEnrollmentLoaded, programOutline } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   useApplyTheme(useResolvedTheme(currentUser));
   const initialPage = useRef(getPageFromHash());
@@ -179,7 +179,11 @@ const AppContent = () => {
         return;
       }
       const id = getModuleIdFromHash();
-      if (!id) return;
+      if (!id) {
+        // Leadership's way back from the program content to the overview.
+        if (window.location.hash === '#/overview') { setSelectedModuleId(''); setView('module'); }
+        return;
+      }
       setSelectedModuleId(id);
       setView('module');
     };
@@ -248,14 +252,17 @@ const AppContent = () => {
     return <AuthView />;
   }
 
-  // Leadership: the read-only probation dashboard and their own profile -
-  // no lessons, queues or admin tools.
-  if (currentUser.role === 'leadership') {
+  // Leadership: the read-only probation dashboard and their own profile,
+  // or - once they open a lesson or assignment - the program content itself
+  // in the trainee layout, read-only. No queues or admin tools.
+  const leadershipBrowsing = currentUser.role === 'leadership' && (view === 'assignment' || (view === 'module' && !!selectedModuleId));
+  if (currentUser.role === 'leadership' && !leadershipBrowsing) {
+    const firstLesson = programOutline?.weeks.flatMap(w => w.items).find(i => i.kind === 'content')?.moduleId ?? modules[0]?.id;
     return (
       <div className="flex flex-col h-screen w-full bg-page text-ink font-sans overflow-hidden">
         {view === 'profile' && <AdminHeader onBack={() => { setView('module'); window.location.hash = ''; }} />}
         <Suspense fallback={<div role="status" className="flex-1 flex items-center justify-center text-gray-400 font-bold text-sm">Loading…</div>}>
-          {view === 'profile' ? <ProfileView /> : <LeadershipDashboard />}
+          {view === 'profile' ? <ProfileView /> : <LeadershipDashboard onBrowse={firstLesson ? () => { window.location.hash = `#/module/${firstLesson}`; } : undefined} />}
         </Suspense>
       </div>
     );
