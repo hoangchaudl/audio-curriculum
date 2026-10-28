@@ -16,10 +16,24 @@ export const programDate = (startDate: string | undefined, week: number | undefi
   return d;
 };
 
+// An assignment's due date for this trainee, or null when it has none
+// (no start date yet, or a pod-set deadline).
+export const assignmentDue = (a: Assignment, startDate: string | undefined, week: number | undefined) =>
+  a.podDeadline ? null : programDate(startDate, week, a.dueDay ?? 7);
+
+export const POD_DEADLINE_LABEL = 'Deadline set by your pod';
+
 export const dueLabel = (startDate: string | undefined, week: number | undefined, day: number | undefined) => {
   const d = programDate(startDate, week, day);
   if (d) return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   return day ? `Day ${day}` : '';
+};
+
+// "Due Fri, Oct 16", the pod-deadline label, or '' when there's nothing to show.
+export const assignmentDueLabel = (a: Assignment, startDate: string | undefined, week: number | undefined) => {
+  if (a.podDeadline) return POD_DEADLINE_LABEL;
+  const d = dueLabel(startDate, week, a.dueDay);
+  return d && `Due ${d}`;
 };
 
 // Pod episode 2 only exists for trainees who need two pod episodes.
@@ -47,7 +61,7 @@ export const assignmentStatus = (a: Assignment, traineeId: string | undefined, s
 // version for Episode A, the first complete one for Episode B / Pod / DA
 // (what makes it count as submitted). null = on time, or not handed in.
 export const daysLate = (a: Assignment, week: number | undefined, enrollment: Enrollment | undefined, submissions: AssessmentSubmission[]) => {
-  const due = programDate(enrollment?.startDate, week, a.dueDay ?? 7);
+  const due = assignmentDue(a, enrollment?.startDate, week);
   if (!due) return null;
   const versions = stageSubmissions(submissions.filter(s => s.traineeId === enrollment?.traineeId), a.stage, submissionTarget(a));
   const handedIn = a.stage === 'A' ? versions[0] : versions.find(v => v.isComplete);
@@ -154,7 +168,7 @@ export const nextSteps = (
     if (it.kind === 'assignment') {
       const a = assignments.find(x => x.id === it.assignmentId);
       if (!a || !assignmentApplies(a, enrollment)) return [];
-      const due = programDate(enrollment?.startDate, wi + 1, a.dueDay ?? 7) ?? undefined;
+      const due = assignmentDue(a, enrollment?.startDate, wi + 1) ?? undefined;
       const done = assignmentStatus(a, traineeId, submissions) === 'submitted';
       const late = !done && !!due && due.getTime() + DAY <= now.getTime();
       return [{ step: { kind: 'assignment' as const, title: a.title, hash: `#/assignment/${a.id}`, week: wi + 1, due }, done, late }];
@@ -250,9 +264,10 @@ export const weekPlan = (
     if (it.kind === 'assignment') {
       const a = assignments.find(x => x.id === it.assignmentId);
       if (!a || !assignmentApplies(a, enrollment)) return [];
-      const day = a.dueDay ?? 7;
+      // Pod-set deadlines go under "any day this week".
+      const day = a.podDeadline ? null : a.dueDay ?? 7;
       const done = assignmentStatus(a, traineeId, submissions) === 'submitted';
-      return [{ day, item: { key: it.id, kind: 'assignment', title: a.title, hash: `#/assignment/${a.id}`, hours: a.hours, status: done ? 'done' : isPast(day) ? 'late' : 'todo' } }];
+      return [{ day, item: { key: it.id, kind: 'assignment', title: a.title, hash: `#/assignment/${a.id}`, hours: a.hours, status: done ? 'done' : day && isPast(day) ? 'late' : 'todo' } }];
     }
     return [{ day: it.day ?? 7, item: { key: it.id, kind: 'milestone', title: it.title, hash: '', status: isPast(it.day ?? 7) ? 'done' : 'todo' } }];
   }) : [];

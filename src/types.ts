@@ -183,6 +183,9 @@ export interface Assignment {
   materials: { label: string; url: string }[];
   // Day of the program week it's due (1 = first day of that week).
   dueDay?: number;
+  // No fixed due date: the trainee's pod sets the deadline (Pod Trial work
+  // happens on live episodes). Never shown as due or overdue.
+  podDeadline?: boolean;
   // Episode A only: this assignment's share of Episode A, in percent.
   weight?: number;
   // Episode A-style practice: submitted, scored and given feedback like

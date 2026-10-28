@@ -6,7 +6,7 @@ import { lessonPace, PACE_CHECK_DAY } from '../../assessment/standing';
 import { BookOpen, CalendarDays, FileText, Flag, GraduationCap, Info, ListTodo, PartyPopper, Play, Target, TriangleAlert } from 'lucide-react';
 import { WeekPlan } from './WeekPlan';
 import { OutcomeBadge, ProgressBar, card, dateFor, formatDate, sectionTitle } from './ui';
-import { assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextSteps, programProgress, weekLabel } from '../../assessment/outline';
+import { POD_DEADLINE_LABEL, assignmentApplies, assignmentStatus, assignmentWeek, dueLabel, nextSteps, programProgress, weekLabel } from '../../assessment/outline';
 
 const go = (hash: string) => { window.location.hash = hash; };
 
@@ -227,11 +227,11 @@ export const ProgramOverview: React.FC = () => {
                       if (it.kind === 'assignment') {
                         const a = assignments.find(x => x.id === it.assignmentId);
                         if (!a || !assignmentApplies(a, data.enrollment)) return [];
-                        return [{ key: it.id, day: a.dueDay ?? 7, title: a.title, description: undefined as string | undefined,
+                        return [{ key: it.id, day: a.dueDay ?? 7, podDeadline: !!a.podDeadline, title: a.title, description: undefined as string | undefined,
                           status: assignmentStatus(a, currentUser?.id, data.submissions), hash: `#/assignment/${a.id}` }];
                       }
                       if (it.kind === 'milestone') {
-                        return [{ key: it.id, day: it.day ?? 7, title: it.title, description: it.description, status: null, hash: '' }];
+                        return [{ key: it.id, day: it.day ?? 7, podDeadline: false, title: it.title, description: it.description, status: null, hash: '' }];
                       }
                       return [];
                     }).sort((a, b) => a.day - b.day);
@@ -252,7 +252,7 @@ export const ProgramOverview: React.FC = () => {
                               <li key={e.key} className="bg-gray-50 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-start gap-3 min-w-0">
                                   <span className="bg-[#F4511E]/15 text-ember rounded-xl px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap">
-                                    By {dueLabel(start, weekNo, e.day)}
+                                    {e.podDeadline ? POD_DEADLINE_LABEL : `By ${dueLabel(start, weekNo, e.day)}`}
                                   </span>
                                   <div className="min-w-0">
                                     <p className="text-sm font-bold text-gray-800">{e.hash ? <FileText className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" /> : <Flag className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />}{e.title}</p>

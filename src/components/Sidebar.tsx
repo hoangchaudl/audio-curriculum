@@ -11,7 +11,7 @@ import { formatLength } from '../videoClip';
 import { NotificationBell } from './NotificationBell';
 import { ClipboardCheck, ClipboardList } from 'lucide-react';
 import { useHasReviewAssignments, useReviewTodoCount } from '../assessment/reviewQueue';
-import { assignmentApplies, assignmentStatus, dueLabel, programDate, weekGroups, weekLabel } from '../assessment/outline';
+import { assignmentApplies, assignmentDue, assignmentDueLabel, assignmentStatus, weekGroups, weekLabel } from '../assessment/outline';
 
 const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin (Real)',
@@ -238,9 +238,9 @@ export const Sidebar: React.FC<{
                   const selected = row.kind === 'content' ? selectedModuleId === row.mod.id : activePage === `assignment:${row.asg.id}`;
                   const title = row.kind === 'content' ? row.mod.title : row.asg.title;
                   const status = row.kind === 'assignment' ? assignmentStatus(row.asg, currentUser?.id, assessmentSubmissions) : null;
-                  const due = row.kind === 'assignment' ? dueLabel(ownEnrollment?.startDate, weekNo, row.asg.dueDay) : '';
+                  const due = row.kind === 'assignment' ? assignmentDueLabel(row.asg, ownEnrollment?.startDate, weekNo) : '';
                   // Past its due day and still not submitted.
-                  const dueDate = row.kind === 'assignment' ? programDate(ownEnrollment?.startDate, weekNo, row.asg.dueDay ?? 7) : null;
+                  const dueDate = row.kind === 'assignment' ? assignmentDue(row.asg, ownEnrollment?.startDate, weekNo) : null;
                   const overdue = status !== 'submitted' && !!dueDate && dueDate.getTime() + 86400000 <= Date.now();
                   const open = () => {
                     if (row.kind === 'content') setSelectedModuleId(row.mod.id);
@@ -292,7 +292,7 @@ export const Sidebar: React.FC<{
                               {row.kind === 'content' ? `▶ ${formatLength(row.mod.videoSeconds!)}` : `⏱ ~${row.asg.hours} h`}
                             </span>
                           ) : null}
-                          {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : row.kind === 'assignment' ? 'text-white' : 'text-white/60'}`}>Due {due}</span>}
+                          {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : row.kind === 'assignment' ? 'text-white' : 'text-white/60'}`}>{due}</span>}
                         </span>
                       </span>
                       {status && (

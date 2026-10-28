@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAppContext } from '../../store';
 import { Assignment } from '../../types';
-import { assignmentWeek, dueLabel } from '../../assessment/outline';
+import { assignmentDueLabel, assignmentWeek } from '../../assessment/outline';
 import { Md, RubricLangToggle, card, useRubricLang } from './ui';
 
 // Header shared by every assignment page: week, due date, instructions and
@@ -9,7 +9,7 @@ import { Md, RubricLangToggle, card, useRubricLang } from './ui';
 export const AssignmentIntro: React.FC<{ assignment: Assignment; startDate?: string }> = ({ assignment, startDate }) => {
   const { programOutline } = useAppContext();
   const week = assignmentWeek(programOutline, assignment.id);
-  const due = dueLabel(startDate, week, assignment.dueDay);
+  const due = assignmentDueLabel(assignment, startDate, week);
   const [lang, setLang] = useRubricLang();
   const hasVi = !!assignment.instructionsVi?.trim();
   const instructions = hasVi && (lang === 'vi' || !assignment.instructions?.trim()) ? assignment.instructionsVi : assignment.instructions;
@@ -17,7 +17,7 @@ export const AssignmentIntro: React.FC<{ assignment: Assignment; startDate?: str
     <div className={`${card} space-y-4`}>
       <div className="flex flex-wrap gap-2">
         {week && <span className="bg-sky text-navy px-3 py-1 rounded-full text-[10px] font-black uppercase">Week {week}</span>}
-        {due && <span className="bg-[#F4511E]/15 text-ember px-3 py-1 rounded-full text-[10px] font-black uppercase">Due {due}</span>}
+        {due && <span className="bg-[#F4511E]/15 text-ember px-3 py-1 rounded-full text-[10px] font-black uppercase">{due}</span>}
         {assignment.hours ? <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">⏱ Takes about {assignment.hours} h</span> : null}
       </div>
       {hasVi && assignment.instructions?.trim() && <RubricLangToggle lang={lang} onChange={setLang} />}

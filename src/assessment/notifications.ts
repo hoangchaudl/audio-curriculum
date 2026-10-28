@@ -1,5 +1,5 @@
 import { Assignment, AssessmentSubmission, Enrollment, Module, ProgramOutline, Publication, VideoProgress } from '../types';
-import { assignmentApplies, assignmentStatus, nextSteps, programDate, programDay, weekGroups } from './outline';
+import { assignmentApplies, assignmentDue, assignmentStatus, nextSteps, programDay, weekGroups } from './outline';
 import { lessonPace } from './standing';
 
 // A trainee's notifications, worked out from their program data (nothing is
@@ -36,7 +36,7 @@ export const traineeNotifications = (
     if (it.kind !== 'assignment') return;
     const a = assignments.find(x => x.id === it.assignmentId);
     if (!a || !assignmentApplies(a, enrollment) || assignmentStatus(a, traineeId, submissions) === 'submitted') return;
-    const due = programDate(enrollment.startDate, wi + 1, a.dueDay ?? 7);
+    const due = assignmentDue(a, enrollment.startDate, wi + 1);
     if (!due) return;
     const days = Math.round((due.getTime() - midnight.getTime()) / DAY);
     if (days < 0 || days > 2) return;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Assignment, OutlineItem } from '../types';
-import { itemDay, lessonContext, nextSteps, normalizeWeek, programProgress, sortByDay, weekGroups } from './outline';
+import { POD_DEADLINE_LABEL, assignmentDueLabel, itemDay, lessonContext, nextSteps, normalizeWeek, programProgress, sortByDay, weekGroups } from './outline';
 
 const asg: Assignment[] = [{ id: 'a1', title: 'A', stage: 'A', materials: [], dueDay: 3 }, { id: 'a2', title: 'B', stage: 'A', materials: [] }];
 
@@ -99,6 +99,14 @@ describe('next steps', () => {
     expect(r.next?.title).toBe('Week 2 assignment');
     const submitted = [{ id: 's', traineeId: 't', stage: 'A' as const, target: 'w1', version: 1, isComplete: true, links: [], submittedAt: '' }];
     expect(nextSteps(outline, assignments, modules, enrollment, 't', [watched('m1'), watched('m2')], submitted, at('2026-09-26')).overdue).toEqual([]);
+  });
+
+  it('never marks a pod-set deadline overdue or gives it a date', () => {
+    const pod = assignments.map(a => (a.id === 'w1' ? { ...a, podDeadline: true } : a));
+    const r = nextSteps(outline, pod, modules, enrollment, 't', [watched('m1'), watched('m2')], [], at('2026-10-30'));
+    expect(r.overdue.map(s => s.title)).toEqual(['Week 2 assignment']);
+    expect(assignmentDueLabel(pod[0], enrollment.startDate, 1)).toBe(POD_DEADLINE_LABEL);
+    expect(assignmentDueLabel(pod[1], undefined, 2)).toBe('Due Day 2');
   });
 });
 

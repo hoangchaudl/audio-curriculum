@@ -60,8 +60,12 @@ export const AssignmentForm: React.FC<{
         }}>
           {STAGE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
-        <select value={a.dueDay ?? 7} onChange={e => setA({ ...a, dueDay: Number(e.target.value) })} aria-label="Due day" className={`${input} bg-surface`}>
+        <select value={a.podDeadline ? 'pod' : a.dueDay ?? 7} aria-label="Due day" className={`${input} bg-surface`} onChange={e => {
+          const { podDeadline: _p, ...rest } = a;
+          setA(e.target.value === 'pod' ? { ...rest, podDeadline: true } : { ...rest, dueDay: Number(e.target.value) });
+        }}>
           {[1, 2, 3, 4, 5, 6, 7].map(d => <option key={d} value={d}>Due {dayOption(d)}</option>)}
+          <option value="pod">Deadline set by the pod</option>
         </select>
         <label className="flex items-center gap-2 text-xs font-bold text-gray-500 sm:col-span-2">
           ⏱ Takes about
