@@ -262,8 +262,8 @@ export const ProgramOverview: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                   {e.status && (
                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                                      e.status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]' : e.status === 'draft' ? 'bg-sky text-navy' : 'bg-gray-100 text-gray-500'}`}>
-                                      {e.status === 'submitted' ? '✓ Submitted' : e.status === 'draft' ? 'Not marked complete' : 'To do'}
+                                      e.status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]' : overdue.some(o => o.hash === e.hash) ? 'bg-rose text-ember' : e.status === 'draft' ? 'bg-sky text-navy' : 'bg-gray-100 text-gray-500'}`}>
+                                      {e.status === 'submitted' ? '✓ Submitted' : overdue.some(o => o.hash === e.hash) ? 'Overdue' : e.status === 'draft' ? 'Not marked complete' : 'To do'}
                                     </span>
                                   )}
                                   {e.hash && <button onClick={() => go(e.hash)} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Open →</button>}
