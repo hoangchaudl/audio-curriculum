@@ -52,8 +52,11 @@ export const Sidebar: React.FC<{
   const ownEnrollment = enrollments.find(e => e.id === currentUser?.id);
   const hasReviews = useHasReviewAssignments();
   const reviewTodo = useReviewTodoCount();
+  // Reviewers and engineers get only their queue, even with no reviews
+  // assigned yet or a leftover trainee enrollment.
+  const queueOnly = reviewsOnly(effectiveRole);
   const programLinks = [
-    ...(ownEnrollment ? [
+    ...(ownEnrollment && !queueOnly ? [
       { page: 'program', hash: '#/program', label: 'My Program', icon: <ClipboardList className="w-5 h-5" strokeWidth={2.5} /> },
       // With a weekly outline, Episode B and Pod are assignments inside
       // the weeks instead of separate links.
@@ -64,7 +67,7 @@ export const Sidebar: React.FC<{
         ...(assignments.some(a => a.stage === 'DA') ? [{ page: 'episode:DA', hash: '#/episode/DA', label: 'Audio Description', icon: '🎙️' }] : []),
       ]),
     ] : []),
-    ...(hasReviews ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: <ClipboardCheck className="w-5 h-5" strokeWidth={2.5} /> }] : []),
+    ...(hasReviews || queueOnly ? [{ page: 'review', hash: '#/review', label: `Review Queue${reviewTodo ? ` (${reviewTodo})` : ''}`, icon: <ClipboardCheck className="w-5 h-5" strokeWidth={2.5} /> }] : []),
   ];
   // Admins load every module; when previewing as a designer, hide what a
   // designer without unlocks couldn't see so the preview is realistic.
