@@ -29,6 +29,8 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
   const ctx = lessonContext(programOutline, assignments, modules, enrollment, currentUser?.id, videoProgress, mod.id);
   const video = moduleVideos.find(v => v.moduleId === mod.id && v.url && v.url !== '#');
   const done = videoProgress.some(v => v.moduleId === mod.id && v.userId === currentUser?.id);
+  // Leadership reads lessons without tracking progress, notes or quiz tries.
+  const viewOnly = currentUser?.role === 'leadership';
   // The admin's time estimate for this lesson in the outline.
   const plannedHours = programOutline?.weeks.flatMap(w => w.items).flatMap(i => (i.kind === 'content' && i.moduleId === mod.id && i.hours ? [i.hours] : []))[0];
 
@@ -41,7 +43,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
   const onVideoEnded = (id: string) => {
     const next = finished.includes(id) ? finished : [...finished, id];
     setFinished(next);
-    if (!done && videoIds.every(v => next.includes(v))) markVideoWatched(mod.id);
+    if (!viewOnly && !done && videoIds.every(v => next.includes(v))) markVideoWatched(mod.id);
   };
 
   const doneButton = (
@@ -92,7 +94,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
             </p>
           ) : null}
         </div>
-        {!mod.quiz && doneButton}
+        {!mod.quiz && !viewOnly && doneButton}
       </header>
 
       <div ref={scrollRef} className="flex-1 p-4 md:p-6 lg:px-10 lg:py-6 overflow-y-auto">
@@ -109,6 +111,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
             )}
             <ContentBlocks blocks={mod.contentBlocks} startDate={enrollment?.startDate} onVideoEnded={onVideoEnded}
               onQuizChecked={(blockId, score, total) => {
+                if (viewOnly) return;
                 saveWith(saveQuizAttempt(mod.id, blockId, score, total));
                 if (mod.quiz && !done) markVideoWatched(mod.id);
               }}
@@ -138,7 +141,7 @@ export const ContentPageView: React.FC<{ moduleId: string }> = ({ moduleId }) =>
                 </p>
               </section>
             )}
-            {currentUser && <LessonNotes key={mod.id} moduleId={mod.id} userId={currentUser.id} />}
+            {currentUser && !viewOnly && <LessonNotes key={mod.id} moduleId={mod.id} userId={currentUser.id} />}
             {mod.objectives?.length ? (
               <section className={box}>
                 <h3 className={`${sectionTitle} mb-4`}>What you'll learn</h3>

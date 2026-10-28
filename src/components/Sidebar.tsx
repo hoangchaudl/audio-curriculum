@@ -47,8 +47,9 @@ export const Sidebar: React.FC<{
     return next;
   });
   // Trainees (and admins previewing as one) navigate the program week by
-  // week once an outline exists.
-  const weekMode = effectiveRole === 'sound_designer' && !!programOutline?.weeks.length;
+  // week once an outline exists; so does leadership browsing the content.
+  const isLeadership = effectiveRole === 'leadership';
+  const weekMode = (effectiveRole === 'sound_designer' || isLeadership) && !!programOutline?.weeks.length;
   const ownEnrollment = enrollments.find(e => e.id === currentUser?.id);
   const hasReviews = useHasReviewAssignments();
   const reviewTodo = useReviewTodoCount();
@@ -56,6 +57,7 @@ export const Sidebar: React.FC<{
   // assigned yet or a leftover trainee enrollment.
   const queueOnly = reviewsOnly(effectiveRole);
   const programLinks = [
+    ...(isLeadership ? [{ page: 'overview', hash: '#/overview', label: 'Program overview', icon: <ClipboardList className="w-5 h-5" strokeWidth={2.5} /> }] : []),
     ...(ownEnrollment && !queueOnly ? [
       { page: 'program', hash: '#/program', label: 'My Program', icon: <ClipboardList className="w-5 h-5" strokeWidth={2.5} /> },
       // With a weekly outline, Episode B and Pod are assignments inside
@@ -240,7 +242,7 @@ export const Sidebar: React.FC<{
                   const n = i + 1;
                   const selected = row.kind === 'content' ? selectedModuleId === row.mod.id : activePage === `assignment:${row.asg.id}`;
                   const title = row.kind === 'content' ? row.mod.title : row.asg.title;
-                  const status = row.kind === 'assignment' ? assignmentStatus(row.asg, currentUser?.id, assessmentSubmissions) : null;
+                  const status = row.kind === 'assignment' && !isLeadership ? assignmentStatus(row.asg, currentUser?.id, assessmentSubmissions) : null;
                   const due = row.kind === 'assignment' ? assignmentDueLabel(row.asg, ownEnrollment?.startDate, weekNo) : '';
                   // Past its due day and still not submitted.
                   const dueDate = row.kind === 'assignment' ? assignmentDue(row.asg, ownEnrollment?.startDate, weekNo) : null;

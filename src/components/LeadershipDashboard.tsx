@@ -77,7 +77,7 @@ const TraineeDialog: React.FC<{ row: RosterRow | null; onClose: () => void }> = 
   );
 };
 
-export const LeadershipDashboard: React.FC = () => {
+export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBrowse }) => {
   const ctx = useAppContext();
   const { assessmentConfig: config, programOutline, assignments, videoProgress, assessmentSubmissions } = ctx;
   const { roster, behind, awaitingDecision, checkpointDue, waiting, splits, outcomeOf, enrollmentOf, statusOf, downloadReport } = useRoster();
@@ -144,6 +144,11 @@ export const LeadershipDashboard: React.FC = () => {
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <AdminHeader>
         <span className="text-xs font-bold text-gray-500 hidden md:inline">As of {shortDate(now)}</span>
+        {onBrowse && (
+          <button onClick={onBrowse} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20 whitespace-nowrap">
+            Browse program content →
+          </button>
+        )}
       </AdminHeader>
 
       <div className="flex-1 overflow-y-auto px-4 md:px-10 py-6 md:py-8 space-y-8 max-w-7xl w-full mx-auto">
