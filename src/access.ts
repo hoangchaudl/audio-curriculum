@@ -4,6 +4,10 @@ import { Category, Module, Role, User } from './types';
 // sound designers are ever subject to category locks.
 export const seesAllCategories = (role?: Role) => role === 'audio_engineer' || role === 'admin';
 
+// Reviewers and engineers only score submissions: they get the Review Queue,
+// not the lessons, assignment briefs or My Program.
+export const reviewsOnly = (role?: Role) => role === 'reviewer' || role === 'audio_engineer';
+
 // A module whose category no longer exists is treated as unrestricted, so
 // deleting or mistyping a category can never hide content by accident.
 export const isRestrictedCategory = (categories: Category[], categoryId?: string) =>

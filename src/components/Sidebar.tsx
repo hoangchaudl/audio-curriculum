@@ -4,7 +4,7 @@ import { Assignment, Module, OutlineSection, Role } from '../types';
 
 // `section`: the week section heading it sits under (null = not in a section).
 type WeekRow = ({ key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment }) & { section?: OutlineSection | null };
-import { canSeeModule, sortCategories } from '../access';
+import { canSeeModule, reviewsOnly, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
 import { formatLength } from '../videoClip';
@@ -75,7 +75,7 @@ export const Sidebar: React.FC<{
   // aren't). Category sections are for everyone else.
   // Not enrolled yet: nothing to browse until the coordinator enrolls them.
   const awaitingEnrollment = currentUser?.role === 'sound_designer' && !ownEnrollment;
-  const sections = weekMode || awaitingEnrollment ? [] : [
+  const sections = weekMode || awaitingEnrollment || reviewsOnly(effectiveRole) ? [] : [
     ...sortCategories(categories).map(c => ({ key: c.id, title: c.name, mods: modules.filter(m => m.category === c.id).sort(byOrder) })),
     // Modules whose category was removed still need to be reachable.
     { key: '__none', title: 'Other', mods: modules.filter(m => !categories.some(c => c.id === m.category)).sort(byOrder) },

@@ -13,6 +13,7 @@ import { AuthView } from './components/AuthView';
 import { AccountSetupView } from './components/AccountSetupView';
 import { AppProvider, useAppContext } from './store';
 import { Role } from './types';
+import { reviewsOnly } from './access';
 import { useApplyTheme, useResolvedTheme } from './theme';
 import { ProgramOverview } from './components/assessment/ProgramOverview';
 import { ContentPageView } from './components/assessment/ContentPageView';
@@ -269,6 +270,7 @@ const AppContent = () => {
       return <ProfileView />;
     }
     if (awaitingEnrollment) return <WaitingView />;
+    if (reviewsOnly(effectiveRole)) return <ReviewerQueue />;
     if (view === 'program') return <ProgramOverview />;
     if (view === 'episode') return <EpisodeView key={episodeStage} stage={episodeStage} />;
     if (view === 'review') return <ReviewerQueue />;
@@ -280,10 +282,8 @@ const AppContent = () => {
       return <AdminDashboard focusModuleId={selectedModuleId} focusNonce={moduleNavNonce} onPreview={setPreviewRole} />;
     }
     if (modules.some(m => m.id === selectedModuleId)) return <ContentPageView moduleId={selectedModuleId} />;
-    // Nothing selected: a trainee's home is My Program; reviewers' and
-    // engineers' is their review queue.
+    // Nothing selected: a trainee's home is My Program.
     if (effectiveRole === 'sound_designer') return <ProgramOverview />;
-    if (effectiveRole === 'reviewer' || effectiveRole === 'audio_engineer') return <ReviewerQueue />;
     return null;
   };
 
