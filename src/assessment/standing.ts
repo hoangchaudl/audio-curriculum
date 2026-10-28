@@ -1,7 +1,7 @@
 import { AssessmentStage, Assignment, ProgramOutcome, ProgramOutline, ReviewerSlot, VideoProgress } from '../types';
 import { FinalResult, TraineeData, assignmentCriteria, episodeAAssignments, exerciseSubmissions, finalResult, roundScore, stageSubmissions } from './scoring';
 import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys } from './config';
-import { assignmentApplies, assignmentStatus, daysLate, programDate, weekGroups } from './outline';
+import { assignmentApplies, assignmentStatus, assignmentDue, daysLate, weekGroups } from './outline';
 
 // Where a trainee stands in the probation program right now - one place
 // for the admin's designer cards and the "falling behind" alert.
@@ -63,7 +63,7 @@ export const traineeStanding = (d: TraineeData, outline: ProgramOutline | null, 
     if (it.kind !== 'assignment') return [];
     const a = d.assignments.find(x => x.id === it.assignmentId);
     if (!a || !assignmentApplies(a, d.enrollment)) return [];
-    const due = programDate(d.enrollment?.startDate, wi + 1, a.dueDay ?? 7);
+    const due = assignmentDue(a, d.enrollment?.startDate, wi + 1);
     if (!due || due.getTime() + DAY > now.getTime()) return [];
     return assignmentStatus(a, d.enrollment?.traineeId, d.submissions) === 'submitted' ? [] : [{ assignment: a, due }];
   }));
