@@ -99,7 +99,7 @@ export const gradesFirstComplete = (stage: AssessmentStage) => stage === 'B' || 
 // Which reviewer slots take part in each stage, and which score keys each
 // may write. Mirrors firestore.rules (allowedSlot / allowedKeys).
 export const STAGE_SLOTS: Record<AssessmentStage, ReviewerSlot[]> = {
-  A: ['trainer'],
+  A: ['trainer', 'engineer'],
   B: ['trainer', 'engineer'],
   P1: ['trainer', 'engineer', 'keySoundDesigner', 'producer'],
   P2: ['trainer', 'engineer', 'keySoundDesigner', 'producer'],

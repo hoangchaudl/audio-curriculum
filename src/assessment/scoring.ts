@@ -11,7 +11,7 @@ import {
   ScoreSnapshot, AssessmentConfig, AssessmentReview, AssessmentStage, AssessmentSubmission, Assignment, CellWeight,
   CriterionId, Enrollment, Exercise, ReviewerSlot, WeakSkill,
 } from '../types';
-import { REVIEWER_SLOTS, allowedScoreKeys, exerciseSkill, gradesFirstComplete, stageCriteria } from './config';
+import { REVIEWER_SLOTS, STAGE_SLOTS, allowedScoreKeys, exerciseSkill, gradesFirstComplete, stageCriteria } from './config';
 
 export type AwaitingReason = 'enrollment' | 'assignment' | 'submission' | 'assessment';
 export type Outcome =
@@ -95,11 +95,14 @@ export const exerciseOutcome = (d: TraineeData, exercise: Exercise, parentTitle 
   if (!d.enrollment.reviewers.trainer) return awaiting('assignment', [`Trainer (${name})`]);
   const versions = exerciseSubmissions(d.submissions, exercise);
   if (versions.length === 0) return awaiting('submission', [name]);
-  const review = findReview(d, 'A', exercise.id, 'trainer');
-  // The trainer picks which revision the grade applies to; it must be one
-  // of this exercise's own submissions.
-  if (!isCompleteReview(review) || !versions.some(v => v.id === review.submissionId)) return awaiting('assessment', [name]);
-  return scored(review.scores.exercise!);
+  // The trainer and (when one is assigned) the audio engineer each score the
+  // criterion; its score is their average. Each picks which revision they
+  // grade, and it must be one of this exercise's own submissions.
+  const enrollment = d.enrollment;
+  const slots = STAGE_SLOTS.A.filter(s => s === 'trainer' || enrollment.reviewers[s]);
+  const reviews = slots.map(s => findReview(d, 'A', exercise.id, s));
+  if (!reviews.every(r => isCompleteReview(r) && versions.some(v => v.id === r.submissionId))) return awaiting('assessment', [name]);
+  return scored(reviews.reduce((t, r) => t + r!.scores.exercise!, 0) / reviews.length);
 };
 
 // Highest score for an assignment: practice is scored 1-3, everything else 1-5.

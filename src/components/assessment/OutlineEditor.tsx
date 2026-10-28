@@ -102,7 +102,7 @@ export const AssignmentForm: React.FC<{
         <div className="bg-surface rounded-2xl p-4 space-y-3">
           <p className="text-[10px] font-black uppercase text-gray-500">How it's graded</p>
           {a.practice ? (
-            <p className="text-xs font-bold text-gray-500">Practice: the trainer scores the criteria below from 1 to 3 and gives feedback, but it doesn't count toward Episode A or the final grade.</p>
+            <p className="text-xs font-bold text-gray-500">Practice: the trainer and audio engineer score the criteria below from 1 to 3 and give feedback, but it doesn't count toward Episode A or the final grade.</p>
           ) : (
           <label className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-700">
             Counts

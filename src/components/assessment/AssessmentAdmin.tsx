@@ -204,7 +204,7 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
         ))}
       </div>
       <p className="text-[10px] text-gray-400 mt-2">
-        Assign the actual accounts. Trainer scores Episode A, B and Pod; Audio Engineer scores B and Pod; Key Sound Designer and Producer score Pod only (Producer: SFX & Music).
+        Assign the actual accounts. Trainer scores Episode A, B and Pod; Audio Engineer scores A, B and Pod (Episode A is their average); Key Sound Designer and Producer score Pod only (Producer: SFX & Music).
         Set producers and key sound designers to the Reviewer role first on "People & roles".
       </p>
     </div>

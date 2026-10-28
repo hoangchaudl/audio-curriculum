@@ -401,7 +401,7 @@ describe('assessment program', () => {
       getDocs(query(collection(as(uid), 'assessmentSubmissions'), where('traineeId', '==', traineeId), where('stage', '==', stage)));
     await assertSucceeds(q('trainer', T, 'A'));
     await assertSucceeds(q('duy', T, 'B'));
-    await assertFails(q('duy', T, 'A')); // Episode A is trainer-only
+    await assertSucceeds(q('duy', T, 'A')); // the engineer also scores Episode A
     await assertFails(q('producer', T, 'B'));
     await assertSucceeds(q('producer', T, 'P1'));
     await assertSucceeds(q('ksd', T, 'P1'));
@@ -423,8 +423,9 @@ describe('assessment program', () => {
     await assertFails(put('duy', rev('A', 'ex1', 'trainer', 'trainer', 'trainee__A__ex1__v1', { exercise: 4 })));
     await assertFails(put(T, rev('A', 'ex1', 'trainer', T, 'trainee__A__ex1__v1', { exercise: 5 })));
   });
-  it('Episode A accepts only the trainer; Episode B only trainer and engineer', async () => {
-    await assertFails(put('duy', rev('A', 'ex1', 'engineer', 'duy', 'trainee__A__ex1__v1', { exercise: 4 })));
+  it('Episode A and B accept only the trainer and engineer', async () => {
+    await assertSucceeds(put('duy', rev('A', 'ex1', 'engineer', 'duy', 'trainee__A__ex1__v1', { exercise: 4 })));
+    await assertFails(put('producer', rev('A', 'ex1', 'producer', 'producer', 'trainee__A__ex1__v1', { exercise: 4 })));
     await assertFails(put('producer', rev('B', 'episode', 'producer', 'producer', 'trainee__B__episode__v2', { sfx: 4, music: 4 })));
     await assertSucceeds(put('duy', rev('B', 'episode', 'engineer', 'duy', 'trainee__B__episode__v2', FULL)));
   });

@@ -27,7 +27,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
     ? data.reviews.find(r => r.stage === 'A' && lines.some(l => l.id === r.target))?.submissionId
     : undefined;
   const hasRubric = lines.some(l => l.levels?.some(Boolean) || l.outcome);
-  // The trainer writes one feedback per assignment (saved on each criterion's review).
+  // Each reviewer writes one feedback per assignment (saved on each criterion's review).
   const feedback = [...new Set(data.reviews.filter(r => r.stage === 'A' && lines.some(l => l.id === r.target)).map(r => r.feedback?.trim()).filter((f): f is string => !!f))];
   const disabledReason = !data.enrollment
     ? "You're not enrolled in the assessment program yet - ask a coordinator to enroll you."
@@ -49,7 +49,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
           <section className={wideCard}>
             <h3 className={`${sectionTitle} mb-1`}>How it's graded</h3>
             <p className="text-xs text-gray-500 mb-4">
-              {assignment.practice ? 'This is practice - it doesn\'t count toward your grade.' : `This assignment counts ${assignment.weight ?? 0}% of Episode A (${Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade).`} Your trainer scores it from 1 to {maxScore(assignment)} separately for each criterion below. Scores appear once the coordinator publishes Episode A.
+              {assignment.practice ? 'This is practice - it doesn\'t count toward your grade.' : `This assignment counts ${assignment.weight ?? 0}% of Episode A (${Math.round((assignment.weight ?? 0) * data.config.stageWeights.episodeA) / 100}% of your final grade).`} Your trainer and audio engineer each score it from 1 to {maxScore(assignment)} for every criterion below; each criterion's score is their average. Scores appear once the coordinator publishes Episode A.
             </p>
             {/* With a rubric table, the table is the list: each row is a
                 criterion with its weighting, and after publishing it shows the
@@ -58,10 +58,10 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
               <>
                 <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
                 <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} bandsVi={assignment.bandsVi} max={maxScore(assignment)}
-                  scores={published ? Object.fromEntries(lines.map(l => [l.id, data.reviews.find(r => r.stage === 'A' && r.target === l.id)?.scores.exercise])) : undefined} />
+                  scores={published ? Object.fromEntries(lines.map(l => { const o = exerciseOutcome(data, l); return [l.id, o.status === 'scored' ? o.value : undefined]; })) : undefined} />
                 {published && feedback.map(f => (
                   <div key={f} className="mt-4 bg-sky rounded-2xl p-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-navy mb-1">Trainer feedback</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-navy mb-1">Reviewer feedback</p>
                     <p className="text-sm text-navy whitespace-pre-wrap">{f}</p>
                   </div>
                 ))}
@@ -69,7 +69,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
             ) : (
             <ul className="space-y-2">
               {lines.map(l => {
-                const review = data.reviews.find(r => r.stage === 'A' && r.target === l.id);
+                const notes = data.reviews.filter(r => r.stage === 'A' && r.target === l.id && r.feedback).map(r => r.feedback);
                 return (
                   <li key={l.id} className="bg-gray-50 rounded-2xl p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -79,7 +79,7 @@ export const AssignmentView: React.FC<{ assignmentId: string }> = ({ assignmentI
                       </div>
                       {published && <OutcomeBadge outcome={exerciseOutcome(data, l, assignment.title)} max={maxScore(assignment)} />}
                     </div>
-                    {published && review?.feedback && <p className="text-xs text-navy bg-sky rounded-xl p-2 mt-2 whitespace-pre-wrap">{review.feedback}</p>}
+                    {published && notes.map((f, i) => <p key={i} className="text-xs text-navy bg-sky rounded-xl p-2 mt-2 whitespace-pre-wrap">{f}</p>)}
                   </li>
                 );
               })}

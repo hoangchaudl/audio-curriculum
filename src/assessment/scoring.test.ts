@@ -35,6 +35,10 @@ const review = (
   submissionId: submission, scores, status, updatedAt: '2026-01-10',
 });
 
+// An Episode A criterion scored the same by the trainer and the audio engineer.
+const reviewA = (target: string, score: AssessmentScore, submission: string, status: AssessmentReview['status'] = 'submitted') =>
+  (['trainer', 'engineer'] as const).map(slot => review('A', target, slot, { exercise: score }, submission, status));
+
 // Every cell for a reviewer-table stage scored with the same value.
 const fullTableReviews = (stage: 'B' | 'P1' | 'P2' | 'DA', score: AssessmentScore, subId: string, slots: ReviewerSlot[]) =>
   slots.map(slot => review(stage, 'episode', slot,
@@ -54,7 +58,7 @@ const data = (overrides: Partial<TraineeData> = {}): TraineeData => ({
 const gradedEpisodeA = (scoreFor: (exerciseId: string) => AssessmentScore) => {
   const assignmentIds = [...new Set(DEFAULT_CRITERIA.map(e => e.assignmentId!))];
   const submissions = assignmentIds.map(a => sub('A', a, 1));
-  const reviews = DEFAULT_CRITERIA.map(e => review('A', e.id, 'trainer', { exercise: scoreFor(e.id) }, submissionId(T, 'A', e.assignmentId!, 1)));
+  const reviews = DEFAULT_CRITERIA.flatMap(e => reviewA(e.id, scoreFor(e.id), submissionId(T, 'A', e.assignmentId!, 1)));
   return { submissions, reviews };
 };
 
@@ -127,14 +131,14 @@ describe('Episode A: assignments, criteria and weights', () => {
   it('uses the trainer-selected revision and keeps earlier versions', () => {
     const ex = DEFAULT_CRITERIA[0];
     const v1 = sub('A', ex.assignmentId!, 1), v2 = sub('A', ex.assignmentId!, 2);
-    const d = data({ submissions: [v1, v2], reviews: [review('A', ex.id, 'trainer', { exercise: 5 }, v2.id)] });
+    const d = data({ submissions: [v1, v2], reviews: reviewA(ex.id, 5, v2.id) });
     expect(exerciseOutcome(d, ex)).toEqual({ status: 'scored', value: 5 });
     expect(d.submissions).toHaveLength(2);
   });
 
   it('ignores a grade pointing at a submission for another assignment', () => {
     const a = DEFAULT_CRITERIA.find(e => e.assignmentId === 'asg_w1')!;
-    const d = data({ submissions: [sub('A', 'asg_w1', 1), sub('A', 'asg_w2a', 1)], reviews: [review('A', a.id, 'trainer', { exercise: 5 }, submissionId(T, 'A', 'asg_w2a', 1))] });
+    const d = data({ submissions: [sub('A', 'asg_w1', 1), sub('A', 'asg_w2a', 1)], reviews: reviewA(a.id, 5, submissionId(T, 'A', 'asg_w2a', 1)) });
     expect(exerciseOutcome(d, a)).toMatchObject({ status: 'awaiting', reason: 'assessment' });
   });
 
@@ -143,8 +147,8 @@ describe('Episode A: assignments, criteria and weights', () => {
     const [workflow, dialogue] = DEFAULT_CRITERIA.filter(e => e.assignmentId === 'asg_w1');
     const s = sub('A', 'asg_w1', 1);
     const d = data({ submissions: [s], reviews: [
-      review('A', workflow.id, 'trainer', { exercise: 5 }, s.id),
-      review('A', dialogue.id, 'trainer', { exercise: 2 }, s.id),
+      ...reviewA(workflow.id, 5, s.id),
+      ...reviewA(dialogue.id, 2, s.id),
     ] });
     expect(exerciseOutcome(d, workflow)).toEqual({ status: 'scored', value: 5 });
     expect(exerciseOutcome(d, dialogue)).toEqual({ status: 'scored', value: 2 });
@@ -154,13 +158,25 @@ describe('Episode A: assignments, criteria and weights', () => {
   it('still counts submissions made directly against an exercise (before assignments)', () => {
     const ex = DEFAULT_CRITERIA[0];
     const legacy = sub('A', ex.id, 1);
-    const d = data({ submissions: [legacy], reviews: [review('A', ex.id, 'trainer', { exercise: 3 }, legacy.id)] });
+    const d = data({ submissions: [legacy], reviews: reviewA(ex.id, 3, legacy.id) });
     expect(exerciseOutcome(d, ex)).toEqual({ status: 'scored', value: 3 });
+  });
+
+  it('averages the trainer and audio engineer, waiting until both have scored', () => {
+    const ex = DEFAULT_CRITERIA[0];
+    const s = sub('A', ex.assignmentId!, 1);
+    const trainer = review('A', ex.id, 'trainer', { exercise: 3 }, s.id);
+    const engineer = review('A', ex.id, 'engineer', { exercise: 4 }, s.id);
+    expect(exerciseOutcome(data({ submissions: [s], reviews: [trainer, engineer] }), ex)).toEqual({ status: 'scored', value: 3.5 });
+    expect(exerciseOutcome(data({ submissions: [s], reviews: [trainer] }), ex)).toMatchObject({ status: 'awaiting', reason: 'assessment' });
+    // No engineer assigned: the trainer's score alone.
+    const trainerOnly = enrollment({ reviewers: { trainer: 'u-trainer' }, reviewerUids: ['u-trainer'] });
+    expect(exerciseOutcome(data({ enrollment: trainerOnly, submissions: [s], reviews: [trainer] }), ex)).toEqual({ status: 'scored', value: 3 });
   });
 
   it('draft reviews do not count', () => {
     const ex = DEFAULT_CRITERIA[0];
-    const d = data({ submissions: [sub('A', ex.assignmentId!, 1)], reviews: [review('A', ex.id, 'trainer', { exercise: 4 }, submissionId(T, 'A', ex.assignmentId!, 1), 'draft')] });
+    const d = data({ submissions: [sub('A', ex.assignmentId!, 1)], reviews: reviewA(ex.id, 4, submissionId(T, 'A', ex.assignmentId!, 1), 'draft') });
     expect(exerciseOutcome(d, ex)).toMatchObject({ status: 'awaiting', reason: 'assessment' });
   });
 });
@@ -402,7 +418,7 @@ describe('Final grade', () => {
     const exercises = [['c1', 33.33], ['c2', 33.33], ['c3', 33.34]].map(([id, weight], i) => ({ id: id as string, assignmentId: only.id, title: id as string, order: i + 1, weight: weight as number }));
     const scores: Record<string, AssessmentScore> = { c1: 5, c2: 4, c3: 3 };
     const s1 = sub('A', only.id, 1);
-    const epA = { submissions: [s1], reviews: exercises.map(e => review('A', e.id, 'trainer', { exercise: scores[e.id] }, s1.id)) };
+    const epA = { submissions: [s1], reviews: exercises.flatMap(e => reviewA(e.id, scores[e.id], s1.id)) };
     const d = data({ assignments, exercises, ...epA });
     const asgScore = assignmentOutcome(d, only);
     expect(asgScore.status === 'scored' && asgScore.value).toBeLessThan(4);

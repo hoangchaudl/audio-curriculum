@@ -265,11 +265,13 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
             </td>
             {notes && <td className="bg-gray-50 rounded-xl px-1 py-2 text-center font-black text-gray-700">{l.note}</td>}
             {scoreRange(max).map(n => {
-              const got = scores?.[l.id] === n;
+              // An averaged score between two levels (e.g. 3.5) marks both.
+              const s = scores?.[l.id];
+              const got = s !== undefined && n >= Math.floor(s) && n <= Math.ceil(s);
               return (
                 <td key={n} aria-current={got ? 'true' : undefined}
                   className={`rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap ${got ? 'bg-[#2E9DF7] text-white font-bold ring-2 ring-[#1b85df]' : 'bg-gray-50 text-gray-700'}`}>
-                  {got && <span className="block text-[10px] font-black uppercase mb-1">{vi ? '✓ Điểm của bạn' : '✓ Your score'}</span>}
+                  {got && <span className="block text-[10px] font-black uppercase mb-1">{vi ? '✓ Điểm của bạn' : '✓ Your score'}{s !== n ? `: ${roundScore(s!)}` : ''}</span>}
                   {level(l, n) || <span className={got ? '' : 'text-gray-300'}>–</span>}
                 </td>
               );

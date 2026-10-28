@@ -130,12 +130,12 @@ export const waitingReviews = (d: TraineeData, now = new Date()): WaitingReview[
     const days = Math.floor((now.getTime() - since.getTime()) / DAY);
     if (reviewerUid && days >= REVIEW_LAG_DAYS) out.push({ stage, title, slot, reviewerUid, since, days });
   };
-  // Episode A: the trainer scores every criterion of an assignment, waiting
-  // since its first hand-in.
+  // Episode A: the trainer and audio engineer each score every criterion of
+  // an assignment, waiting since its first hand-in.
   for (const a of episodeAAssignments(d.assignments)) {
     const lines = assignmentCriteria(d.exercises, a.id);
     const first = lines.flatMap(l => exerciseSubmissions(d.submissions, l)).sort((x, y) => x.submittedAt.localeCompare(y.submittedAt))[0];
-    if (first && lines.length && !lines.every(l => reviewed('A', l.id, 'trainer'))) add('A', a.title, 'trainer', first.submittedAt);
+    for (const slot of STAGE_SLOTS.A) if (first && lines.length && !lines.every(l => reviewed('A', l.id, slot))) add('A', a.title, slot, first.submittedAt);
   }
   // Reviewer-table stages: from the first complete hand-in, every reviewer
   // with a cell in the stage's table.
