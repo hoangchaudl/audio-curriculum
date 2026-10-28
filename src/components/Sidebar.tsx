@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
-import { Assignment, Module, Role } from '../types';
+import { Assignment, Module, OutlineSection, Role } from '../types';
 
 // `section`: the week section heading it sits under (null = not in a section).
-type WeekRow = ({ key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment }) & { section?: string | null };
+type WeekRow = ({ key: string; kind: 'content'; mod: Module } | { key: string; kind: 'assignment'; asg: Assignment }) & { section?: OutlineSection | null };
 import { canSeeModule, sortCategories } from '../access';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
@@ -195,7 +195,7 @@ export const Sidebar: React.FC<{
 
         {weekMode && programOutline!.weeks.map(week => {
           const rows = weekGroups(week, assignments).flatMap(g => g.items.flatMap<WeekRow>(it => {
-            const section = g.section?.title ?? null;
+            const section = g.section;
             if (it.kind === 'content') {
               const mod = modules.find(m => m.id === it.moduleId);
               return mod ? [{ key: it.id, kind: 'content' as const, mod, section }] : [];
@@ -218,7 +218,7 @@ export const Sidebar: React.FC<{
           const weekOpen = isCollapsed || hasSelected || !foldedWeeks.includes(week.id);
           // Sections fold too (same saved list, keyed week|section); the one
           // holding the page you're on stays open.
-          const sectionKey = (row: WeekRow) => `${week.id}|${row.section ?? ''}`;
+          const sectionKey = (row: WeekRow) => `${week.id}|${row.section?.id ?? ''}`;
           const sectionOpen = (row: WeekRow) => !hasSections || isCollapsed || !foldedWeeks.includes(sectionKey(row))
             || rows.some(r => r.section === row.section && (r.kind === 'content' ? selectedModuleId === r.mod.id : activePage === `assignment:${r.asg.id}`));
           return (
@@ -260,7 +260,7 @@ export const Sidebar: React.FC<{
                   }
                   // Section heading above the first row of each section; loose
                   // items after the sections get "Also this week".
-                  const heading = hasSections && (i === 0 || rows[i - 1].section !== row.section) ? (row.section ?? 'Also this week') : null;
+                  const heading = hasSections && (i === 0 || rows[i - 1].section !== row.section) ? (row.section?.title ?? 'Also this week') : null;
                   const inSection = rows.filter(r => r.section === row.section);
                   return (
                     <React.Fragment key={row.key}>
