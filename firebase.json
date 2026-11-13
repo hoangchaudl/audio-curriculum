@@ -14,6 +14,10 @@
     ],
     "rewrites": [
       {
+        "source": "/operations{,/**}",
+        "destination": "/operations/index.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

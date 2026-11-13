@@ -485,6 +485,93 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ===== Audio Operations workspace (/operations/) =====
+    // Separate from Curriculum roles: nothing above reads these documents,
+    // so an Operations membership grants no Curriculum access, and no
+    // Curriculum role (other than admin) grants Operations access.
+    //
+    // Membership: operationsMembers/{lowercased email}, admin-managed. It
+    // counts only for the verified owner of that email (same check as
+    // invites) who already has a Curriculum profile, and only while
+    // active == true with a valid role. Curriculum admins administer
+    // Operations without a membership.
+    function opsMembership() {
+      return get(/databases/$(database)/documents/operationsMembers/$(tokenEmail())).data;
+    }
+    function opsRoleIs(roles) {
+      return isAdmin() ||
+             (isMember() && tokenEmail() != '' &&
+              exists(/databases/$(database)/documents/operationsMembers/$(tokenEmail())) &&
+              opsMembership().get('active', false) == true &&
+              opsMembership().get('role', '') in roles);
+    }
+    function isOpsReader() { return opsRoleIs(['member', 'editor', 'admin']); }
+    function isOpsEditor() { return opsRoleIs(['editor', 'admin']); }
+    function isOpsAdmin() { return opsRoleIs(['admin']); }
+
+    // You read your own membership; Operations admins manage everyone's
+    // (no self-grants: writing needs Operations admin already).
+    match /operationsMembers/{email} {
+      allow read: if isOpsAdmin() || (isSignedIn() && tokenEmail() == email);
+      allow create, update: if isOpsAdmin() && opsMemberValid(email);
+      allow delete: if isOpsAdmin();
+    }
+    function opsMemberValid(email) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'name', 'role', 'active', 'updatedAt', 'updatedBy']) &&
+             d.email == email && email == email.lower() && email.size() <= 254 &&
+             d.role in ['member', 'editor', 'admin'] &&
+             d.active is bool &&
+             d.get('name', '') is string && d.get('name', '').size() <= 100 &&
+             d.updatedBy == request.auth.uid && d.updatedAt == request.time;
+    }
+
+    // Content: one collection, `type` per section, `status` draft /
+    // published / archived. Members read published documents only (queries
+    // must filter status == 'published'). Editors create and edit drafts but
+    // can never publish or touch a published/archived document, so draft
+    // changes can't leak into what members see. Admins publish, archive and
+    // edit anything.
+    match /operationsContent/{id} {
+      allow read: if isOpsEditor() || (isOpsReader() && resource.data.status == 'published');
+      allow create: if isOpsEditor() && opsContentValid() &&
+                    request.resource.data.status == 'draft' &&
+                    request.resource.data.createdBy == request.auth.uid &&
+                    request.resource.data.createdAt == request.time &&
+                    !('publishedAt' in request.resource.data) && !('publishedBy' in request.resource.data);
+      allow update: if opsContentValid() &&
+                    request.resource.data.createdBy == resource.data.createdBy &&
+                    request.resource.data.createdAt == resource.data.createdAt &&
+                    request.resource.data.get('revisionOf', '') == resource.data.get('revisionOf', '') &&
+                    (isOpsAdmin() ||
+                     (isOpsEditor() && resource.data.status == 'draft' && request.resource.data.status == 'draft' &&
+                      request.resource.data.get('publishedAt', null) == resource.data.get('publishedAt', null) &&
+                      request.resource.data.get('publishedBy', null) == resource.data.get('publishedBy', null)));
+      allow delete: if isOpsAdmin() || (isOpsEditor() && resource.data.status == 'draft');
+    }
+    function opsContentValid() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['type', 'status', 'title', 'summary', 'body', 'category', 'workflows', 'owner',
+                               'effectiveDate', 'links', 'items', 'revisionOf',
+                               'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'publishedBy', 'publishedAt']) &&
+             d.type in ['sop', 'checklist', 'schedule', 'resource'] &&
+             d.status in ['draft', 'published', 'archived'] &&
+             d.title is string && d.title.size() > 0 && d.title.size() <= 200 &&
+             d.body is string && d.body.size() <= 100000 &&
+             d.get('summary', '') is string && d.get('summary', '').size() <= 500 &&
+             d.get('category', '') is string && d.get('category', '').size() <= 100 &&
+             d.get('owner', '') is string && d.get('owner', '').size() <= 100 &&
+             d.get('effectiveDate', '') is string && d.get('effectiveDate', '').matches('^([0-9]{4}-[0-9]{2}-[0-9]{2})?$') &&
+             d.get('workflows', []) is list && d.get('workflows', []).hasOnly(['Shared', 'WEBTOON', 'Audible']) &&
+             d.get('links', []) is list && d.get('links', []).size() <= 50 &&
+             d.get('items', []) is list && d.get('items', []).size() <= 200 &&
+             d.get('revisionOf', '') is string &&
+             d.updatedBy == request.auth.uid && d.updatedAt == request.time &&
+             // Publication stamps are set only together with publishing.
+             (!('publishedAt' in d) || d.publishedAt == resource.data.get('publishedAt', null) ||
+              (d.status == 'published' && d.publishedAt == request.time && d.publishedBy == request.auth.uid));
+    }
+
     // Deny everything else by default (no catch-all open rule).
   }
 }
