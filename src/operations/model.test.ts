@@ -7,19 +7,22 @@ const draft = (over: Partial<Draft> = {}): Draft => ({
 
 describe('opsAccessFor', () => {
   it('Curriculum admins administer Operations without a membership', () => {
-    expect(opsAccessFor('admin', true, null)).toBe('admin');
+    expect(opsAccessFor('admin', null)).toBe('admin');
   });
   it('a trainee (sound_designer) without membership has no access', () => {
-    expect(opsAccessFor('sound_designer', true, null)).toBe('none');
+    expect(opsAccessFor('sound_designer', null)).toBe('none');
   });
   it('an authorized sound designer gets exactly the granted role', () => {
-    expect(opsAccessFor('sound_designer', true, { role: 'member', active: true })).toBe('member');
-    expect(opsAccessFor('sound_designer', true, { role: 'editor', active: true })).toBe('editor');
+    expect(opsAccessFor('sound_designer', { role: 'member', active: true })).toBe('member');
+    expect(opsAccessFor('sound_designer', { role: 'editor', active: true })).toBe('editor');
   });
-  it('revoked, invalid or profile-less memberships give no access (so content is cleared)', () => {
-    expect(opsAccessFor('sound_designer', true, { role: 'editor', active: false })).toBe('none');
-    expect(opsAccessFor('reviewer', true, { role: 'owner' as never, active: true })).toBe('none');
-    expect(opsAccessFor(undefined, false, { role: 'admin', active: true })).toBe('none');
+  it('an Operations-only account (no Training Program role) gets its granted role', () => {
+    expect(opsAccessFor(undefined, { role: 'editor', active: true })).toBe('editor');
+    expect(opsAccessFor(undefined, null)).toBe('none');
+  });
+  it('revoked or invalid memberships give no access (so content is cleared)', () => {
+    expect(opsAccessFor('sound_designer', { role: 'editor', active: false })).toBe('none');
+    expect(opsAccessFor('reviewer', { role: 'owner' as never, active: true })).toBe('none');
   });
 });
 

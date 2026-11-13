@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "dev-emulators",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["VITE_FIREBASE_EMULATORS=true", "npm", "run", "dev"],
+      "port": 3001,
+      "autoPort": true
     }
   ]
 }

@@ -1,5 +1,7 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, updateProfile,
+} from 'firebase/auth';
 import { BookOpen, CalendarDays, ClipboardCheck, FolderOpen, Home, Users } from 'lucide-react';
 import { auth } from '../firebase';
 import { useApplyTheme } from '../theme';
@@ -46,59 +48,121 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </main>
 );
 
+const authMessage = (err: unknown) => {
+  const code = (err as { code?: string }).code ?? '';
+  if (code === 'auth/email-already-in-use') return 'An account with this email already exists. Sign in instead.';
+  if (code === 'auth/weak-password') return 'Password must be at least 6 characters.';
+  if (code === 'auth/invalid-email') return 'That email address looks invalid.';
+  if (code === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
+  if (code === 'auth/network-request-failed') return 'Could not reach the server. Check your connection.';
+  return 'Incorrect email or password.';
+};
+
+// Operations-only staff create their account here; it gives no access until
+// an Operations admin grants this email (and gives no Training Program access).
 const SignIn: React.FC = () => {
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const switchTo = (m: typeof mode) => { setMode(m); setError(''); setSent(false); };
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setBusy(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      if (mode === 'reset') {
+        await sendPasswordResetEmail(auth, email.trim());
+        setSent(true);
+      } else if (mode === 'signup') {
+        if (!name.trim()) { setError('Enter your name.'); return; }
+        const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        await updateProfile(user, { displayName: name.trim().slice(0, 100) });
+        await sendEmailVerification(user);
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+      }
     } catch (err) {
-      const code = (err as { code?: string }).code ?? '';
-      setError(code === 'auth/too-many-requests' ? 'Too many attempts. Please wait a moment and try again.'
-        : code === 'auth/network-request-failed' ? 'Could not reach the server. Check your connection.'
-        : 'Incorrect email or password.');
+      setError(authMessage(err));
     } finally {
       setBusy(false);
     }
   };
   return (
     <Centered>
-      <p className="text-sm text-gray-600">Sign in with your StoryCo Audio account. Access is granted by an Operations admin.</p>
+      <p className="text-sm text-gray-600">
+        {mode === 'signup' ? 'Create your account with your work email. An Operations admin must also grant access to this email.'
+          : mode === 'reset' ? "Enter your email and we'll send a link to reset your password."
+          : 'Sign in with your StoryCo Audio account. Access is granted by an Operations admin.'}
+      </p>
       <form onSubmit={submit} className="space-y-3">
+        {mode === 'signup' && (
+          <label className="block text-xs font-bold text-gray-600">Name
+            <input autoComplete="name" required maxLength={100} value={name} onChange={e => setName(e.target.value)} className={`${input} mt-1`} />
+          </label>
+        )}
         <label className="block text-xs font-bold text-gray-600">Email
           <input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} className={`${input} mt-1`} />
         </label>
-        <label className="block text-xs font-bold text-gray-600">Password
-          <input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} className={`${input} mt-1`} />
-        </label>
+        {mode !== 'reset' && (
+          <label className="block text-xs font-bold text-gray-600">Password
+            <input type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className={`${input} mt-1`} />
+          </label>
+        )}
         {error && <p role="alert" className="text-sm font-bold text-ember">{error}</p>}
-        <button type="submit" disabled={busy} className={`${primaryBtn} w-full`}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        {sent && <p role="status" className="text-sm font-bold text-leaf">If an account exists for that email, a reset link is on its way.</p>}
+        <button type="submit" disabled={busy} className={`${primaryBtn} w-full`}>
+          {busy ? 'Please wait…' : mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in'}
+        </button>
       </form>
-      <p className="text-xs text-gray-500">Forgot your password or new here? Use the <a href="/" className="text-[#2E9DF7] underline">Audio Training Program sign-in</a>.</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-[#2E9DF7]">
+        {mode !== 'signin' && <button onClick={() => switchTo('signin')}>Back to sign in</button>}
+        {mode === 'signin' && <button onClick={() => switchTo('signup')}>Create an account</button>}
+        {mode === 'signin' && <button onClick={() => switchTo('reset')}>Forgot password?</button>}
+      </div>
     </Centered>
+  );
+};
+
+const VerifyEmail: React.FC<{ session: OpsSession }> = ({ session }) => {
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const act = async (work: () => Promise<string>) => {
+    setBusy(true);
+    try { setMsg(await work()); } catch (err) { setMsg(authMessage(err)); } finally { setBusy(false); }
+  };
+  return (
+    <>
+      <p className="text-sm text-gray-700 font-semibold">Verify your email address</p>
+      <p className="text-sm text-gray-600">We sent a verification link to <strong>{session.fbUser?.email}</strong>. Open it, then come back and continue.</p>
+      {msg && <p role="status" className="text-sm font-bold text-navy">{msg}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button disabled={busy} className={primaryBtn} onClick={() => act(async () =>
+          (await session.recheckVerification()) ? '' : "Your email isn't verified yet. Check your inbox (and spam folder).")}>I've verified - continue</button>
+        <button disabled={busy} className={secondaryBtn} onClick={() => act(async () => {
+          await sendEmailVerification(session.fbUser!);
+          return 'Verification email sent again.';
+        })}>Resend email</button>
+      </div>
+    </>
   );
 };
 
 const NoAccess: React.FC<{ session: OpsSession }> = ({ session }) => (
   <Centered>
-    {session.error ? <p role="alert" className="text-sm font-bold text-ember">{session.error}</p> : (
-      <>
-        <p className="text-sm text-gray-700 font-semibold">You don't have access to Operations.</p>
-        <p className="text-sm text-gray-600">
-          {session.email
-            ? <>You're signed in as <strong>{session.fbUser?.email}</strong>. Ask an Operations admin to grant access to this email address.</>
-            : <>Your email address isn't verified yet. Finish setting up your account in the <a href="/" className="text-[#2E9DF7] underline">Audio Training Program</a>, then come back.</>}
-        </p>
-      </>
-    )}
+    {session.error ? <p role="alert" className="text-sm font-bold text-ember">{session.error}</p>
+      : !session.email ? <VerifyEmail session={session} />
+      : (
+        <>
+          <p className="text-sm text-gray-700 font-semibold">You don't have access to Operations yet.</p>
+          <p className="text-sm text-gray-600">You're signed in as <strong>{session.fbUser?.email}</strong>. Ask an Operations admin to grant access to this email address - this page updates as soon as they do.</p>
+        </>
+      )}
     <div className="flex gap-2">
       <button onClick={() => signOut(auth)} className={secondaryBtn}>Sign out</button>
-      <a href="/" className={secondaryBtn}>Go to the Training Program</a>
     </div>
   </Centered>
 );
@@ -147,7 +211,7 @@ const Shell: React.FC<{ session: OpsSession; route: Route; children: React.React
           <p className="text-sm font-bold truncate">{session.name}</p>
           <p className="text-[10px] uppercase font-extrabold tracking-widest text-[#E0F2FE]">Operations {session.access}</p>
           <div className="flex gap-2">
-            <a href="/" className="text-xs font-bold bg-white/15 hover:bg-white/25 rounded-xl px-3 py-1.5">Training Program</a>
+            {session.hasProfile && <a href="/" className="text-xs font-bold bg-white/15 hover:bg-white/25 rounded-xl px-3 py-1.5">Training Program</a>}
             <button onClick={() => { window.location.hash = '#/'; signOut(auth); }} className="text-xs font-bold bg-white/15 hover:bg-white/25 rounded-xl px-3 py-1.5">Sign out</button>
           </div>
         </div>

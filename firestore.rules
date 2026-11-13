@@ -492,15 +492,16 @@ service cloud.firestore {
     //
     // Membership: operationsMembers/{lowercased email}, admin-managed. It
     // counts only for the verified owner of that email (same check as
-    // invites) who already has a Curriculum profile, and only while
-    // active == true with a valid role. Curriculum admins administer
-    // Operations without a membership.
+    // invites), and only while active == true with a valid role. No
+    // Curriculum profile is needed: Operations-only staff sign up from
+    // /operations/ and, with no users/{uid} doc, read nothing in Curriculum.
+    // Curriculum admins administer Operations without a membership.
     function opsMembership() {
       return get(/databases/$(database)/documents/operationsMembers/$(tokenEmail())).data;
     }
     function opsRoleIs(roles) {
       return isAdmin() ||
-             (isMember() && tokenEmail() != '' &&
+             (isSignedIn() && tokenEmail() != '' &&
               exists(/databases/$(database)/documents/operationsMembers/$(tokenEmail())) &&
               opsMembership().get('active', false) == true &&
               opsMembership().get('role', '') in roles);

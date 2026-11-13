@@ -17,7 +17,11 @@ export interface OpsSession {
   name: string;
   theme?: 'light' | 'dark';
   access: OpsAccess;
+  // Has a Training Program profile (Operations-only staff don't).
+  hasProfile: boolean;
   error: string | null;
+  // Re-reads the account after the person clicks the verification link.
+  recheckVerification: () => Promise<boolean>;
 }
 
 const isoOf = (data: DocumentData): any =>
@@ -31,6 +35,7 @@ export const useOpsSession = (): OpsSession => {
   const [profile, setProfile] = useState<{ loaded: boolean; exists: boolean; role?: string; name?: string; theme?: 'light' | 'dark' }>({ loaded: false, exists: false });
   const [member, setMember] = useState<{ loaded: boolean; data: OpsMember | null }>({ loaded: false, data: null });
   const [error, setError] = useState<string | null>(null);
+  const [, setReloaded] = useState(0);
 
   useEffect(() => onAuthStateChanged(auth, u => { setFbUser(u); setAuthReady(true); }), []);
 
@@ -58,7 +63,7 @@ export const useOpsSession = (): OpsSession => {
     return onSnapshot(doc(db, 'operationsMembers', email), snap => {
       setMember({ loaded: true, data: snap.exists() ? ({ id: snap.id, ...isoOf(snap.data()) } as OpsMember) : null });
     }, err => {
-      // Denied = no access (e.g. no Curriculum profile); never crash.
+      // Denied = no access; never crash.
       if ((err as { code?: string }).code !== 'permission-denied') {
         console.error('Operations: membership', err);
         setError('Could not check your Operations access. Check your connection and refresh.');
@@ -67,12 +72,24 @@ export const useOpsSession = (): OpsSession => {
     });
   }, [uid, email]);
 
+  // reload() updates emailVerified in place; a fresh ID token carries
+  // email_verified to firestore.rules.
+  const recheckVerification = async () => {
+    const u = auth.currentUser;
+    if (!u) return false;
+    await u.reload();
+    if (u.emailVerified) await u.getIdToken(true);
+    setReloaded(n => n + 1);
+    return u.emailVerified;
+  };
+
   const loading = !authReady || (!!uid && (!profile.loaded || !member.loaded));
   return {
-    loading, fbUser, email, error,
-    name: profile.name || member.data?.name || fbUser?.email || '',
+    loading, fbUser, email, error, recheckVerification,
+    name: profile.name || member.data?.name || fbUser?.displayName || fbUser?.email || '',
     theme: profile.theme,
-    access: uid && !loading ? opsAccessFor(profile.role, profile.exists, member.data) : 'none',
+    hasProfile: profile.exists,
+    access: uid && !loading ? opsAccessFor(profile.role, member.data) : 'none',
   };
 };
 

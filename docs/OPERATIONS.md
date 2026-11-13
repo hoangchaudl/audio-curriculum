@@ -21,10 +21,13 @@ drafts; `admin` also publishes, archives, edits live content and manages access.
 No other Training Program role (trainee, engineer, reviewer, leadership) grants
 anything, and a membership never changes or adds Training Program access.
 
-A membership counts only when the person is signed in with that **verified** email
-and already has a Training Program profile (`users/{uid}`). Memberships are keyed
-by lowercased email (not uid) so Operations admins can grant access without reading
-the private user roster - the same verified-email check invites use.
+A membership counts only when the person is signed in with that **verified** email.
+No Training Program account is needed: Operations-only staff create an account on the
+`/operations/` sign-in page (name, email, password) and verify their email. Such an
+account has no `users/{uid}` profile, so it reads nothing in the Training Program
+(which shows its usual "No invite" screen). Memberships are keyed by lowercased email
+(not uid) so admins can grant access before the account exists, without reading the
+private user roster - the same verified-email check invites use.
 
 Content lives in `operationsContent/{id}` (`type`: sop / checklist / schedule /
 resource, `status`: draft / published / archived). Editors can never change a
@@ -34,7 +37,9 @@ published or archived document; to update one they create a revision draft
 ### Granting access (admin)
 
 1. Open `/operations/#/access` (Training Program admins see **Access** in the sidebar).
-2. Enter the person's account email, an optional name, and a role. **Grant access**.
+2. Enter the person's email, an optional name, and a role. **Grant access**.
+   The person then signs in at `/operations/` - or uses **Create an account** there -
+   and verifies their email. Granting first or signing up first both work.
 3. Change a role with the dropdown; **Revoke** removes access immediately (open
    sessions lose it live); **Restore** gives it back.
 
@@ -69,5 +74,6 @@ behaves exactly as before.
 ## Not in this phase
 
 Episode-specific tracking and reporting, shared checklist completion records, file
-uploads, a calendar, a link from the Training Program to Operations, changes to the
-invite/sign-up flow, and blocking Operations-only staff from the Training Program.
+uploads, a calendar, a link from the Training Program to Operations, and changes to
+the Training Program invite flow. (Trainees and other Training Program users granted
+Operations access keep their Training Program access as before.)

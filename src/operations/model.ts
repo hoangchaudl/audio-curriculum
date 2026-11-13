@@ -57,11 +57,11 @@ export const SECTIONS: Record<ContentType, { path: string; label: string; singul
 export const TYPE_BY_PATH = Object.fromEntries(Object.entries(SECTIONS).map(([t, s]) => [s.path, t])) as Record<string, ContentType>;
 
 // Mirrors firestore.rules opsRoleIs(): Curriculum admins administer
-// Operations; everyone else needs an active membership with a valid role.
-// Verified email is required because memberships are keyed by email.
-export const opsAccessFor = (curriculumRole: string | undefined, hasProfile: boolean, member: Partial<OpsMember> | null): OpsAccess => {
+// Operations; everyone else needs an active membership with a valid role
+// (read by verified email, since memberships are keyed by email).
+export const opsAccessFor = (curriculumRole: string | undefined, member: Partial<OpsMember> | null): OpsAccess => {
   if (curriculumRole === 'admin') return 'admin';
-  if (!hasProfile || !member || member.active !== true) return 'none';
+  if (!member || member.active !== true) return 'none';
   return member.role === 'member' || member.role === 'editor' || member.role === 'admin' ? member.role : 'none';
 };
 export const canEdit = (a: OpsAccess) => a === 'editor' || a === 'admin';

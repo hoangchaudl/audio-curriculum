@@ -10,8 +10,9 @@ const ROLE_HELP: Record<OpsRole, string> = {
   admin: 'Also publishes, archives and manages access',
 };
 
-// Operations access is granted per verified email address of an existing
-// Audio account. It never changes the person's Training Program role.
+// Operations access is granted per email address. The person signs in (or
+// creates an account) at /operations/ with that email and verifies it. It
+// never changes or grants Training Program access.
 export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, selfEmail }) => {
   const members = useOpsMembers(true);
   const [form, setForm] = useState({ email: '', name: '', role: 'member' as OpsRole });
@@ -48,7 +49,7 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
     <div className="space-y-5">
       <header>
         <h1 className="font-display font-black text-2xl text-gray-800">Access</h1>
-        <p className="text-sm text-gray-600">Grant Operations access to an existing StoryCo Audio account by its email address. Training Program roles are not affected. Training Program admins always administer Operations.</p>
+        <p className="text-sm text-gray-600">Grant Operations access by email address. Training Program roles are not affected, and Training Program admins always administer Operations.</p>
       </header>
       <form onSubmit={grant} className={`${card} space-y-3`} noValidate>
         <h2 className={sectionTitle}>Grant access</h2>
@@ -59,7 +60,7 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
             {(Object.keys(ROLE_HELP) as OpsRole[]).map(r => <option key={r} value={r}>{r} - {ROLE_HELP[r]}</option>)}
           </select>
         </div>
-        <p className="text-xs text-gray-500">The person signs in with this email. It must be verified and belong to an account that already exists in the Training Program.</p>
+        <p className="text-xs text-gray-500">The person signs in at /operations/ with this email - or creates an account there if they don't have one - and verifies it. Access works as soon as both are done.</p>
         <button type="submit" disabled={busy === 'new'} className={primaryBtn}>{busy === 'new' ? 'Saving…' : 'Grant access'}</button>
       </form>
       {error && <Banner tone="error">{error}</Banner>}

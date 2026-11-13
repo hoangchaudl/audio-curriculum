@@ -77,11 +77,19 @@ describe('operations: who gets in', () => {
   it('missing, inactive or invalid membership denies access', async () => {
     await assertFails(getDocs(published(as('revoked'))));
     await assertFails(getDocs(published(as('weird')))); // unknown role
-    await assertFails(getDocs(published(as('noProfile')))); // no Training Program account
     // Unverified email: the membership doesn't count.
     const unverified = env.authenticatedContext('opsDesigner', { email: emailOf('opsDesigner'), email_verified: false }).firestore();
     await assertFails(getDocs(published(unverified)));
     await assertFails(getDocs(published(env.unauthenticatedContext().firestore())));
+  });
+  it('an Operations-only account (no Training Program profile) gets its granted role and nothing in Curriculum', async () => {
+    const o = as('noProfile');
+    await assertSucceeds(getDocs(published(o)));
+    await assertSucceeds(getDocs(collection(o, 'operationsMembers'))); // granted admin
+    await assertFails(getDocs(collection(o, 'categories')));
+    await assertFails(getDocs(query(collection(o, 'modules'), where('restricted', '==', false))));
+    await assertFails(getDocs(collection(o, 'users')));
+    await assertFails(setDoc(doc(o, 'users/noProfile'), { id: 'noProfile', role: 'admin' }));
   });
   it('revocation applies on the next read', async () => {
     await assertSucceeds(getDocs(published(as('opsDesigner'))));
