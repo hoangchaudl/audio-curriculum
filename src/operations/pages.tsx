@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { card, input, primaryBtn, secondaryBtn, sectionTitle, Md } from '../components/assessment/ui';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { card, input, primaryBtn, secondaryBtn, sectionTitle } from '../components/assessment/ui';
+import { OpsMarkdown } from './OpsMarkdown';
 import {
   CHECKLIST_KINDS, ContentType, OpsAccess, OpsContent, RESOURCE_KINDS, SECTIONS, WORKFLOWS,
   byUpdatedDesc, canEdit, checklistKey, draftFields, draftOf, isHttpUrl, matchesFilters,
@@ -201,6 +202,55 @@ const Checklist: React.FC<{ uid: string; c: OpsContent }> = ({ uid, c }) => {
   );
 };
 
+// Long documents get an "On this page" menu built from their rendered
+// headings: beside the text on wide screens, a collapsible list above it on
+// phones. Buttons scroll instead of #anchors, which the hash router owns.
+const Body: React.FC<{ markdown: string }> = ({ markdown }) => {
+  const ref = useRef<HTMLElement>(null);
+  const [heads, setHeads] = useState<{ el: HTMLElement; text: string; level: number }[]>([]);
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const read = () => setHeads([...root.querySelectorAll<HTMLElement>('h1, h2, h3')]
+      .map(el => ({ el, text: el.textContent?.trim() ?? '', level: Number(el.tagName[1]) }))
+      .filter(h => h.text));
+    read();
+    // The Markdown renderer loads lazily, so headings appear after mount.
+    const observer = new MutationObserver(read);
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [markdown]);
+  const toc = heads.length >= 3 ? heads : [];
+  const top = Math.min(...toc.map(h => h.level));
+  const list = (
+    <ul className="space-y-1.5 text-sm">
+      {toc.map((h, i) => (
+        <li key={i} style={{ paddingLeft: (h.level - top) * 12 }}>
+          <button onClick={() => h.el.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className={`text-left hover:text-[#2E9DF7] ${h.level === top ? 'font-bold text-gray-700' : 'font-medium text-gray-500'}`}>{h.text}</button>
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <div className="lg:flex lg:items-start lg:gap-6">
+      {toc.length > 0 && (
+        <nav aria-label="On this page" className="mb-4 lg:mb-0 lg:order-2 lg:w-60 lg:flex-shrink-0 lg:sticky lg:top-0">
+          <details className={`${card} !p-4 lg:hidden`}>
+            <summary className="text-sm font-bold text-gray-700 cursor-pointer">On this page ({toc.length} sections)</summary>
+            <div className="mt-3">{list}</div>
+          </details>
+          <div className={`${card} !p-4 hidden lg:block max-h-[calc(100vh-4rem)] overflow-y-auto`}>
+            <p className={sectionTitle}>On this page</p>
+            <div className="mt-3">{list}</div>
+          </div>
+        </nav>
+      )}
+      <section ref={ref} className={`${card} min-w-0 lg:flex-1`}><OpsMarkdown>{markdown}</OpsMarkdown></section>
+    </div>
+  );
+};
+
 export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; content: ContentState }> = ({ id, uid, access, content }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -285,7 +335,7 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
       {notice && !error && <Banner>{notice}</Banner>}
 
       {c.type === 'checklist' && <Checklist key={checklistKey(uid, c)} uid={uid} c={c} />}
-      {c.body.trim() && <section className={card}><Md>{c.body}</Md></section>}
+      {c.body.trim() && <Body markdown={c.body} />}
       {(c.links ?? []).length > 0 && (
         <section className={card}>
           <h2 className={sectionTitle}>{c.type === 'sop' ? 'References' : 'Links'}</h2>
