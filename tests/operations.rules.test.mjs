@@ -147,6 +147,8 @@ describe('operations: editors', () => {
     await assertFails(setDoc(doc(e, 'operationsContent/n4'), content('editor', { extra: true })));
     await assertFails(setDoc(doc(e, 'operationsContent/n5'), content('editor', { title: '' })));
     await assertFails(setDoc(doc(e, 'operationsContent/n6'), content('editor', { workflows: ['Netflix'] })));
+    await assertFails(setDoc(doc(e, 'operationsContent/n7'), content('editor', { pinned: 'yes' })));
+    await assertSucceeds(setDoc(doc(e, 'operationsContent/n8'), content('editor', { pinned: true })));
     await assertFails(updateDoc(doc(e, 'operationsContent/draft'), edit('editor', { createdBy: 'editor2' })));
   });
 });

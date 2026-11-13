@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { card, input, primaryBtn, secondaryBtn, sectionTitle } from '../components/assessment/ui';
+import { input, primaryBtn, secondaryBtn } from '../components/assessment/ui';
 import { OpsMember, OpsRole } from './model';
 import { friendlyError, saveMember, useOpsMembers } from './data';
-import { Banner, fmtDate } from './pages';
+import { Banner, fmtDate, heading, pageTitle, panel } from './pages';
 
 const ROLE_HELP: Record<OpsRole, string> = {
   member: 'Reads published content',
@@ -48,11 +48,11 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="font-display font-black text-2xl text-gray-800">Access</h1>
+        <h1 className={pageTitle}>Access</h1>
         <p className="text-sm text-gray-600">Grant Operations access by email address. Training Program roles are not affected, and Training Program admins always administer Operations.</p>
       </header>
-      <form onSubmit={grant} className={`${card} space-y-3`} noValidate>
-        <h2 className={sectionTitle}>Grant access</h2>
+      <form onSubmit={grant} className={`${panel} p-5 space-y-3`} noValidate>
+        <h2 className={heading}>Grant access</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <input aria-label="Email" type="email" placeholder="name@story.co" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className={input} />
           <input aria-label="Name (optional)" placeholder="Name (optional)" maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className={input} />
@@ -65,8 +65,8 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
       </form>
       {error && <Banner tone="error">{error}</Banner>}
       {notice && !error && <Banner>{notice}</Banner>}
-      <section className={card}>
-        <h2 className={sectionTitle}>People with access</h2>
+      <section className={`${panel} p-5`}>
+        <h2 className={heading}>People with access</h2>
         {members.error ? <div className="mt-3"><Banner tone="error">{members.error}</Banner></div>
           : !members.loaded ? <p role="status" className="text-sm text-gray-400 font-bold mt-3">Loading…</p>
           : members.items.length === 0 ? <p className="text-sm text-gray-600 mt-3">No one has been granted access yet.</p>

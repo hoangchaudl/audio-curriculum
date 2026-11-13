@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Draft, OpsContent, checklistKey, draftFields, matchesFilters, opsAccessFor, parseLinks, parseRoute, validateDraft } from './model';
+import { Draft, OpsContent, checklistKey, draftFields, matchesFilters, opsAccessFor, parseLinks, parseRoute, searchContent, validateDraft } from './model';
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
-  title: 'T', summary: '', body: '', category: '', workflows: [], owner: '', effectiveDate: '', linksText: '', itemsText: '', ...over,
+  title: 'T', summary: '', body: '', category: '', workflows: [], owner: '', effectiveDate: '', linksText: '', itemsText: '', pinned: false, ...over,
 });
 
 describe('opsAccessFor', () => {
@@ -70,5 +70,32 @@ describe('routes and filters', () => {
   it('checklist ticks are per account and per version', () => {
     expect(checklistKey('u1', { id: 'c', updatedAt: 'v1' })).not.toBe(checklistKey('u2', { id: 'c', updatedAt: 'v1' }));
     expect(checklistKey('u1', { id: 'c', updatedAt: 'v1' })).not.toBe(checklistKey('u1', { id: 'c', updatedAt: 'v2' }));
+  });
+});
+
+describe('searchContent', () => {
+  const doc = (title: string, body: string, extra: Partial<OpsContent> = {}) => ({ id: title, type: 'sop', status: 'published', title, body, ...extra }) as OpsContent;
+  const items = [
+    doc('Audio Production Process', '## Naming conventions\n**Session:** Ep #_Title Name_MIX'),
+    doc('Naming guide', 'Short.'),
+    doc('Self-QC', '', { type: 'checklist', items: ['Loudness meets -14 LUFS'] }),
+  ];
+  it('finds words in the body, with a readable snippet, title matches first', () => {
+    const r = searchContent(items, 'naming');
+    expect(r.map(x => x.c.title)).toEqual(['Naming guide', 'Audio Production Process']);
+    expect(r[1].snippet).toContain('Naming conventions');
+    expect(r[1].snippet).not.toContain('##');
+  });
+  it('cuts snippets at word boundaries', () => {
+    const long = doc('Long', `${'alpha beta gamma '.repeat(10)}needle ${'delta epsilon '.repeat(20)}`);
+    const [hit] = searchContent([long], 'needle');
+    expect(hit.snippet).toMatch(/^…\w/);
+    expect(hit.snippet).toMatch(/\w…$/);
+    expect(hit.snippet.split(' ').every(w => ['…alpha', '…beta', '…gamma', 'alpha', 'beta', 'gamma', 'needle', 'delta', 'epsilon', 'delta…', 'epsilon…'].includes(w))).toBe(true);
+  });
+  it('needs every word and searches checklist items', () => {
+    expect(searchContent(items, 'naming session')).toHaveLength(1);
+    expect(searchContent(items, 'lufs')[0].c.title).toBe('Self-QC');
+    expect(searchContent(items, '  ')).toEqual([]);
   });
 });

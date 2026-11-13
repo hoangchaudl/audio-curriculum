@@ -34,6 +34,7 @@ export interface OpsContent {
   effectiveDate?: string; // YYYY-MM-DD
   links?: OpsLink[];
   items?: string[]; // checklist steps
+  pinned?: boolean; // listed under "Start here" on Home once published
   // A draft that will replace this published document when an admin publishes it.
   revisionOf?: string;
   createdBy: string;
@@ -88,7 +89,7 @@ export const parseItems = (text: string) => text.split('\n').map(s => s.trim()).
 
 export interface Draft {
   title: string; summary: string; body: string; category: string; workflows: string[];
-  owner: string; effectiveDate: string; linksText: string; itemsText: string;
+  owner: string; effectiveDate: string; linksText: string; itemsText: string; pinned: boolean;
 }
 
 // Form validation; mirrors the size limits in firestore.rules.
@@ -116,6 +117,7 @@ export const draftFields = (type: ContentType, d: Draft) => {
     category: d.category.trim(), workflows: d.workflows, owner: d.owner.trim(),
     effectiveDate: d.effectiveDate, links: parseLinks(d.linksText).links,
     items: type === 'checklist' ? parseItems(d.itemsText) : [],
+    pinned: d.pinned,
   };
   return fields;
 };
@@ -123,7 +125,7 @@ export const draftFields = (type: ContentType, d: Draft) => {
 export const draftOf = (c?: OpsContent): Draft => ({
   title: c?.title ?? '', summary: c?.summary ?? '', body: c?.body ?? '', category: c?.category ?? '',
   workflows: c?.workflows ?? [], owner: c?.owner ?? '', effectiveDate: c?.effectiveDate ?? '',
-  linksText: linksToText(c?.links), itemsText: (c?.items ?? []).join('\n'),
+  linksText: linksToText(c?.links), itemsText: (c?.items ?? []).join('\n'), pinned: !!c?.pinned,
 });
 
 export const byUpdatedDesc = (a: OpsContent, b: OpsContent) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '');
@@ -133,6 +135,32 @@ export const matchesFilters = (c: OpsContent, f: { q: string; category: string; 
   (!f.category || c.category === f.category) &&
   (!f.workflow || (c.workflows ?? []).includes(f.workflow)) &&
   (!f.status || c.status === f.status);
+
+// Markdown reduced to the words people read, for search and snippets.
+export const plainText = (md: string) =>
+  md.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_`>|\\]/g, ' ').replace(/\s+/g, ' ').trim();
+
+// Search across what readers see: title, summary, body, checklist items and
+// link labels. Every word must match; title matches rank first. The snippet
+// shows the first match in the text.
+export const searchContent = (items: OpsContent[], q: string) => {
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return items.flatMap(c => {
+    const head = `${c.title} ${c.summary ?? ''}`.toLowerCase();
+    const text = plainText([c.body, ...(c.items ?? []), ...(c.links ?? []).map(l => l.label)].join('\n'));
+    const lower = text.toLowerCase();
+    if (!terms.every(t => head.includes(t) || lower.includes(t))) return [];
+    const at = terms.map(t => lower.indexOf(t)).filter(i => i >= 0).sort((a, b) => a - b)[0] ?? -1;
+    // About 60 characters before the match and 120 after, cut at word boundaries.
+    let from = Math.max(0, at - 60), to = Math.min(text.length, at + 120);
+    if (from > 0) from = text.indexOf(' ', from) + 1 || from;
+    if (to < text.length) to = Math.max(at + 1, text.lastIndexOf(' ', to));
+    const snippet = at < 0 ? '' : `${from > 0 ? '…' : ''}${text.slice(from, to).trim()}${to < text.length ? '…' : ''}`;
+    const score = terms.filter(t => c.title.toLowerCase().includes(t)).length;
+    return [{ c, snippet, score }];
+  }).sort((a, b) => b.score - a.score || a.c.title.localeCompare(b.c.title));
+};
 
 // Hash routes: #/, #/sops, #/sops/<id>, #/edit/<id>, #/new/<type>, #/access.
 export type Route =

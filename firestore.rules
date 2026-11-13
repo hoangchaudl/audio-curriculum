@@ -553,7 +553,7 @@ service cloud.firestore {
     function opsContentValid() {
       let d = request.resource.data;
       return d.keys().hasOnly(['type', 'status', 'title', 'summary', 'body', 'category', 'workflows', 'owner',
-                               'effectiveDate', 'links', 'items', 'revisionOf',
+                               'effectiveDate', 'links', 'items', 'revisionOf', 'pinned',
                                'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'publishedBy', 'publishedAt']) &&
              d.type in ['sop', 'checklist', 'schedule', 'resource'] &&
              d.status in ['draft', 'published', 'archived'] &&
@@ -566,7 +566,7 @@ service cloud.firestore {
              d.get('workflows', []) is list && d.get('workflows', []).hasOnly(['Shared', 'WEBTOON', 'Audible']) &&
              d.get('links', []) is list && d.get('links', []).size() <= 50 &&
              d.get('items', []) is list && d.get('items', []).size() <= 200 &&
-             d.get('revisionOf', '') is string &&
+             d.get('revisionOf', '') is string && d.get('pinned', false) is bool &&
              d.updatedBy == request.auth.uid && d.updatedAt == request.time &&
              // Publication stamps are set only together with publishing.
              (!('publishedAt' in d) || d.publishedAt == resource.data.get('publishedAt', null) ||

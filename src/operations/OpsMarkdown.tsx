@@ -12,12 +12,12 @@ const Markdown = lazy(async () => {
 });
 
 const STYLE = [
-  'text-sm text-gray-700 leading-relaxed space-y-2',
-  '[&_h1]:text-lg [&_h1]:font-black [&_h1]:text-gray-800 [&_h1]:pt-3 [&_h2]:text-base [&_h2]:font-black [&_h2]:text-gray-800 [&_h2]:pt-2 [&_h3]:font-bold [&_h3]:text-gray-800',
+  'text-[15px] md:text-base text-gray-800 leading-7 space-y-3 max-w-[72ch]',
+  '[&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-gray-900 [&_h1]:pt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:pt-3 [&_h3]:font-semibold [&_h3]:text-gray-900',
   '[&_h1]:scroll-mt-4 [&_h2]:scroll-mt-4 [&_h3]:scroll-mt-4',
-  '[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#2E9DF7] [&_a]:underline [&_strong]:text-gray-800',
+  '[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#176BBA] dark:[&_a]:text-[#6CB8FF] [&_a]:underline [&_a]:underline-offset-2 [&_strong]:text-gray-900',
   '[&_blockquote]:bg-sky [&_blockquote]:text-navy [&_blockquote]:rounded-2xl [&_blockquote]:px-4 [&_blockquote]:py-3 [&_blockquote]:border-l-4 [&_blockquote]:border-[#2E9DF7] [&_hr]:border-gray-200 [&_hr]:my-4',
-  '[&_table]:w-full [&_table]:text-left [&_table]:border-collapse [&_th]:bg-sky [&_th]:text-navy [&_th]:font-bold [&_th]:px-3 [&_th]:py-2 [&_th]:align-top',
+  '[&_table]:w-full [&_table]:text-left [&_table]:border-collapse [&_table]:text-sm [&_th]:bg-gray-50 [&_th]:text-gray-900 [&_th]:font-semibold [&_th]:px-3 [&_th]:py-2 [&_th]:align-top',
   '[&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_td]:border-t [&_td]:border-gray-100 [&_tr:nth-child(even)_td]:bg-gray-50',
 ].join(' ');
 
