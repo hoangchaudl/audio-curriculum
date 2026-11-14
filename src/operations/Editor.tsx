@@ -53,9 +53,9 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
   const categoryOptions = type === 'checklist' ? CHECKLIST_KINDS : type === 'resource' ? RESOURCE_KINDS : null;
   return (
     <form onSubmit={save} className="space-y-5" noValidate>
-      <a href={existing ? `#/${s.path}/${encodeURIComponent(existing.id)}` : `#/${s.path}`} className="text-sm font-bold text-[#2E9DF7]">← Cancel</a>
+      <a href={existing ? `#/${s.path}/${encodeURIComponent(existing.id)}` : `#/${s.path}`} className="text-sm font-bold text-brand">← Cancel</a>
       <header className="flex items-center gap-3">
-        <h1 className="font-display font-black text-2xl text-gray-800">{existing ? `Edit ${s.singular}` : `New ${s.singular}`}</h1>
+        <h1 className="font-display font-bold text-2xl text-gray-800">{existing ? `Edit ${s.singular}` : `New ${s.singular}`}</h1>
         <StatusBadge status={existing?.status ?? 'draft'} />
       </header>
       {!existing && <Banner>New items are saved as drafts. Only admins can publish them.</Banner>}
@@ -80,7 +80,7 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
           <div className="flex flex-wrap gap-4">
             {WORKFLOWS.map(w => (
               <label key={w} className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <input type="checkbox" className="accent-[#2E9DF7]" checked={d.workflows.includes(w)}
+                <input type="checkbox" className="accent-brand" checked={d.workflows.includes(w)}
                   onChange={e => set('workflows', e.target.checked ? [...d.workflows, w] : d.workflows.filter(x => x !== w))} />
                 {w}
               </label>

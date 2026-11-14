@@ -44,10 +44,10 @@ export const ContentBlocksEditor: React.FC<{ blocks: ContentBlock[]; onChange: (
       {blocks.map((block, i) => (
         <div key={block.id} className="border-2 border-dashed border-gray-200 rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-black uppercase text-gray-500">{TYPE_LABELS[block.type]}</p>
+            <p className="text-xs font-bold uppercase text-gray-500">{TYPE_LABELS[block.type]}</p>
             <div className="flex gap-1">
-              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 px-1" aria-label="Move up">▲</button>
-              <button type="button" onClick={() => move(i, 1)} disabled={i === blocks.length - 1} className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 px-1" aria-label="Move down">▼</button>
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-brand disabled:opacity-30 px-1" aria-label="Move up">▲</button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === blocks.length - 1} className="text-gray-400 hover:text-brand disabled:opacity-30 px-1" aria-label="Move down">▼</button>
               <button type="button" onClick={() => onChange(blocks.filter(b => b.id !== block.id))} className="text-gray-400 hover:text-ember px-2 font-bold" aria-label="Remove block">✕</button>
             </div>
           </div>

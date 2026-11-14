@@ -16,9 +16,9 @@ const STATUS_LABELS: Record<Status, string> = {
   'awaiting-complete': 'Awaiting complete submission',
 };
 const STATUS_STYLES: Record<Status, string> = {
-  'needs-review': 'bg-[#F4511E]/20 text-ember',
+  'needs-review': 'bg-warm/20 text-ember',
   draft: 'bg-sky text-navy',
-  done: 'bg-[#3DDC97]/20 text-leaf',
+  done: 'bg-go/20 text-leaf',
   locked: 'bg-gray-100 text-gray-500',
   'awaiting-submission': 'bg-gray-100 text-gray-500',
   'awaiting-complete': 'bg-gray-100 text-gray-500',
@@ -126,7 +126,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
   return (
     <div className="mt-4 pt-4 border-t space-y-4">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
           {gradesFirstComplete(item.stage) ? 'Graded version (first complete submission)' : 'Version to grade'}
         </p>
         {gradesFirstComplete(item.stage) ? (
@@ -139,7 +139,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
         {late && <p className="text-xs font-bold text-ember mt-1">Handed in {late} day{late === 1 ? '' : 's'} late</p>}
         {selected && (
           <ul className="flex flex-wrap gap-x-4 mt-2">
-            {selected.links.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-[#2E9DF7] underline">{l.label}</a></li>)}
+            {selected.links.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand underline">{l.label}</a></li>)}
           </ul>
         )}
         {selected?.note && <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">Trainee note: {selected.note}</p>}
@@ -158,7 +158,7 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
           {hasVi && <RubricLangToggle lang={lang} onChange={chooseLang} />}
         </div>
         {keys.map(k => (
-          <div key={k} className={`rounded-2xl p-2 -m-2 ${k === current ? 'ring-2 ring-[#2E9DF7]/60' : ''}`} onFocus={() => setActive(k)}>
+          <div key={k} className={`rounded-2xl p-2 -m-2 ${k === current ? 'ring-2 ring-brand/60' : ''}`} onFocus={() => setActive(k)}>
             <p className="text-xs font-bold text-gray-700">{keyLabel(k)}</p>
             {outcomeOf(k) && <p className="text-[11px] text-gray-500 whitespace-pre-wrap">{outcomeOf(k)}</p>}
             <div className="mb-1.5" />
@@ -166,8 +166,8 @@ const ReviewPanel: React.FC<{ item: QueueItem; onDone: () => void }> = ({ item, 
               {(scoreRange(max) as AssessmentScore[]).map(n => (
                 <button key={n} type="button" role="radio" aria-checked={scores[k] === n} disabled={locked}
                   onClick={() => { setScores(s => ({ ...s, [k]: n })); setActive(null); }}
-                  className={`px-3 py-2 rounded-xl text-xs font-black text-left transition-colors ${
-                    scores[k] === n ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  className={`px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                    scores[k] === n ? 'bg-brand text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                   }`}>
                   {`${n} — ${rubricBand(vi, bands, bandsVi, n, max)}`}
                   {levelText(k, n) && <span className="block text-[10px] font-medium leading-snug mt-0.5 whitespace-pre-wrap">{levelText(k, n)}</span>}
@@ -222,13 +222,13 @@ export const ReviewerQueue: React.FC = () => {
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <header className="min-h-20 bg-surface border-b flex items-center justify-between flex-wrap gap-4 px-4 md:px-10 py-3 flex-shrink-0">
         <div>
-          <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7]">Review Queue</h2>
+          <h2 className="text-lg md:text-2xl font-bold text-brand">Review Queue</h2>
           <p className="text-xs text-gray-400 font-medium">Only work you're assigned to review · scores 1–5 · editable until published</p>
         </div>
         <div className="flex gap-2">
           {(['todo', 'all'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)} className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
-              filter === f ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+              filter === f ? 'bg-brand text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
               {f === 'todo' ? `To review (${todoCount})` : `All (${items.length})`}
             </button>
           ))}
@@ -243,14 +243,14 @@ export const ReviewerQueue: React.FC = () => {
             <article key={item.key} id={`review-${item.key}`} className={card}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
                     {STAGE_LABELS[item.stage]} · as {REVIEWER_SLOTS.find(s => s.id === item.slot)?.label}
                   </p>
-                  <h3 className="font-black text-gray-800">{item.traineeName}</h3>
+                  <h3 className="font-bold text-gray-800">{item.traineeName}</h3>
                   <p className="text-xs font-bold text-gray-500 truncate">{item.targetTitle}{item.versions.length ? ` · ${item.versions.length} version${item.versions.length === 1 ? '' : 's'}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${STATUS_STYLES[item.status]}`}>{STATUS_LABELS[item.status]}</span>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${STATUS_STYLES[item.status]}`}>{STATUS_LABELS[item.status]}</span>
                   {!item.status.startsWith('awaiting') && (
                     <button onClick={() => setOpen(o => (o === item.key ? null : item.key))} className={secondaryBtn}>
                       {open === item.key ? 'Close' : item.status === 'locked' || item.status === 'done' ? 'View' : 'Review'}

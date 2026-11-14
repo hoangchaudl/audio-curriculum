@@ -14,11 +14,11 @@ import { ConfirmModal } from './ConfirmModal';
 
 export const STATUS_BADGE: Record<StandingStatus | 'not_enrolled' | 'released', { label: string; cls: string }> = {
   released: { label: 'Released', cls: 'bg-gray-200 text-gray-700' },
-  passed: { label: '✓ Passed probation', cls: 'bg-[#3DDC97] text-[#0B3D2A]' },
-  not_passed: { label: 'Below benchmark', cls: 'bg-[#F4511E] text-white' },
-  behind: { label: '⚠ Falling behind', cls: 'bg-[#F4511E]/20 text-ember' },
+  passed: { label: '✓ Passed probation', cls: 'bg-go text-go-ink' },
+  not_passed: { label: 'Below benchmark', cls: 'bg-warm text-white' },
+  behind: { label: '⚠ Falling behind', cls: 'bg-warm/20 text-ember' },
   grading: { label: 'Finished · waiting for grades', cls: 'bg-sky text-navy' },
-  on_track: { label: 'On track', cls: 'bg-[#3DDC97]/20 text-leaf' },
+  on_track: { label: 'On track', cls: 'bg-go/20 text-leaf' },
   upcoming: { label: 'Not started yet', cls: 'bg-gray-100 text-gray-500' },
   not_enrolled: { label: 'Not enrolled', cls: 'bg-gray-100 text-gray-500' },
 };
@@ -49,7 +49,7 @@ const trend = (row: SkillRow) => {
 const SkillTable: React.FC<{ rows: SkillRow[]; showDA: boolean; floor: number }> = ({ rows, showDA, floor }) => {
   const cols = [['episodeA', 'Ep A'], ['episodeB', 'Ep B'], ['pod', 'Pod'], ...(showDA ? [['da', 'DA']] : [])] as [keyof SkillRow, string][];
   const cell = (v: number | null, floored: boolean) => (
-    <td className={`px-1.5 py-1 text-right tabular-nums ${v !== null && floored && floor && roundScore(v) < floor - 1e-9 ? 'text-ember font-black' : ''}`}>
+    <td className={`px-1.5 py-1 text-right tabular-nums ${v !== null && floored && floor && roundScore(v) < floor - 1e-9 ? 'text-ember font-bold' : ''}`}>
       {v === null ? '–' : roundScore(v).toFixed(2)}
     </td>
   );
@@ -58,8 +58,8 @@ const SkillTable: React.FC<{ rows: SkillRow[]; showDA: boolean; floor: number }>
       <caption className="sr-only">Score per skill and stage</caption>
       <thead>
         <tr className="text-[10px] uppercase text-gray-400">
-          <th scope="col" className="text-left font-black py-1">Skill</th>
-          {cols.map(([, label]) => <th key={label} scope="col" className="text-right font-black px-1.5">{label}</th>)}
+          <th scope="col" className="text-left font-bold py-1">Skill</th>
+          {cols.map(([, label]) => <th key={label} scope="col" className="text-right font-bold px-1.5">{label}</th>)}
           <th scope="col" className="w-5"><span className="sr-only">Trend</span></th>
         </tr>
       </thead>
@@ -89,9 +89,9 @@ const HandIns: React.FC<{ submissions: AssessmentSubmission[]; titleOf: (stage: 
     <ul className="grid gap-1.5">
       {latest.map(s => (
         <li key={s.id} className="bg-gray-50 rounded-2xl px-3 py-2 text-xs">
-          <p className="font-black text-gray-700">{titleOf(s.stage, s.target)} · v{s.version}{s.isComplete ? '' : ' (not marked complete)'} · {formatDate(new Date(s.submittedAt))}</p>
+          <p className="font-bold text-gray-700">{titleOf(s.stage, s.target)} · v{s.version}{s.isComplete ? '' : ' (not marked complete)'} · {formatDate(new Date(s.submittedAt))}</p>
           <p className="flex flex-wrap gap-x-3">
-            {s.links.map((l, i) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="font-bold text-[#2E9DF7] underline break-all">{l.label}</a>)}
+            {s.links.map((l, i) => <a key={i} href={l.url} target="_blank" rel="noreferrer" className="font-bold text-brand underline break-all">{l.label}</a>)}
           </p>
           {s.note && <p className="text-gray-500 whitespace-pre-wrap mt-1">{s.note}</p>}
         </li>
@@ -159,17 +159,17 @@ export const DesignerCard: React.FC<{
     : `Week ${standing.week} of ${standing.totalWeeks}`;
 
   return (
-    <div className="rounded-[32px] border border-gray-100 shadow-sm bg-surface p-5 flex flex-col gap-4">
+    <div className="rounded-2xl border border-gray-100 shadow-sm bg-surface p-5 flex flex-col gap-4">
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-black text-sm flex-shrink-0" style={{ background: accent }}>
+        <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: accent }}>
           {getInitials(designer.name)}
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-black text-base leading-tight">{designer.name}</h4>
+          <h4 className="font-bold text-base leading-tight">{designer.name}</h4>
           <p className="text-xs text-gray-500 font-bold truncate">{data.enrollment?.batch ? `${data.enrollment.batch} • ` : ''}{designer.pod || 'No pod'} • {designer.email}</p>
           {weekLine && <p className="text-[11px] text-gray-400 font-bold mt-0.5">{weekLine}</p>}
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide whitespace-nowrap ${badge.cls}`}>{badge.label}</span>
+        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${badge.cls}`}>{badge.label}</span>
       </div>
 
       {!standing ? (
@@ -181,14 +181,14 @@ export const DesignerCard: React.FC<{
           <div className="grid grid-cols-2 gap-2">
             {stages.map(s => (
               <div key={s.label} className="bg-gray-50 rounded-2xl px-3 py-2">
-                <p className="text-[10px] font-black uppercase text-gray-400">{s.label} · {s.weight}%</p>
-                <p className="text-sm font-black text-gray-800">{s.o.status === 'scored' ? roundScore(s.o.value).toFixed(2) : '–'}</p>
+                <p className="text-[10px] font-bold uppercase text-gray-400">{s.label} · {s.weight}%</p>
+                <p className="text-sm font-bold text-gray-800">{s.o.status === 'scored' ? roundScore(s.o.value).toFixed(2) : '–'}</p>
               </div>
             ))}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-            <span className="text-[10px] font-black uppercase text-gray-400">Final</span>
+            <span className="text-[10px] font-bold uppercase text-gray-400">Final</span>
             {frozen ? (
               <span className="flex items-center gap-2">
                 {frozen.final === null ? <span className="text-xs font-bold text-gray-500">No final score</span> : <OutcomeBadge outcome={scored(frozen.final)} />}
@@ -214,7 +214,7 @@ export const DesignerCard: React.FC<{
 
           {quizzes.length > 0 && (
             <div className="bg-gray-50 rounded-2xl p-3">
-              <p className="text-[10px] font-black uppercase text-gray-500 mb-2">
+              <p className="text-[10px] font-bold uppercase text-gray-500 mb-2">
                 ❓ Quizzes · {quizzes.filter(q => q.attempts).length} of {quizzes.length} taken <span className="normal-case font-bold text-gray-400">(practice only - not in the grade)</span>
               </p>
               <ul className="space-y-1">
@@ -234,7 +234,7 @@ export const DesignerCard: React.FC<{
           )}
 
           <div>
-            <button onClick={() => setShowEvidence(o => !o)} aria-expanded={showEvidence} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">
+            <button onClick={() => setShowEvidence(o => !o)} aria-expanded={showEvidence} className="text-xs font-bold uppercase text-brand hover:underline">
               {showEvidence ? 'Hide' : 'Show'} evidence: hand-ins, scores & feedback
             </button>
             {showEvidence && (
@@ -253,7 +253,7 @@ export const DesignerCard: React.FC<{
 
           {split.length > 0 && (
             <div className="bg-sky rounded-2xl px-4 py-3 text-xs font-bold text-navy">
-              <p className="font-black mb-0.5">Reviewers {DISAGREEMENT_GAP}+ points apart - worth a calibration chat before publishing:</p>
+              <p className="font-bold mb-0.5">Reviewers {DISAGREEMENT_GAP}+ points apart - worth a calibration chat before publishing:</p>
               <ul className="list-disc pl-5 space-y-0.5">
                 {split.map(x => (
                   <li key={`${x.stage}|${x.title}`}>
@@ -275,7 +275,7 @@ export const DesignerCard: React.FC<{
               {outcome?.week2 ? (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-black">
+                    <span className="font-bold">
                       Week 2 checkpoint: {outcome.week2.decision === 'continue' ? '✓ Continue' : 'Released - lessons closed, grades still visible'} · {formatDate(new Date(outcome.week2.decidedAt))}
                     </span>
                     {!readOnly && <button onClick={() => saveWith(setWeek2Checkpoint(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>}
@@ -284,13 +284,13 @@ export const DesignerCard: React.FC<{
                 </>
               ) : (
                 <>
-                  <p className="font-black">Week 2 checkpoint - continue or release?</p>
+                  <p className="font-bold">Week 2 checkpoint - continue or release?</p>
                   <textarea value={week2Note} onChange={e => setWeek2Note(e.target.value)} maxLength={2000} placeholder="Reason (optional, admins and leadership only)"
                     aria-label="Week 2 checkpoint reason" className="w-full bg-surface rounded-xl p-2 text-xs h-14" />
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => saveWith(setWeek2Checkpoint(designer.id, 'continue', week2Note)).then(ok => ok && setWeek2Note(''))}
-                      className="bg-[#3DDC97] text-[#0B3D2A] font-black px-3 py-1.5 rounded-full">Continue</button>
-                    <button onClick={() => setConfirm('release')} className="bg-gray-200 text-gray-700 font-black px-3 py-1.5 rounded-full">Release</button>
+                      className="bg-go text-go-ink font-bold px-3 py-1.5 rounded-full">Continue</button>
+                    <button onClick={() => setConfirm('release')} className="bg-gray-200 text-gray-700 font-bold px-3 py-1.5 rounded-full">Release</button>
                   </div>
                 </>
               )}
@@ -298,10 +298,10 @@ export const DesignerCard: React.FC<{
           )}
 
           {outcome?.week2?.decision !== 'release' && (outcome?.decision || standing.status === 'passed' || standing.status === 'not_passed') && (
-            <div className={`rounded-2xl px-4 py-3 text-xs ${(decidedStatus ?? standing.status) === 'passed' ? 'bg-[#3DDC97]/15 text-leaf' : 'bg-gray-50 text-gray-600'}`}>
+            <div className={`rounded-2xl px-4 py-3 text-xs ${(decidedStatus ?? standing.status) === 'passed' ? 'bg-go/15 text-leaf' : 'bg-gray-50 text-gray-600'}`}>
               {outcome?.decision ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-black">
+                  <span className="font-bold">
                     {outcome.decision === 'offered' ? '🎉 Full-time offer recorded' : 'Recorded: no full-time offer - lessons closed, grades still visible'} · {formatDate(new Date(outcome.decidedAt!))}
                   </span>
                   {!readOnly && <button onClick={() => saveWith(setProgramOutcome(designer.id, null))} className="font-bold text-gray-500 hover:text-ember">Undo</button>}
@@ -313,15 +313,15 @@ export const DesignerCard: React.FC<{
               )}
               {outcome?.decision ? null : standing.status === 'passed' ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-black">Passed probation - recommend a full-time offer.</span>
-                  {!readOnly && <button onClick={() => setConfirm('offered')} className="bg-[#3DDC97] text-[#0B3D2A] font-black px-3 py-1.5 rounded-full">Record full-time offer</button>}
+                  <span className="font-bold">Passed probation - recommend a full-time offer.</span>
+                  {!readOnly && <button onClick={() => setConfirm('offered')} className="bg-go text-go-ink font-bold px-3 py-1.5 rounded-full">Record full-time offer</button>}
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-black">
+                  <span className="font-bold">
                     {r!.weakSkills.length ? `A skill is below the ${config.skillFloor} minimum` : `Final score is below ${config.passThreshold}`} - probation not passed.
                   </span>
-                  {!readOnly && <button onClick={() => setConfirm('not_offered')} className="bg-gray-200 text-gray-700 font-black px-3 py-1.5 rounded-full">Record: no offer</button>}
+                  {!readOnly && <button onClick={() => setConfirm('not_offered')} className="bg-gray-200 text-gray-700 font-bold px-3 py-1.5 rounded-full">Record: no offer</button>}
                 </div>
               )}
             </div>
@@ -331,7 +331,7 @@ export const DesignerCard: React.FC<{
 
       {!readOnly && lockedCategories.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-black text-gray-400 uppercase">Locked:</span>
+          <span className="text-[10px] font-bold text-gray-400 uppercase">Locked:</span>
           {lockedCategories.map(cat => {
             const unlocked = designer.unlockedCategories?.includes(cat.id) ?? false;
             return (
@@ -340,7 +340,7 @@ export const DesignerCard: React.FC<{
                   ? (designer.unlockedCategories ?? []).filter(id => id !== cat.id)
                   : [...(designer.unlockedCategories ?? []), cat.id])}
                 title={unlocked ? `${designer.name} can see ${cat.name}. Click to lock again.` : `Unlock ${cat.name} for ${designer.name}`}
-                className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${unlocked ? 'bg-[#3DDC97]/20 text-leaf' : 'bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy'}`}>
+                className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${unlocked ? 'bg-go/20 text-leaf' : 'bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy'}`}>
                 {unlocked ? '🔓' : '🔒'} {cat.name}
               </button>
             );

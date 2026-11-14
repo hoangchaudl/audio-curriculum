@@ -28,10 +28,10 @@ export const AdminHeader: React.FC<{ onPreview?: (role: Role) => void; onBack?: 
         <div className="leading-none">
           <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-4 w-auto dark:hidden" />
           <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-4 w-auto hidden dark:block" />
-          <span className="block text-[#2E9DF7] text-[10px] font-extrabold uppercase tracking-[0.08em] mt-1">Audio Training Program · {currentUser?.role === 'leadership' ? 'Leadership' : 'Director'}</span>
+          <span className="block text-brand text-[10px] font-semibold uppercase tracking-[0.08em] mt-1">Audio Training Program · {currentUser?.role === 'leadership' ? 'Leadership' : 'Director'}</span>
         </div>
       </div>
-      {onBack && <button onClick={onBack} className="text-sm font-bold text-[#2E9DF7] hover:underline">← Dashboard</button>}
+      {onBack && <button onClick={onBack} className="text-sm font-bold text-brand hover:underline">← Dashboard</button>}
       <div className="ml-auto flex items-center gap-3 flex-wrap">
         {children}
         <ThemeToggle isDark={isDark} onChange={dark => updateUserTheme(dark ? 'dark' : 'light')} />
@@ -41,14 +41,14 @@ export const AdminHeader: React.FC<{ onPreview?: (role: Role) => void; onBack?: 
             {currentUser?.avatarBase64 ? (
               <img src={currentUser.avatarBase64} alt="" className="w-8 h-8 rounded-full object-cover" />
             ) : (
-              <span className="w-8 h-8 rounded-full bg-[#F4511E] text-white text-xs font-black flex items-center justify-center">{currentUser?.name.substring(0, 2).toUpperCase()}</span>
+              <span className="w-8 h-8 rounded-full bg-warm text-white text-xs font-bold flex items-center justify-center">{currentUser?.name.substring(0, 2).toUpperCase()}</span>
             )}
             <span className="text-sm font-bold text-gray-700 hidden sm:inline">{currentUser?.name}</span>
           </button>
           {open && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-gray-100 p-2 z-50">
               <button onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className={item}>My Profile</button>
-              {onPreview && <p className="text-[10px] text-gray-400 font-black uppercase px-3 pt-2 pb-1 border-t mt-1">Preview as</p>}
+              {onPreview && <p className="text-[10px] text-gray-400 font-bold uppercase px-3 pt-2 pb-1 border-t mt-1">Preview as</p>}
               {onPreview && (['sound_designer', 'reviewer', 'audio_engineer', 'leadership'] as Role[]).map(role => (
                 <button key={role} onClick={() => { setOpen(false); onPreview(role); }} className={item}>
                   {role === 'sound_designer' ? 'Sound Designer (trainee)' : role === 'reviewer' ? 'Reviewer' : role === 'audio_engineer' ? 'Audio Engineer' : 'Leadership'}

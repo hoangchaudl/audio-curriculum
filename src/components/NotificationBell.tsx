@@ -5,11 +5,11 @@ import { useAppContext } from '../store';
 import { Notice, traineeNotifications } from '../assessment/notifications';
 
 const TONE: Record<string, string> = {
-  red: 'border-l-[#F4511E]', orange: 'border-l-[#FFA94D]', blue: 'border-l-[#2E9DF7]', green: 'border-l-[#3DDC97]',
+  red: 'border-l-warm', orange: 'border-l-[#FFA94D]', blue: 'border-l-brand', green: 'border-l-go',
 };
 
 const ICONS: Record<Notice['icon'], typeof Bell> = { alert: TriangleAlert, assignment: FileText, lesson: BookOpen, calendar: CalendarDays, check: CircleCheck };
-const ICON_TONE: Record<string, string> = { red: 'text-[#F4511E]', orange: 'text-[#FFA94D]', blue: 'text-[#2E9DF7]', green: 'text-[#3DDC97]' };
+const ICON_TONE: Record<string, string> = { red: 'text-warm', orange: 'text-[#FFA94D]', blue: 'text-brand', green: 'text-go' };
 
 const CATEGORIES: { id: 'all' | Notice['category']; label: string; Icon?: typeof Bell }[] = [
   { id: 'all', label: 'All' },
@@ -58,10 +58,10 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen(o => !o)} aria-label={`Notifications${unread.length ? ` (${unread.length} unread)` : ''}`} aria-expanded={open}
-        className={`relative w-9 h-9 rounded-full flex items-center justify-center transition-colors ${light ? 'bg-sky hover:bg-[#2E9DF7]/20' : 'bg-white/20 hover:bg-white/30'}`}>
-        <Bell className={`w-[18px] h-[18px] ${light ? 'text-[#2E9DF7]' : 'text-white'}`} strokeWidth={2.5} aria-hidden="true" />
+        className={`relative w-9 h-9 rounded-full flex items-center justify-center transition-colors ${light ? 'bg-sky hover:bg-brand/20' : 'bg-white/20 hover:bg-white/30'}`}>
+        <Bell className={`w-[18px] h-[18px] ${light ? 'text-brand' : 'text-white'}`} strokeWidth={2.5} aria-hidden="true" />
         {unread.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-[#F4511E] text-white text-[10px] font-black min-w-5 h-5 px-1 rounded-full flex items-center justify-center border-2 border-surface">
+          <span className="absolute -top-1 -right-1 bg-warm text-white text-[10px] font-bold min-w-5 h-5 px-1 rounded-full flex items-center justify-center border-2 border-surface">
             {unread.length}
           </span>
         )}
@@ -70,16 +70,16 @@ export const NotificationBell: React.FC<{ align?: 'left' | 'right'; light?: bool
         <div ref={panelRef} style={{ top: anchor.bottom + 8, ...(align === 'left' ? { left: anchor.left } : { right: window.innerWidth - anchor.right }) }}
           className="fixed w-80 max-w-[85vw] bg-surface rounded-2xl shadow-xl border border-gray-100 z-[60] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b">
-            <p className="text-sm font-black text-gray-800">Notifications</p>
-            {unread.length > 0 && <button onClick={() => markRead(notices.map(n => n.id))} className="text-xs font-bold text-[#2E9DF7] hover:underline">Mark all read</button>}
+            <p className="text-sm font-bold text-gray-800">Notifications</p>
+            {unread.length > 0 && <button onClick={() => markRead(notices.map(n => n.id))} className="text-xs font-bold text-brand hover:underline">Mark all read</button>}
           </div>
           <div role="tablist" aria-label="Notification types" className="flex gap-1 px-3 py-2 border-b overflow-x-auto">
             {CATEGORIES.map(c => {
               const count = (c.id === 'all' ? unread : unread.filter(n => n.category === c.id)).length;
               return (
                 <button key={c.id} role="tab" aria-selected={category === c.id} onClick={() => setCategory(c.id)}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${category === c.id ? 'bg-[#2E9DF7] text-white' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
-                  {c.Icon && <c.Icon className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />}{c.label}{count > 0 && <span className="ml-1 font-black">{count}</span>}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${category === c.id ? 'bg-brand text-white' : 'text-gray-500 hover:text-brand hover:bg-sky'}`}>
+                  {c.Icon && <c.Icon className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />}{c.label}{count > 0 && <span className="ml-1 font-bold">{count}</span>}
                 </button>
               );
             })}

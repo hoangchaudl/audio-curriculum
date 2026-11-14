@@ -66,19 +66,19 @@ export const SubmissionPanel: React.FC<{
           {[...versions].reverse().map(v => (
             <li key={v.id} className="bg-gray-50 rounded-2xl p-3 text-sm">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="font-black text-gray-800">v{v.version}</span>
+                <span className="font-bold text-gray-800">v{v.version}</span>
                 <span className="text-xs text-gray-400 font-bold">{new Date(v.submittedAt).toLocaleString()}</span>
-                {askComplete && v.isComplete && <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Complete</span>}
+                {askComplete && v.isComplete && <span className="bg-go/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Complete</span>}
                 {askComplete && gradesFirstComplete(stage) && v.id === firstComplete?.id && (
-                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Graded version</span>
+                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Graded version</span>
                 )}
                 {v.id === gradedSubmissionId && !gradesFirstComplete(stage) && (
-                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Graded version</span>
+                  <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Graded version</span>
                 )}
               </div>
               <ul className="flex flex-wrap gap-x-4 gap-y-1">
                 {v.links.map((l, i) => (
-                  <li key={i}><a href={l.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-[#2E9DF7] underline break-all">{l.label}</a></li>
+                  <li key={i}><a href={l.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand underline break-all">{l.label}</a></li>
                 ))}
               </ul>
               {v.note && <p className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">{v.note}</p>}
@@ -91,14 +91,14 @@ export const SubmissionPanel: React.FC<{
         <p className="text-xs font-bold text-gray-400 bg-gray-50 rounded-2xl p-3">{disabledReason}</p>
       ) : (
         <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
             {versions.length ? `Submit revision v${Math.max(...versions.map(v => v.version)) + 1}` : 'Submit your work'}
           </p>
           <p className="text-xs text-gray-600 bg-sky/40 rounded-xl px-3 py-2">
             {lang === 'vi' ? (
-              <>Tạo một folder đặt tên bằng <b>họ và tên đầy đủ</b> của bạn trong <a href={SUBMISSION_DRIVE} target="_blank" rel="noreferrer" className="font-bold text-[#2E9DF7] underline">Drive nộp bài</a>, upload bài tập vào đó, rồi dán link cụ thể của bài này vào bên dưới.</>
+              <>Tạo một folder đặt tên bằng <b>họ và tên đầy đủ</b> của bạn trong <a href={SUBMISSION_DRIVE} target="_blank" rel="noreferrer" className="font-bold text-brand underline">Drive nộp bài</a>, upload bài tập vào đó, rồi dán link cụ thể của bài này vào bên dưới.</>
             ) : (
-              <>Create a folder named with your <b>full name</b> in the <a href={SUBMISSION_DRIVE} target="_blank" rel="noreferrer" className="font-bold text-[#2E9DF7] underline">submission Drive</a>, upload this assignment there, then paste the link to that specific file below.</>
+              <>Create a folder named with your <b>full name</b> in the <a href={SUBMISSION_DRIVE} target="_blank" rel="noreferrer" className="font-bold text-brand underline">submission Drive</a>, upload this assignment there, then paste the link to that specific file below.</>
             )}
           </p>
           {links.map((l, i) => (
@@ -106,7 +106,7 @@ export const SubmissionPanel: React.FC<{
               <input value={l.label} maxLength={100} onChange={e => setLinks(ls => ls.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} aria-label="Link label" className={input} />
               <input value={l.url} maxLength={2000} onChange={e => setLinks(ls => ls.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))}
                 placeholder="https://drive.google.com/... or https://f.io/..." aria-label="Link URL"
-                className={`${input} ${l.url && !isHttpUrl(l.url) ? 'ring-2 ring-[#F4511E]' : ''}`} />
+                className={`${input} ${l.url && !isHttpUrl(l.url) ? 'ring-2 ring-warm' : ''}`} />
               {links.length > 1 ? (
                 <button type="button" onClick={() => setLinks(ls => ls.filter((_, j) => j !== i))} className="text-gray-400 hover:text-ember font-bold px-2" aria-label="Remove link">✕</button>
               ) : <span />}

@@ -36,11 +36,11 @@ export const ConfirmModal: React.FC<{
       aria-describedby={messageId}
       // Escape: let the parent decide (it owns `open`).
       onCancel={e => { e.preventDefault(); onCancel(); }}
-      className="m-auto bg-surface text-ink rounded-[32px] p-8 shadow-2xl border-4 border-surface max-w-sm w-[calc(100%-3rem)] backdrop:bg-black/50"
+      className="m-auto bg-surface text-ink rounded-2xl p-8 shadow-2xl border-4 border-surface max-w-sm w-[calc(100%-3rem)] backdrop:bg-black/50"
     >
       {open && (
         <>
-          <h3 id={titleId} className="text-lg font-black text-[#2E9DF7] mb-2">{title}</h3>
+          <h3 id={titleId} className="text-lg font-bold text-brand mb-2">{title}</h3>
           <p id={messageId} className="text-sm text-gray-600 mb-6">{message}</p>
           <div className="flex gap-3">
             <button
@@ -52,7 +52,7 @@ export const ConfirmModal: React.FC<{
             <button
               onClick={onConfirm}
               className={`flex-1 text-white font-bold text-sm py-3 rounded-2xl active:shadow-none active:translate-y-[2px] transition-all ${
-                danger ? 'bg-[#F4511E] shadow-[0_4px_0_#C53914]' : 'bg-[#2E9DF7] shadow-[0_4px_0_#1b85df]'
+                danger ? 'bg-warm' : 'bg-brand'
               }`}
             >
               {confirmLabel}

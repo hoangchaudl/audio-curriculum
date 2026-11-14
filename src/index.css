@@ -1,30 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Nunito", "Baloo 2", "Quicksand", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* Semantic colors - light values here, dark overrides under .dark below.
-     Brand blue/orange/green stay literal in components: they read fine on
-     both themes. */
-  --color-page: #FDFDFB;     /* app background */
-  --color-surface: #ffffff;  /* cards, panels, menus */
-  --color-sky: #E0F2FE;      /* light-blue tint fills */
-  --color-navy: #1E40AF;     /* text on sky tints */
-  --color-pocket: #F5F9FF;   /* "Gadget Pocket" panel */
-  --color-rose: #FEE2E2;     /* error / delete tint */
-  --color-peach: #FFF4ED;    /* orange card tint */
-  --color-mint: #E6FAF1;     /* green card tint */
-  --color-ink: #2D2D2D;      /* body text */
-  --color-leaf: #2A8F62;     /* green text */
-  --color-ember: #C53914;    /* red/orange text */
-  --color-rail: #2E9DF7;     /* sidebar */
+     "Glass" direction: soft gradient page, frosted white panels, one brand
+     blue with a warm StoryCo orange and a mint green for good states. */
+  --color-page: #EEF2FB;     /* app background (gradient added below) */
+  --color-surface: rgb(255 255 255 / .82); /* cards, panels, menus */
+  --color-sky: #E6ECFF;      /* brand-tint fills */
+  --color-navy: #2F4FE0;     /* text on sky tints */
+  --color-pocket: rgb(255 255 255 / .6);
+  --color-rose: #FDE4E1;     /* error / delete tint */
+  --color-peach: #FFF0E8;    /* orange card tint */
+  --color-mint: #E3F7EF;     /* green card tint */
+  --color-ink: #1C2133;      /* body text */
+  --color-leaf: #12805A;     /* green text */
+  --color-ember: #C8462A;    /* red/orange text */
+  --color-rail: rgb(255 255 255 / .55); /* sidebar glass */
+
+  /* Brand colors (were hard-coded hexes in components). */
+  --color-brand: #3D63F5;    /* primary actions, links, focus rings */
+  --color-warm: #F06A3D;     /* StoryCo orange: alerts, highlights */
+  --color-go: #2FBF8A;       /* success fills (dark text on it) */
+  --color-go-ink: #0B3D2A;   /* text on go */
+  --color-rail-ink: #5F6780; /* muted labels in the sidebar */
 
   /* Secondary text greys, darker than Tailwind's defaults so small grey
      text meets WCAG AA (4.5:1) on white, gray-50/100 and sky fills. */
-  --color-gray-400: #666d7a;
-  --color-gray-500: #596070;
+  --color-gray-400: #626a80;
+  --color-gray-500: #565e74;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -33,29 +40,33 @@
    every bg-gray-50 input / text-gray-800 label flips automatically. */
 .dark {
   color-scheme: dark;
-  --color-page: #0E1420;
-  --color-surface: #182131;
-  --color-sky: #1B3656;
-  --color-navy: #A9CCFF;
-  --color-pocket: #152033;
-  --color-rose: #3E1F22;
+  --color-page: #0C1121;
+  --color-surface: rgb(28 35 60 / .78);
+  --color-sky: #1C2A55;
+  --color-navy: #AFC0FF;
+  --color-pocket: rgb(255 255 255 / .05);
+  --color-rose: #3E1F24;
   --color-peach: #3A2419;
-  --color-mint: #14382A;
-  --color-ink: #E4E8EE;
+  --color-mint: #12372B;
+  --color-ink: #E8ECF6;
   --color-leaf: #5FE0A7;
   --color-ember: #FF8A65;
-  --color-rail: #173A66;
+  --color-rail: rgb(22 28 50 / .6);
+  --color-brand: #6F8CFF;
+  --color-warm: #FF7E54;
+  --color-go: #3DD39B;
+  --color-rail-ink: #9098AE;
 
-  --color-gray-50: #121A28;
-  --color-gray-100: #202A3C;
-  --color-gray-200: #2B374C;
-  --color-gray-300: #3A475E;
-  --color-gray-400: #8A96AB; /* 4.5:1+ on surface and gray-100 */
-  --color-gray-500: #97A2B6;
-  --color-gray-600: #B2BCCB;
-  --color-gray-700: #CAD1DC;
-  --color-gray-800: #E1E6EC;
-  --color-gray-900: #F2F4F7;
+  --color-gray-50: #141B2E;
+  --color-gray-100: #1E2740;
+  --color-gray-200: #2A3452;
+  --color-gray-300: #3A4566;
+  --color-gray-400: #8C95AD; /* 4.5:1+ on surface and gray-100 */
+  --color-gray-500: #99A2B8;
+  --color-gray-600: #B3BBCD;
+  --color-gray-700: #CBD1DE;
+  --color-gray-800: #E1E5EE;
+  --color-gray-900: #F2F4F8;
 }
 
 /* Pins a subtree to the light palette even in dark mode - used where
@@ -63,19 +74,20 @@
    green/yellow/orange grade card). Must come after .dark to win. */
 .theme-light {
   color-scheme: light;
-  --color-page: #FDFDFB;
+  --color-page: #EEF2FB;
   --color-surface: #ffffff;
-  --color-sky: #E0F2FE;
-  --color-navy: #1E40AF;
-  --color-ink: #2D2D2D;
-  --color-leaf: #2A8F62;
-  --color-ember: #C53914;
+  --color-sky: #E6ECFF;
+  --color-navy: #2F4FE0;
+  --color-ink: #1C2133;
+  --color-leaf: #12805A;
+  --color-ember: #C8462A;
+  --color-brand: #3D63F5;
   --color-gray-50: #f9fafb;
   --color-gray-100: #f3f4f6;
   --color-gray-200: #e5e7eb;
   --color-gray-300: #d1d5db;
-  --color-gray-400: #666d7a;
-  --color-gray-500: #596070;
+  --color-gray-400: #626a80;
+  --color-gray-500: #565e74;
   --color-gray-600: #4b5563;
   --color-gray-700: #374151;
   --color-gray-800: #1f2937;
@@ -86,11 +98,37 @@ html, body {
   background: var(--color-page);
 }
 
+/* Soft gradient behind every page root (bg-page). Fixed, so nested page
+   roots line up into one continuous background. Unlayered, so it adds to
+   Tailwind's background-color instead of fighting it. */
+:root { --page-g1: #D9E2FF; --page-g2: #EEE2FF; --page-g3: #DCF3EA; }
+.dark { --page-g1: #1A2452; --page-g2: #2A1C52; --page-g3: #0E2E2B; }
+html, body, .bg-page {
+  background-image:
+    radial-gradient(55% 45% at 0% 0%, var(--page-g1), transparent 70%),
+    radial-gradient(45% 45% at 100% 5%, var(--page-g2), transparent 70%),
+    radial-gradient(60% 55% at 60% 100%, var(--page-g3), transparent 70%);
+  background-attachment: fixed;
+}
+
 /* Tailwind v4 defaults border color to currentColor; restore the soft gray
    the design expects for plain border / border-t / border-b dividers. */
 @layer base {
   *, ::after, ::before, ::backdrop, ::file-selector-button {
     border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+/* Frosted glass panel: the card style for the whole site. */
+:root { --glass-edge: rgb(255 255 255 / .85); --glass-shadow: rgb(40 60 140 / .16); }
+.dark { --glass-edge: rgb(255 255 255 / .08); --glass-shadow: rgb(0 0 0 / .5); }
+@layer components {
+  .glass {
+    background-color: var(--color-surface);
+    border: 1px solid var(--glass-edge);
+    box-shadow: 0 10px 28px -14px var(--glass-shadow);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    backdrop-filter: blur(18px) saturate(1.4);
   }
 }
 

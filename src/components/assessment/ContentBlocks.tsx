@@ -21,10 +21,10 @@ export const ContentBlocks: React.FC<{
             return <div key={block.id} className={card}><Md>{block.markdown}</Md></div>;
           case 'expectation':
             return (
-              <div key={block.id} className="bg-sky rounded-[32px] p-6 border-2 border-surface flex gap-3">
+              <div key={block.id} className="bg-sky rounded-2xl p-6 border-2 border-surface flex gap-3">
                 <span className="text-xl" aria-hidden="true">🎯</span>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-navy mb-1">Progress expectation</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-navy mb-1">Progress expectation</p>
                   <p className="text-sm text-navy font-medium">{block.text}</p>
                 </div>
               </div>
@@ -33,12 +33,12 @@ export const ContentBlocks: React.FC<{
             const due = formatDate(dateFor(startDate, block.week, block.day));
             return (
               <div key={block.id} className={`${card} flex gap-4 items-start`}>
-                <div className="bg-[#F4511E]/15 text-ember rounded-2xl px-3 py-2 text-center flex-shrink-0">
-                  <p className="text-[10px] font-black uppercase">Week {block.week}{block.day ? ` · Day ${block.day}` : ''}</p>
+                <div className="bg-warm/15 text-ember rounded-2xl px-3 py-2 text-center flex-shrink-0">
+                  <p className="text-[10px] font-bold uppercase">Week {block.week}{block.day ? ` · Day ${block.day}` : ''}</p>
                   {due && <p className="text-xs font-bold">{due}</p>}
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Milestone</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Milestone</p>
                   <p className="font-bold text-gray-800">{block.title}</p>
                   {block.description && <div className="mt-1"><Md>{block.description}</Md></div>}
                 </div>
@@ -54,7 +54,7 @@ export const ContentBlocks: React.FC<{
                     const when = formatDate(dateFor(startDate, item.week, item.day));
                     return (
                       <li key={i} className="py-2.5 flex items-start gap-3 text-sm">
-                        <span className="w-28 flex-shrink-0 text-[11px] font-black uppercase text-gray-500">
+                        <span className="w-28 flex-shrink-0 text-[11px] font-bold uppercase text-gray-500">
                           Wk {item.week}{item.day ? ` · D${item.day}` : ''}
                           {when && <span className="block normal-case font-bold text-gray-400">{when}</span>}
                         </span>
@@ -74,13 +74,13 @@ export const ContentBlocks: React.FC<{
             return (
               <div key={block.id} className="space-y-2">
                 {yt ? (
-                  <div className="aspect-video rounded-[32px] overflow-hidden shadow-xl bg-black">
+                  <div className="aspect-video rounded-2xl overflow-hidden shadow-xl bg-black">
                     <YouTubePlayer videoId={yt} start={block.start} end={block.end} onEnded={() => onVideoEnded?.(block.id)} />
                   </div>
                 ) : (
                   <a href={block.url} target="_blank" rel="noreferrer" className={`${card} flex items-center gap-3 hover:shadow-md transition-shadow`}>
                     <span className="text-2xl" aria-hidden="true">🎬</span>
-                    <span className="font-bold text-[#2E9DF7] underline">{block.title || block.url}</span>
+                    <span className="font-bold text-brand underline">{block.title || block.url}</span>
                   </a>
                 )}
                 {block.title && yt && <p className="text-xs font-bold text-gray-500 px-2">{block.title}</p>}

@@ -14,14 +14,14 @@ export const STAGE_LABELS: Record<AssessmentStage, string> = {
   DA: 'Audio Description (DA)',
 };
 
-export const card = 'bg-surface rounded-[32px] p-6 md:p-8 border border-gray-100 shadow-sm';
+export const card = 'glass rounded-2xl p-6 md:p-8';
 // Slimmer side padding, for the card holding the rubric table (more width for the text).
-export const wideCard = 'bg-surface rounded-[32px] p-4 md:p-5 border border-gray-100 shadow-sm';
-export const sectionTitle = 'text-sm font-black uppercase text-[#2E9DF7] tracking-widest';
-export const input = 'w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-medium';
+export const wideCard = 'glass rounded-2xl p-4 md:p-5';
+export const sectionTitle = 'text-xs font-semibold uppercase text-brand tracking-[0.08em]';
+export const input = 'w-full bg-surface border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 export const primaryBtn =
-  'bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2.5 rounded-2xl shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0';
-export const secondaryBtn = 'bg-gray-100 text-gray-700 font-bold text-sm px-4 py-2 rounded-2xl hover:bg-gray-200 transition-colors disabled:opacity-50';
+  'bg-brand text-white font-semibold text-sm px-5 py-2.5 rounded-full shadow-[0_6px_16px_-6px_var(--color-brand)] hover:brightness-110 active:translate-y-px transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0';
+export const secondaryBtn = 'bg-surface border border-gray-200 text-gray-700 font-semibold text-sm px-4 py-2 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50';
 
 // One save rule: every write reports "✓ Saved" (or a failure) in the
 // corner via <SavedToast /> - through saveWith, or notifySave directly.
@@ -51,9 +51,9 @@ export const SyncErrorBanner: React.FC = () => {
   }, []);
   if (!show) return null;
   return (
-    <div role="alert" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl flex flex-wrap items-center gap-3 bg-[#F4511E] text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-lg">
+    <div role="alert" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl flex flex-wrap items-center gap-3 bg-warm text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-lg">
       <span className="flex-1 min-w-[12rem]">Some data couldn't load, so this page may be out of date.</span>
-      <button onClick={() => window.location.reload()} className="bg-white text-ember px-3 py-1 rounded-full text-xs font-black uppercase">Refresh</button>
+      <button onClick={() => window.location.reload()} className="bg-white text-ember px-3 py-1 rounded-full text-xs font-bold uppercase">Refresh</button>
       <button onClick={() => setShow(false)} aria-label="Dismiss" className="px-1 text-white/80 hover:text-white">✕</button>
     </div>
   );
@@ -73,8 +73,8 @@ export const SavedToast: React.FC = () => {
   }, []);
   if (!state) return null;
   return (
-    <div role="status" className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-black ${
-      state === 'ok' ? 'bg-[#3DDC97] text-[#0B3D2A]' : 'bg-[#F4511E] text-white'}`}>
+    <div role="status" className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-lg text-sm font-bold ${
+      state === 'ok' ? 'bg-go text-go-ink' : 'bg-warm text-white'}`}>
       {state === 'ok' ? '✓ Saved' : "Couldn't save - check your connection and try again"}
     </div>
   );
@@ -85,12 +85,12 @@ export const ProgressBar: React.FC<{ done: number; total: number; label?: string
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   return (
     <div>
-      <div className="flex justify-between text-[10px] font-black text-gray-500 mb-1.5 uppercase tracking-wide">
+      <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
         <span>{label}</span>
         <span>{total ? `${done} of ${total} done · ${pct}%` : 'Nothing to do yet'}</span>
       </div>
       <div className={`${size === 'lg' ? 'h-4' : 'h-3'} bg-gray-100 rounded-full overflow-hidden`} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
-        <div className="h-full rounded-full bg-[#3DDC97] transition-all" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-go transition-all" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -101,7 +101,7 @@ export const ProgressBar: React.FC<{ done: number; total: number; label?: string
 export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg'; max?: number }> = ({ outcome, size = 'sm', max = 5 }) => {
   if (outcome.status === 'awaiting') {
     return (
-      <span className="inline-block bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide">
+      <span className="inline-block bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide">
         {outcomeLabel(outcome)}
       </span>
     );
@@ -112,17 +112,17 @@ export const OutcomeBadge: React.FC<{ outcome: Outcome; size?: 'sm' | 'lg'; max?
   const band = SCORE_LABELS_5[Math.min(5, Math.max(1, Math.floor(shown + 1e-9)))];
   return (
     <span className="inline-flex items-baseline gap-1.5">
-      <span className={`font-black text-gray-800 ${size === 'lg' ? 'text-3xl' : 'text-base'}`}>{shown.toFixed(2)}</span>
+      <span className={`font-bold text-gray-800 ${size === 'lg' ? 'text-3xl' : 'text-base'}`}>{shown.toFixed(2)}</span>
       <span className="text-xs font-bold text-gray-400">/ {max}</span>
-      {max === 5 && <span className="text-[10px] font-black uppercase tracking-wide text-leaf ml-1">{band}</span>}
+      {max === 5 && <span className="text-[10px] font-bold uppercase tracking-wide text-leaf ml-1">{band}</span>}
     </span>
   );
 };
 
 export const BenchmarkChip: React.FC<{ meets?: boolean; threshold: number }> = ({ meets, threshold }) =>
   meets === undefined ? null : (
-    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${
-      meets ? 'bg-[#3DDC97] text-[#0B3D2A]' : 'bg-[#F4511E]/20 text-ember'
+    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+      meets ? 'bg-go text-go-ink' : 'bg-warm/20 text-ember'
     }`}>
       {meets ? '✓ Meeting benchmark' : `Below benchmark (${threshold})`}
     </span>
@@ -141,7 +141,7 @@ export const formatDate = (d: Date | null) =>
 
 // Text colors for `[text](#color-name)` in Markdown (see MarkdownEditor).
 export const TEXT_COLORS: Record<string, string> = {
-  blue: 'text-[#2E9DF7]',
+  blue: 'text-brand',
   red: 'text-ember',
   green: 'text-leaf',
   navy: 'text-navy',
@@ -149,7 +149,7 @@ export const TEXT_COLORS: Record<string, string> = {
 
 // Safe Markdown (react-markdown never renders raw HTML by default).
 export const Md: React.FC<{ children: string }> = ({ children }) => (
-  <div className="text-sm text-gray-700 leading-relaxed space-y-2 [&_h1]:text-lg [&_h1]:font-black [&_h2]:text-base [&_h2]:font-black [&_h2]:text-gray-800 [&_h2]:pt-2 [&_h3]:font-bold [&_h3]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[#2E9DF7] [&_a]:underline [&_strong]:text-gray-800 [&_blockquote]:bg-sky [&_blockquote]:text-navy [&_blockquote]:rounded-2xl [&_blockquote]:px-4 [&_blockquote]:py-3 [&_blockquote]:border-l-4 [&_blockquote]:border-[#2E9DF7] [&_hr]:border-gray-200 [&_hr]:my-4">
+  <div className="text-sm text-gray-700 leading-relaxed space-y-2 [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-800 [&_h2]:pt-2 [&_h3]:font-bold [&_h3]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-brand [&_a]:underline [&_strong]:text-gray-800 [&_blockquote]:bg-sky [&_blockquote]:text-navy [&_blockquote]:rounded-2xl [&_blockquote]:px-4 [&_blockquote]:py-3 [&_blockquote]:border-l-4 [&_blockquote]:border-brand [&_hr]:border-gray-200 [&_hr]:my-4">
     <Suspense fallback={<p className="whitespace-pre-wrap">{children}</p>}>
       <Markdown
         components={{
@@ -208,7 +208,7 @@ export const RubricLangToggle: React.FC<{ lang: RubricLang; onChange: (l: Rubric
   <div role="group" aria-label="Rubric language" className="flex gap-1">
     {(['en', 'vi'] as const).map(l => (
       <button key={l} type="button" aria-pressed={lang === l} onClick={() => onChange(l)}
-        className={`px-3 py-1 rounded-full text-[11px] font-black ${lang === l ? 'bg-[#2E9DF7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+        className={`px-3 py-1 rounded-full text-[11px] font-bold ${lang === l ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
         {l === 'en' ? 'EN' : 'VI'}
       </button>
     ))}
@@ -248,7 +248,7 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
   <div className="overflow-x-auto" lang={vi ? 'vi' : undefined}>
     <table className="w-full text-xs border-separate border-spacing-1">
       <thead>
-        <tr className="text-[10px] font-black uppercase text-gray-500">
+        <tr className="text-[10px] font-bold uppercase text-gray-500">
           <th className="text-left px-2 py-1 w-44 min-w-[9rem]">{t.criterion}</th>
           {notes && <th className="text-center px-1 py-1 w-16">{t.weighting}</th>}
           {/* A minimum width per score column: on small screens the table
@@ -260,16 +260,16 @@ export const RubricTable: React.FC<{ lines: RubricLine[]; bands?: string[]; band
         {lines.map(l => (
           <tr key={l.id} className="align-top">
             <td className="bg-sky text-navy rounded-xl px-3 py-2">
-              <p className="font-black">{title(l)}</p>
-              {outcome(l) && <p className="mt-1.5 text-[11px] font-medium whitespace-pre-wrap"><span className="block text-[9px] font-black uppercase opacity-70">{t.assesses}</span>{outcome(l)}</p>}
+              <p className="font-bold">{title(l)}</p>
+              {outcome(l) && <p className="mt-1.5 text-[11px] font-medium whitespace-pre-wrap"><span className="block text-[9px] font-bold uppercase opacity-70">{t.assesses}</span>{outcome(l)}</p>}
             </td>
-            {notes && <td className="bg-gray-50 rounded-xl px-1 py-2 text-center font-black text-gray-700">{l.note}</td>}
+            {notes && <td className="bg-gray-50 rounded-xl px-1 py-2 text-center font-bold text-gray-700">{l.note}</td>}
             {scoreRange(max).map(n => {
               const got = scores?.[l.id] === n;
               return (
                 <td key={n} aria-current={got ? 'true' : undefined}
-                  className={`rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap ${got ? 'bg-[#2E9DF7] text-white font-bold ring-2 ring-[#1b85df]' : 'bg-gray-50 text-gray-700'}`}>
-                  {got && <span className="block text-[10px] font-black uppercase mb-1">{vi ? '✓ Điểm của bạn' : '✓ Your score'}</span>}
+                  className={`rounded-xl px-3 py-2 leading-relaxed whitespace-pre-wrap ${got ? 'bg-brand text-white font-bold ring-2 ring-brand' : 'bg-gray-50 text-gray-700'}`}>
+                  {got && <span className="block text-[10px] font-bold uppercase mb-1">{vi ? '✓ Điểm của bạn' : '✓ Your score'}</span>}
                   {level(l, n) || <span className={got ? '' : 'text-gray-300'}>–</span>}
                 </td>
               );

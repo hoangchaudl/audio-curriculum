@@ -38,7 +38,7 @@ export const AssignmentView: React.FC<{ assignmentId: string; viewOnly?: boolean
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <header className="min-h-20 bg-surface border-b flex items-center px-4 md:px-10 py-3 flex-shrink-0">
         <div className="min-w-0">
-          <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{assignment.title}</h2>
+          <h2 className="text-lg md:text-2xl font-bold text-brand truncate">{assignment.title}</h2>
           <p className="text-xs text-gray-400 font-medium mt-1">{assignment.practice ? 'Practice · gets feedback, not part of your grade' : `Episode A assignment · counts toward Episode A (${data.config.stageWeights.episodeA}% of your final grade)`}</p>
         </div>
       </header>
@@ -57,12 +57,12 @@ export const AssignmentView: React.FC<{ assignmentId: string; viewOnly?: boolean
                 score each got. Without one, list the criteria (and scores). */}
             {hasRubric ? (
               <>
-                <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
+                <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Rubric - what each score means</p>
                 <RubricTable lines={lines.map(l => ({ ...l, note: `${l.weight}%` }))} bands={assignment.bands} bandsVi={assignment.bandsVi} max={maxScore(assignment)}
                   scores={published ? Object.fromEntries(lines.map(l => [l.id, data.reviews.find(r => r.stage === 'A' && r.target === l.id)?.scores.exercise])) : undefined} />
                 {published && feedback.map(f => (
                   <div key={f} className="mt-4 bg-sky rounded-2xl p-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-navy mb-1">Trainer feedback</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-navy mb-1">Trainer feedback</p>
                     <p className="text-sm text-navy whitespace-pre-wrap">{f}</p>
                   </div>
                 ))}

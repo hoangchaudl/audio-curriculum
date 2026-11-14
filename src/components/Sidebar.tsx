@@ -135,9 +135,7 @@ export const Sidebar: React.FC<{
           aria-hidden="true"
         />
       )}
-      <aside ref={asideRef} inert={!desktop && !mobileOpen} className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto bg-rail flex flex-col p-4 shadow-xl overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-      {/* Decorative "Doraemon" Ring/Collar Detail at bottom */}
-      <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#F4511E] rounded-full opacity-20 pointer-events-none"></div>
+      <aside ref={asideRef} inert={!desktop && !mobileOpen} className={`${isCollapsed ? 'lg:w-24' : 'lg:w-72'} w-72 fixed lg:static inset-y-0 left-0 z-40 lg:z-auto glass bg-surface lg:bg-rail lg:m-3 lg:rounded-2xl flex flex-col p-4 overflow-hidden flex-shrink-0 transition-transform lg:transition-all duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
 
       <div className={`flex items-center gap-3 mb-8 z-10 ${isCollapsed ? 'flex-col' : ''}`}>
         <div className="relative w-10 flex-shrink-0">
@@ -148,7 +146,7 @@ export const Sidebar: React.FC<{
           <h1 className="flex flex-col leading-none">
             <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-4 w-auto self-start dark:hidden" />
             <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-4 w-auto self-start hidden dark:block" />
-            <span className="text-[#E0F2FE] text-[10px] font-extrabold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
+            <span className="text-rail-ink text-[10px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap mt-0.5">Audio Training Program</span>
           </h1>
         )}
         {!isCollapsed && <div className="ml-auto hidden lg:block"><NotificationBell /></div>}
@@ -156,7 +154,7 @@ export const Sidebar: React.FC<{
           <button
             onClick={onToggleCollapse}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={`${isCollapsed ? '' : 'ml-auto'} hidden lg:flex w-7 h-7 flex-shrink-0 bg-white/20 rounded-full items-center justify-center text-white font-black text-xs hover:bg-white/30 transition-colors`}
+            className={`${isCollapsed ? '' : 'ml-auto'} hidden lg:flex w-7 h-7 flex-shrink-0 bg-gray-100 rounded-full items-center justify-center text-gray-600 font-bold text-xs hover:bg-gray-200 transition-colors`}
           >
             <svg viewBox="0 0 24 24" className={`w-4 h-4 ${collapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M15 6l-6 6 6 6" />
@@ -166,7 +164,7 @@ export const Sidebar: React.FC<{
         <button
           onClick={onCloseMobile}
           title="Close menu"
-          className="ml-auto lg:hidden w-7 h-7 flex-shrink-0 bg-white/20 rounded-full flex items-center justify-center text-white font-black text-xs hover:bg-white/30 transition-colors"
+          className="ml-auto lg:hidden w-7 h-7 flex-shrink-0 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold text-xs hover:bg-gray-200 transition-colors"
         >
           ✕
         </button>
@@ -175,7 +173,7 @@ export const Sidebar: React.FC<{
       <div className="flex-1 overflow-y-auto pr-1 z-10 scrollbar-hide pb-4">
         {programLinks.length > 0 && (
           <div className="mb-6">
-            {!isCollapsed && <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">Assessment</p>}
+            {!isCollapsed && <p className="text-rail-ink text-[10px] uppercase font-semibold tracking-widest mb-3 pl-2">Assessment</p>}
             <div className="space-y-2">
               {programLinks.map(link => {
                 const active = activePage === link.page;
@@ -186,7 +184,7 @@ export const Sidebar: React.FC<{
                     title={link.label}
                     aria-current={active ? 'page' : undefined}
                     className={`${isCollapsed ? 'w-14 h-14 mx-auto justify-center' : 'w-full p-3 gap-3'} flex items-center rounded-2xl transition-all ${
-                      active ? 'theme-light bg-surface text-navy font-bold shadow-md' : 'text-white/80 font-semibold hover:bg-white/10'
+                      active ? 'bg-surface text-navy font-bold shadow-sm' : 'text-gray-700 font-semibold hover:bg-white/60 dark:hover:bg-white/5'
                     }`}
                   >
                     <span aria-hidden="true" className="w-6 flex items-center justify-center flex-shrink-0">{link.icon}</span>
@@ -230,10 +228,10 @@ export const Sidebar: React.FC<{
             <div key={week.id} className="mb-6">
               {!isCollapsed && (
                 <button onClick={() => toggleWeek(week.id)} aria-expanded={weekOpen}
-                  className="w-full flex items-center gap-1.5 text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2 hover:text-white">
+                  className="w-full flex items-center gap-1.5 text-rail-ink text-[10px] uppercase font-semibold tracking-widest mb-3 pl-2 hover:text-gray-900">
                   <span aria-hidden="true" className={`transition-transform ${weekOpen ? 'rotate-90' : ''}`}>›</span>
                   <span className="text-left">{weekLabel(programOutline!.weeks.indexOf(week))}</span>
-                  <span className="ml-auto pr-2 text-white/60">{doneCount}/{rows.length}</span>
+                  <span className="ml-auto pr-2 text-gray-500">{doneCount}/{rows.length}</span>
                 </button>
               )}
               {weekOpen && (
@@ -252,13 +250,13 @@ export const Sidebar: React.FC<{
                     else { window.location.hash = `#/assignment/${row.asg.id}`; onCloseMobile(); }
                   };
                   // Assignments get an orange edge and label so trainees see graded work coming.
-                  const cls = selected ? 'theme-light bg-surface text-navy font-bold shadow-md'
-                    : row.kind === 'assignment' ? 'bg-white/10 text-white font-bold border-l-4 border-[#F4511E] hover:bg-white/15'
-                    : 'text-white/80 font-semibold hover:bg-white/10';
+                  const cls = selected ? 'bg-surface text-navy font-bold shadow-sm'
+                    : row.kind === 'assignment' ? 'bg-white/50 dark:bg-white/5 text-gray-900 font-bold border-l-4 border-warm hover:bg-white/70 dark:hover:bg-white/10'
+                    : 'text-gray-700 font-semibold hover:bg-white/60 dark:hover:bg-white/5';
                   if (isCollapsed) {
                     return (
                       <button key={row.key} onClick={open} title={title} aria-current={selected ? 'page' : undefined}
-                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-black text-sm transition-all ${selected ? cls : `bg-white/10 ${cls}`}`}>
+                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-bold text-sm transition-all ${selected ? cls : `bg-white/50 dark:bg-white/5 ${cls}`}`}>
                         {n}
                       </button>
                     );
@@ -271,41 +269,41 @@ export const Sidebar: React.FC<{
                     <React.Fragment key={row.key}>
                     {heading && (
                       <button onClick={() => toggleWeek(sectionKey(row))} aria-expanded={sectionOpen(row)}
-                        className="w-full flex items-center gap-1.5 text-white/70 text-[11px] font-black pl-3 pt-2 hover:text-white">
+                        className="w-full flex items-center gap-1.5 text-gray-600 text-[11px] font-bold pl-3 pt-2 hover:text-gray-900">
                         <span aria-hidden="true" className={`transition-transform ${sectionOpen(row) ? 'rotate-90' : ''}`}>›</span>
                         <span className="text-left">{heading}</span>
-                        <span className="ml-auto pr-2 text-white/50 text-[10px]">{inSection.filter(isDone).length}/{inSection.length}</span>
+                        <span className="ml-auto pr-2 text-gray-400 text-[10px]">{inSection.filter(isDone).length}/{inSection.length}</span>
                       </button>
                     )}
                     {sectionOpen(row) && <button onClick={open} aria-current={selected ? 'page' : undefined}
                       className={`w-full flex items-center justify-between gap-2 p-3 rounded-2xl text-left transition-all ${cls}`}>
                       <span className="flex items-center gap-3 min-w-0">
                         <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
-                          row.kind === 'content' && isDone(row) ? 'bg-[#3DDC97] text-[#0B3D2A]' : selected ? 'bg-sky' : ''}`}>
+                          row.kind === 'content' && isDone(row) ? 'bg-go text-go-ink' : selected ? 'bg-sky' : ''}`}>
                           {row.kind === 'content' && isDone(row) ? '✓' : n}
                         </span>
                         <span className="leading-tight">
                           {row.kind === 'content' && row.mod.quiz && (
-                            <span className={`block text-[10px] font-black uppercase tracking-widest ${selected ? 'text-navy' : 'text-[#E0F2FE]'}`}>❓ Quiz</span>
+                            <span className={`block text-[10px] font-bold uppercase tracking-widest ${selected ? 'text-navy' : 'text-rail-ink'}`}>❓ Quiz</span>
                           )}
                           {row.kind === 'assignment' && (
-                            <span className={`block text-[10px] font-black uppercase tracking-widest ${selected ? 'text-ember' : 'text-[#FFB59C]'}`}>📝 Assignment</span>
+                            <span className={`block text-[10px] font-bold uppercase tracking-widest ${selected ? 'text-ember' : 'text-[#FFB59C]'}`}>📝 Assignment</span>
                           )}
                           {title}
                           {(row.kind === 'content' ? row.mod.videoSeconds : row.asg.hours) ? (
-                            <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : 'text-white/60'}`}>
+                            <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : 'text-gray-500'}`}>
                               {row.kind === 'content' ? `▶ ${formatLength(row.mod.videoSeconds!)}` : `⏱ ~${row.asg.hours} h`}
                             </span>
                           ) : null}
-                          {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : row.kind === 'assignment' ? 'text-white' : 'text-white/60'}`}>{due}</span>}
+                          {due && <span className={`block text-[10px] font-bold ${selected ? 'text-gray-500' : row.kind === 'assignment' ? 'text-gray-700' : 'text-gray-500'}`}>{due}</span>}
                         </span>
                       </span>
                       {status && (
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0 ${
-                          status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]'
-                            : overdue ? 'bg-[#F4511E] text-white'
-                            : status === 'draft' ? 'bg-[#2E9DF7]/20 text-navy'
-                            : selected ? 'bg-gray-100 text-gray-500' : 'bg-black/10 text-white/90'
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${
+                          status === 'submitted' ? 'bg-go text-go-ink'
+                            : overdue ? 'bg-warm text-white'
+                            : status === 'draft' ? 'bg-brand/20 text-navy'
+                            : selected ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-600'
                         }`}>
                           {status === 'submitted' ? '✓ Submitted' : overdue ? 'Overdue' : status === 'draft' ? 'Draft' : 'To do'}
                         </span>
@@ -323,15 +321,15 @@ export const Sidebar: React.FC<{
         {sections.map(({ key, title, mods }) => (
           <div key={key} className="mb-6">
             {!isCollapsed && (
-              <p className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest mb-3 pl-2">{title}</p>
+              <p className="text-rail-ink text-[10px] uppercase font-semibold tracking-widest mb-3 pl-2">{title}</p>
             )}
             <div className="space-y-2">
               {mods.map((mod) => {
                   const isSelected = selectedModuleId === mod.id;
                   const label = mod.label || mod.order.toString().padStart(2, '0');
                   const stateClass = isSelected
-                    ? 'theme-light bg-surface text-navy font-bold shadow-md'
-                    : 'text-white/80 font-semibold hover:bg-white/10';
+                    ? 'bg-surface text-navy font-bold shadow-sm'
+                    : 'text-gray-700 font-semibold hover:bg-white/60 dark:hover:bg-white/5';
 
                   if (isCollapsed) {
                     return (
@@ -339,7 +337,7 @@ export const Sidebar: React.FC<{
                         key={mod.id}
                         onClick={() => setSelectedModuleId(mod.id)}
                         title={mod.title}
-                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-black text-sm transition-all ${isSelected ? stateClass : `bg-white/10 ${stateClass}`}`}
+                        className={`w-14 h-14 mx-auto flex items-center justify-center rounded-2xl font-bold text-sm transition-all ${isSelected ? stateClass : `bg-white/50 dark:bg-white/5 ${stateClass}`}`}
                       >
                         {label}
                       </button>
@@ -370,44 +368,44 @@ export const Sidebar: React.FC<{
       <div className="mt-auto pt-4 z-10">
         <div className={`flex items-center mb-3 ${isCollapsed ? 'justify-center' : 'justify-between px-2'}`}>
           {!isCollapsed && (
-            <span className="text-[#E0F2FE] text-[10px] uppercase font-extrabold tracking-widest">{isDark ? 'Dark mode' : 'Light mode'}</span>
+            <span className="text-rail-ink text-[10px] uppercase font-semibold tracking-widest">{isDark ? 'Dark mode' : 'Light mode'}</span>
           )}
           <ThemeToggle isDark={isDark} onChange={(dark) => updateUserTheme(dark ? 'dark' : 'light')} />
         </div>
         <div
           ref={menuRef}
-          className={`bg-[#1E40AF]/20 border border-white/10 rounded-3xl flex items-center relative cursor-pointer hover:bg-[#1E40AF]/30 transition-colors ${isCollapsed ? 'p-2 justify-center' : 'p-4 justify-between'}`}
+          className={`bg-white/50 dark:bg-white/5 border border-white/70 dark:border-white/10 rounded-2xl flex items-center relative cursor-pointer hover:bg-white/70 dark:hover:bg-white/10 transition-colors ${isCollapsed ? 'p-2 justify-center' : 'p-4 justify-between'}`}
           onClick={() => setMenuOpen(o => !o)}
         >
           <div className={`flex items-center gap-3 truncate ${isCollapsed ? 'gap-0' : ''}`}>
             {currentUser?.avatarBase64 ? (
               <img src={currentUser.avatarBase64} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-surface shadow-sm object-cover flex-shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-[#F4511E] border-2 border-surface shadow-sm flex items-center justify-center text-white font-black flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-warm border-2 border-surface shadow-sm flex items-center justify-center text-white font-bold flex-shrink-0">
                 {currentUser?.name.substring(0, 2).toUpperCase()}
               </div>
             )}
             {!isCollapsed && (
               <div className="truncate">
-                <p className="text-xs text-white/70 font-medium capitalize">
+                <p className="text-xs text-gray-600 font-medium capitalize">
                   {(previewRole ?? currentUser?.role)?.replace('_', ' ')}
                   {previewRole && <span className="ml-1 opacity-70">(preview)</span>}
                 </p>
-                <p className="text-sm text-white font-bold truncate">{currentUser?.name}</p>
+                <p className="text-sm text-gray-900 font-bold truncate">{currentUser?.name}</p>
               </div>
             )}
           </div>
 
           {menuOpen && (
             <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-surface p-2 rounded-2xl shadow-xl z-50">
-               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-black text-[#F4511E] hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
+               <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-bold text-warm hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
 
                {/* Admin-only: preview other dashboards without changing your
                    real role or signing in as anyone else. Purely a client-side
                    view toggle - see App.tsx effectiveRole. */}
                {isRealAdmin && (
                  <>
-                   <p className="text-[10px] text-gray-400 font-black uppercase px-2 pt-2 mb-1 border-t">Preview As</p>
+                   <p className="text-[10px] text-gray-400 font-bold uppercase px-2 pt-2 mb-1 border-t">Preview As</p>
                    {(['admin', 'sound_designer', 'audio_engineer', 'leadership'] as Role[]).map((role) => (
                      <button
                        key={role}

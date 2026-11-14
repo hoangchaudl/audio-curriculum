@@ -78,11 +78,11 @@ export const ProgramOverview: React.FC = () => {
     <div className={`${card} flex flex-col gap-3`}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{weeks}</p>
-          <h3 className="text-lg font-black text-gray-800">{title}</h3>
-          {task && <p className="text-xs font-black text-[#2E9DF7] mt-0.5">{task}</p>}
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{weeks}</p>
+          <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+          {task && <p className="text-xs font-bold text-brand mt-0.5">{task}</p>}
         </div>
-        <span className="bg-sky text-navy px-3 py-1 rounded-full text-xs font-black">{weight}%</span>
+        <span className="bg-sky text-navy px-3 py-1 rounded-full text-xs font-bold">{weight}%</span>
       </div>
       <p className="text-xs text-gray-600 leading-relaxed">{about}</p>
       <div className="min-h-8">
@@ -91,7 +91,7 @@ export const ProgramOverview: React.FC = () => {
         )}
       </div>
       {children}
-      {onOpen && <button onClick={onOpen} className="self-start text-xs font-black uppercase text-[#2E9DF7] hover:underline">Open →</button>}
+      {onOpen && <button onClick={onOpen} className="self-start text-xs font-bold uppercase text-brand hover:underline">Open →</button>}
     </div>
   );
 
@@ -123,7 +123,7 @@ export const ProgramOverview: React.FC = () => {
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <header className="min-h-20 bg-surface border-b flex items-center px-4 md:px-10 py-3 flex-shrink-0">
         <div>
-          <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7]">My Program</h2>
+          <h2 className="text-lg md:text-2xl font-bold text-brand">My Program</h2>
           <p className="text-xs text-gray-400 font-medium">{programOutline?.weeks.length || 4} weeks · 40 hours per week{start ? ` · starts ${formatDate(dateFor(start, 1))}` : ''}</p>
         </div>
       </header>
@@ -145,15 +145,15 @@ export const ProgramOverview: React.FC = () => {
             {next ? (
               <>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#2E9DF7]"><Play className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" fill="currentColor" />Up next · Week {next.week}</p>
-                  <p className="text-sm md:text-base font-black text-gray-800 truncate">{next.kind === 'assignment' ? <FileText className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" /> : <BookOpen className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />}{next.title}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand"><Play className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" fill="currentColor" />Up next · Week {next.week}</p>
+                  <p className="text-sm md:text-base font-bold text-gray-800 truncate">{next.kind === 'assignment' ? <FileText className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" /> : <BookOpen className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />}{next.title}</p>
                   {next.kind === 'assignment' && next.due && (
                     <p className="text-xs font-bold text-gray-500">
                       Due {when(next.due)}{(() => { const d = daysLeft(next.due); return d === null ? '' : d <= 0 ? ' · today' : d === 1 ? ' · tomorrow' : ` · in ${d} days`; })()}
                     </p>
                   )}
                 </div>
-                <button onClick={() => go(next.hash)} className="flex-shrink-0 bg-[#2E9DF7] text-white font-bold text-xs md:text-sm px-4 py-2 rounded-2xl shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]">
+                <button onClick={() => go(next.hash)} className="flex-shrink-0 bg-brand text-white font-bold text-xs md:text-sm px-4 py-2 rounded-2xl active:shadow-none active:translate-y-[2px]">
                   {next.kind === 'assignment' ? 'Open assignment' : 'Start lesson'}
                 </button>
               </>
@@ -165,7 +165,7 @@ export const ProgramOverview: React.FC = () => {
             <div className="w-full sm:w-72">
               <ProgressBar done={progress.done} total={progress.total} label="Your progress" />
               {pace.length > 0 && (
-                <p className="mt-1.5 text-[10px] font-black uppercase text-ember"><TriangleAlert className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Behind pace - under half of Week {pace[0].week}'s lessons done</p>
+                <p className="mt-1.5 text-[10px] font-bold uppercase text-ember"><TriangleAlert className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Behind pace - under half of Week {pace[0].week}'s lessons done</p>
               )}
             </div>
           )}
@@ -177,8 +177,8 @@ export const ProgramOverview: React.FC = () => {
           {!released && (pace.length > 0 || overdue.length > 0) && (
           <section className="space-y-3">
             {pace.length > 0 && (
-              <div className="bg-[#F4511E]/10 border-2 border-[#F4511E]/30 rounded-[32px] p-5 space-y-1">
-                <p className="text-xs font-black uppercase text-ember"><BookOpen className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Behind on lessons</p>
+              <div className="bg-warm/10 border-2 border-warm/30 rounded-2xl p-5 space-y-1">
+                <p className="text-xs font-bold uppercase text-ember"><BookOpen className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Behind on lessons</p>
                 {pace.map(p => (
                   <p key={p.week} className="text-sm font-bold text-gray-800">
                     {p.current
@@ -190,12 +190,12 @@ export const ProgramOverview: React.FC = () => {
               </div>
             )}
             {overdue.length > 0 && (
-              <div className="bg-rose rounded-[32px] p-5 space-y-2">
-                <p className="text-xs font-black uppercase text-ember"><TriangleAlert className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Overdue - submit as soon as you can</p>
+              <div className="bg-rose rounded-2xl p-5 space-y-2">
+                <p className="text-xs font-bold uppercase text-ember"><TriangleAlert className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />Overdue - submit as soon as you can</p>
                 {overdue.map(o => (
                   <button key={o.hash} onClick={() => go(o.hash)} className="w-full flex flex-wrap items-center justify-between gap-2 bg-surface rounded-2xl px-4 py-3 text-left hover:shadow-md transition-shadow">
                     <span className="text-sm font-bold text-gray-800"><FileText className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />{o.title}</span>
-                    <span className="text-xs font-black text-ember">was due {when(o.due)} · Open →</span>
+                    <span className="text-xs font-bold text-ember">was due {when(o.due)} · Open →</span>
                   </button>
                 ))}
               </div>
@@ -206,7 +206,7 @@ export const ProgramOverview: React.FC = () => {
           {!released && <div role="tablist" aria-label="My Program sections" className="flex gap-1 bg-surface rounded-full p-1 border border-gray-100 shadow-sm w-fit max-w-full overflow-x-auto">
             {TABS.map(t => (
               <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => chooseTab(t.id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-[#2E9DF7] text-white shadow-md' : 'text-gray-500 hover:text-[#2E9DF7] hover:bg-sky'}`}>
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${tab === t.id ? 'bg-brand text-white shadow-md' : 'text-gray-500 hover:text-brand hover:bg-sky'}`}>
                 <t.Icon className="w-4 h-4" strokeWidth={2.5} aria-hidden="true" />{t.label}
               </button>
             ))}
@@ -237,13 +237,13 @@ export const ProgramOverview: React.FC = () => {
                     }).sort((a, b) => a.day - b.day);
                     return (
                       <div key={week.id}>
-                        <p className="text-xs font-black uppercase text-gray-500 mb-2">
+                        <p className="text-xs font-bold uppercase text-gray-500 mb-2">
                           {weekLabel(wi)}
                           {start && <span className="normal-case font-bold text-gray-400 ml-2">{formatDate(dateFor(start, weekNo))} – {formatDate(dateFor(start, weekNo, 5))}</span>}
                         </p>
                         {week.goal && (
                           <p className="bg-sky text-navy rounded-2xl px-4 py-3 text-sm font-medium mb-2">
-                            <span className="font-black"><Target className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Goal: </span>{week.goal}
+                            <span className="font-bold"><Target className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Goal: </span>{week.goal}
                           </p>
                         )}
                         {entries.length === 0 ? <p className="text-xs text-gray-400">Nothing due this week.</p> : (
@@ -251,7 +251,7 @@ export const ProgramOverview: React.FC = () => {
                             {entries.map(e => (
                               <li key={e.key} className="bg-gray-50 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-start gap-3 min-w-0">
-                                  <span className="bg-[#F4511E]/15 text-ember rounded-xl px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap">
+                                  <span className="bg-warm/15 text-ember rounded-xl px-2.5 py-1 text-[10px] font-bold uppercase whitespace-nowrap">
                                     {e.podDeadline ? POD_DEADLINE_LABEL : `By ${dueLabel(start, weekNo, e.day)}`}
                                   </span>
                                   <div className="min-w-0">
@@ -261,12 +261,12 @@ export const ProgramOverview: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {e.status && (
-                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                                      e.status === 'submitted' ? 'bg-[#3DDC97] text-[#0B3D2A]' : overdue.some(o => o.hash === e.hash) ? 'bg-rose text-ember' : e.status === 'draft' ? 'bg-sky text-navy' : 'bg-gray-100 text-gray-500'}`}>
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                      e.status === 'submitted' ? 'bg-go text-go-ink' : overdue.some(o => o.hash === e.hash) ? 'bg-rose text-ember' : e.status === 'draft' ? 'bg-sky text-navy' : 'bg-gray-100 text-gray-500'}`}>
                                       {e.status === 'submitted' ? '✓ Submitted' : overdue.some(o => o.hash === e.hash) ? 'Overdue' : e.status === 'draft' ? 'Not marked complete' : 'To do'}
                                     </span>
                                   )}
-                                  {e.hash && <button onClick={() => go(e.hash)} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Open →</button>}
+                                  {e.hash && <button onClick={() => go(e.hash)} className="text-xs font-bold uppercase text-brand hover:underline">Open →</button>}
                                 </div>
                               </li>
                             ))}
@@ -283,7 +283,7 @@ export const ProgramOverview: React.FC = () => {
               <ol className="space-y-3">
                 {schedule.map(row => (
                   <li key={row.weeks} className="flex gap-4 items-start">
-                    <span className="w-32 flex-shrink-0 text-xs font-black uppercase text-gray-500">
+                    <span className="w-32 flex-shrink-0 text-xs font-bold uppercase text-gray-500">
                       {row.weeks}
                       {start && <span className="block normal-case font-bold text-gray-400">{formatDate(dateFor(start, row.from))} – {formatDate(dateFor(start, row.to, 5))}</span>}
                     </span>
@@ -313,7 +313,7 @@ export const ProgramOverview: React.FC = () => {
                       <li key={a.id}>
                         <button onClick={() => go(`#/assignment/${a.id}`)} className="w-full flex items-center justify-between gap-2 text-left bg-gray-50 hover:bg-gray-100 rounded-xl px-3 py-2">
                           <span className="text-xs font-bold text-gray-700">{a.title}</span>
-                          <span className="text-[10px] font-black text-gray-400 whitespace-nowrap">
+                          <span className="text-[10px] font-bold text-gray-400 whitespace-nowrap">
                             {pub?.episodeA ? (o.status === 'scored' ? o.value.toFixed(2) : '–') : `${a.weight ?? 0}%`}
                           </span>
                         </button>
@@ -336,8 +336,8 @@ export const ProgramOverview: React.FC = () => {
                 status={required === 2 ? `Ep 1: ${stageStatus('P1')} · Ep 2: ${stageStatus('P2')}` : stageStatus('P1')}
                 about={`Complete ${required === 2 ? 'two assigned pod episodes, each' : 'one assigned pod episode,'} 2–3 minutes, with a key sound designer providing QC. This assesses production quality, communication, reliability and your ability to apply feedback.`}>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={() => go(stageHash('P1'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 1 →</button>
-                  {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">Episode 2 →</button>}
+                  <button onClick={() => go(stageHash('P1'))} className="text-xs font-bold uppercase text-brand hover:underline">Episode 1 →</button>
+                  {required === 2 && <button onClick={() => go(stageHash('P2'))} className="text-xs font-bold uppercase text-brand hover:underline">Episode 2 →</button>}
                 </div>
               </StageCard>
             </div>
@@ -363,8 +363,8 @@ export const ProgramOverview: React.FC = () => {
           )}
 
           {view === 'about' && (
-          <section className="bg-sky rounded-[32px] p-6 md:p-8 text-navy">
-            <h3 className="text-lg font-black mb-2">Welcome to your training program</h3>
+          <section className="bg-sky rounded-2xl p-6 md:p-8 text-navy">
+            <h3 className="text-lg font-bold mb-2">Welcome to your training program</h3>
             <p className="text-sm font-medium mb-4">
               Over {programOutline?.weeks.length || 4} weeks you'll learn the StoryCo workflow and prove it on real episodes. This page is your home base. <b>Up next</b> and <b>Your progress</b> stay pinned at the top whichever tab you're on; below them are four tabs:
             </p>

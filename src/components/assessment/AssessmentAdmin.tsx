@@ -56,9 +56,9 @@ export const ReviewBreakdown: React.FC<{ traineeId: string }> = ({ traineeId }) 
     <ul className="grid gap-2">
       {summaries.map(s => (
         <li key={s.key} className="bg-gray-50 rounded-2xl p-3 text-xs space-y-1">
-          <p className="font-black text-gray-700">
+          <p className="font-bold text-gray-700">
             {STAGE_LABELS[s.stage]}{s.title ? ` · ${s.title}` : ''} · {REVIEWER_SLOTS.find(x => x.id === s.slot)?.label} ({users.find(u => u.id === s.reviewerUid)?.name ?? 'unknown account'})
-            <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] uppercase ${s.status === 'draft' ? 'bg-sky text-navy' : 'bg-[#3DDC97]/20 text-leaf'}`}>{s.status === 'draft' ? 'Draft' : 'Submitted'}</span>
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] uppercase ${s.status === 'draft' ? 'bg-sky text-navy' : 'bg-go/20 text-leaf'}`}>{s.status === 'draft' ? 'Draft' : 'Submitted'}</span>
           </p>
           <p className="text-gray-600">{s.scores.map(x => `${x.label}: ${x.score}`).join(' · ') || 'No scores yet'}</p>
           {s.feedback ? <p className="text-navy bg-sky rounded-xl p-2 whitespace-pre-wrap">{s.feedback}</p> : <p className="text-gray-500">No feedback written.</p>}
@@ -98,18 +98,18 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
     <div className={card}>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h4 className="font-black text-gray-800">{name}</h4>
+          <h4 className="font-bold text-gray-800">{name}</h4>
           <p className="text-xs text-gray-400 font-bold">Starts {enrollment.startDate} · {enrollment.podEpisodesRequired} pod episode{enrollment.podEpisodesRequired === 1 ? '' : 's'}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-black uppercase text-gray-400">Final</span>
+          <span className="text-[10px] font-bold uppercase text-gray-400">Final</span>
           <OutcomeBadge outcome={result.final} />
           <BenchmarkChip meets={result.meetsBenchmark} threshold={assessmentConfig.passThreshold} />
         </div>
       </div>
       <div className="mb-4"><ProgressBar done={progress.done} total={progress.total} /></div>
       <div className="mb-4">
-        <button onClick={() => setShowReviews(o => !o)} aria-expanded={showReviews} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">
+        <button onClick={() => setShowReviews(o => !o)} aria-expanded={showReviews} className="text-xs font-bold uppercase text-brand hover:underline">
           {showReviews ? 'Hide' : 'Check'} reviewers' scores & feedback before publishing
         </button>
         {showReviews && <div className="mt-2"><ReviewBreakdown traineeId={enrollment.traineeId} /></div>}
@@ -117,7 +117,7 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {stages.map(s => (
           <div key={s.key} className="bg-gray-50 rounded-2xl p-3 space-y-2">
-            <p className="text-[10px] font-black uppercase text-gray-500">{s.label}</p>
+            <p className="text-[10px] font-bold uppercase text-gray-500">{s.label}</p>
             <OutcomeBadge outcome={s.outcome} />
             <label className="flex items-center gap-2 text-xs font-bold text-gray-600">
               <input type="checkbox" checked={!!data.publication?.[s.key]} onChange={e => toggle(s.key, e.target.checked)} />
@@ -128,7 +128,7 @@ const TrackingRow: React.FC<{ enrollment: Enrollment }> = ({ enrollment }) => {
       </div>
       {missing.length > 0 && (
         <div className="mt-3">
-          <button onClick={() => setOpen(o => !o)} className="text-xs font-black uppercase text-[#2E9DF7] hover:underline">
+          <button onClick={() => setOpen(o => !o)} className="text-xs font-bold uppercase text-brand hover:underline">
             {open ? 'Hide' : 'Show'} {missing.length} missing item{missing.length === 1 ? '' : 's'}
           </button>
           {open && <ul className="mt-2 grid sm:grid-cols-2 gap-1">{missing.map(m => <li key={m} className="text-xs text-gray-500">• {m}</li>)}</ul>}
@@ -175,7 +175,7 @@ const EnrollmentRow: React.FC<{ traineeId: string }> = ({ traineeId }) => {
     <div className={card}>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h4 className="font-black text-gray-800">{trainee?.name}</h4>
+          <h4 className="font-bold text-gray-800">{trainee?.name}</h4>
           <p className="text-xs text-gray-400 font-bold">{trainee?.email} · {existing ? 'Enrolled' : 'Not enrolled'}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ const InvitePanel: React.FC = () => {
   const pending = [...invites].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return (
     <div className={card}>
-      <h4 className="font-black text-gray-800 mb-1">✉️ Invite by email</h4>
+      <h4 className="font-bold text-gray-800 mb-1">✉️ Invite by email</h4>
       <p className="text-xs text-gray-500 mb-4">
         Set someone up before they sign up. When they create their account with this email they get the role - and a trainee is enrolled
         with the start date and reviewers below. Share the site link with them yourself (no email is sent).
@@ -285,7 +285,7 @@ const InvitePanel: React.FC = () => {
 
       {pending.length > 0 && (
         <div className="mt-5 border-t pt-4 space-y-2">
-          <p className="text-[10px] font-black uppercase text-gray-400">Waiting to sign up ({pending.length})</p>
+          <p className="text-[10px] font-bold uppercase text-gray-400">Waiting to sign up ({pending.length})</p>
           {pending.map(inv => (
             <div key={inv.id} className="flex flex-wrap items-center gap-2 bg-gray-50 rounded-2xl px-3 py-2 text-sm">
               <span className="font-bold text-gray-800">{inv.email}</span>
@@ -308,9 +308,9 @@ const InvitePanel: React.FC = () => {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const TotalChip: React.FC<{ total: number; label: string }> = ({ total, label }) => {
   const ok = Math.abs(total - 100) < 0.01;
-  return <span className={`text-xs font-black ${ok ? 'text-leaf' : 'text-ember'}`}>{ok ? '✓ ' : ''}{label} {round2(total)}%</span>;
+  return <span className={`text-xs font-bold ${ok ? 'text-leaf' : 'text-ember'}`}>{ok ? '✓ ' : ''}{label} {round2(total)}%</span>;
 };
-const numInput = 'w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-bold';
+const numInput = 'w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-brand font-bold';
 
 // A reviewer-table stage's criteria and weights. Each row is a criterion
 // (name, and what each score 1-5 means); each cell is how much one
@@ -388,7 +388,7 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
   return (
     <div className={card}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h4 className="font-black text-gray-800">{title}</h4>
+        <h4 className="font-bold text-gray-800">{title}</h4>
         <TotalChip total={cells.reduce((t, c) => t + c.weight, 0)} label="Table total" />
       </div>
       <p className="text-xs text-gray-500 mb-3">
@@ -406,7 +406,7 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
       <div className="mb-3"><VietnameseStatus done={criteria.filter(c => c.vi).length} total={criteria.length} onRemove={removeVietnamese} /></div>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
-          <thead><tr><th /><th className="text-[10px] font-black uppercase text-navy px-2 pb-2 text-left">Criterion weight</th>{slots.map(r => <th key={r.id} className="text-[10px] font-black uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}<th /></tr></thead>
+          <thead><tr><th /><th className="text-[10px] font-bold uppercase text-navy px-2 pb-2 text-left">Criterion weight</th>{slots.map(r => <th key={r.id} className="text-[10px] font-bold uppercase text-gray-400 px-2 pb-2 text-left">{r.label}</th>)}<th /></tr></thead>
           <tbody>
             {criteria.map(k => (
               <React.Fragment key={k.id}>
@@ -414,8 +414,8 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
                   <td className="pr-3 py-1 min-w-52">
                     <input defaultValue={k.title} key={k.title} aria-label="Criterion name" placeholder="Criterion name"
                       onBlur={e => { const v = e.target.value.trim(); if (v && v !== k.title) patch(k.id, { title: v }); }}
-                      className="w-full bg-gray-50 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#2E9DF7]" />
-                    <button onClick={() => setOpen(o => (o === k.id ? null : k.id))} className="text-[11px] font-bold text-[#2E9DF7] hover:underline mt-1 ml-1">
+                      className="w-full bg-gray-50 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:ring-2 focus:ring-brand" />
+                    <button onClick={() => setOpen(o => (o === k.id ? null : k.id))} className="text-[11px] font-bold text-brand hover:underline mt-1 ml-1">
                       {open === k.id ? 'Hide scores' : `Describe scores${k.levels?.some(Boolean) ? ` (${k.levels.filter(Boolean).length}/5)` : ''}`}
                     </button>
                     {!cells.some(c => c.criterion === k.id) && <span className="text-[11px] font-bold text-ember ml-2">No reviewer scores this</span>}
@@ -458,7 +458,7 @@ const ReviewerTable: React.FC<{ title: string; stage: 'B' | 'P1' | 'DA' }> = ({ 
                       <div className="grid gap-2 sm:grid-cols-5">
                         {[1, 2, 3, 4, 5].map(n => (
                           <label key={n} className="block">
-                            <span className="text-[10px] font-black uppercase text-gray-400">{n} — {bandLabel(bands, n)}</span>
+                            <span className="text-[10px] font-bold uppercase text-gray-400">{n} — {bandLabel(bands, n)}</span>
                             <textarea defaultValue={k.levels?.[n - 1] ?? ''} key={k.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${k.title} - score ${n} description`}
                               onBlur={e => { if (e.target.value.trim() !== (k.levels?.[n - 1] ?? '')) patch(k.id, { levels: [1, 2, 3, 4, 5].map(j => (j === n ? e.target.value : k.levels?.[j - 1] ?? '')) }); }}
                               className={`${input} bg-surface h-24 text-xs`} />
@@ -519,21 +519,21 @@ const AssignmentsCard: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
   return (
     <div className={card}>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <h4 className="font-black text-gray-800">Episode A assignments</h4>
+        <h4 className="font-bold text-gray-800">Episode A assignments</h4>
         <div className="flex items-center gap-3">
           {epA.length > 1 && Math.abs(epATotal - 100) >= 0.01 && (
             <button onClick={() => saveWith(setWeights(epA, scaleShares(epA.map(a => a.weight ?? 0), 100)))}
-              className="text-xs font-bold text-[#2E9DF7] hover:underline">Make total 100%</button>
+              className="text-xs font-bold text-brand hover:underline">Make total 100%</button>
           )}
           {epA.length > 1 && (
-            <button onClick={() => saveWith(setWeights(epA, splitEvenly(epA.length)))} className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
+            <button onClick={() => saveWith(setWeights(epA, splitEvenly(epA.length)))} className="text-xs font-bold text-brand hover:underline">Split equally</button>
           )}
           <TotalChip total={epATotal} label="Assignments total" />
         </div>
       </div>
       <p className="text-xs text-gray-500 mb-4">
         Episode A is {w.episodeA}% of the final grade, shared by these assignments. Rename or reweight them here; <b>Edit</b> changes the brief, due day and criteria.
-        They also appear in <button onClick={onOpenOutline} className="font-bold text-[#2E9DF7] hover:underline">Program outline</button>.
+        They also appear in <button onClick={onOpenOutline} className="font-bold text-brand hover:underline">Program outline</button>.
       </p>
 
       <div className="space-y-2">
@@ -574,7 +574,7 @@ const AssignmentsCard: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
 
       {draft ? (
         <div className="bg-sky rounded-2xl p-4 mt-3 space-y-3">
-          <p className="text-sm font-black text-navy">New Episode A assignment</p>
+          <p className="text-sm font-bold text-navy">New Episode A assignment</p>
           <div className="grid sm:grid-cols-[1fr_auto_auto] gap-2">
             <input value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="e.g. Week 2 – 3rd assignment: foley" aria-label="New assignment name" className={`${input} bg-surface`} />
             <select value={draft.weekId} onChange={e => setDraft({ ...draft, weekId: e.target.value })} aria-label="Week" className={`${input} bg-surface w-auto`}>
@@ -641,7 +641,7 @@ const GradeFormulaTab: React.FC<{ onOpenOutline: () => void }> = ({ onOpenOutlin
     <div className="space-y-4">
       <div className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h4 className="font-black text-gray-800">Final grade</h4>
+          <h4 className="font-bold text-gray-800">Final grade</h4>
           <TotalChip total={w.episodeA + w.episodeB + w.pod + (w.da ?? 0)} label="Stages total" />
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -697,20 +697,20 @@ const ConvertSkillsCard: React.FC = () => {
   if (!skills.length) return null;
   const preview = convertSkillGrading(modules, assignments, exercises);
   return (
-    <div className="bg-sky rounded-[32px] p-6 space-y-3">
-      <h4 className="font-black text-navy">Grading now lives on your assignments</h4>
+    <div className="bg-sky rounded-2xl p-6 space-y-3">
+      <h4 className="font-bold text-navy">Grading now lives on your assignments</h4>
       <p className="text-sm text-navy max-w-3xl">
         Convert once to move off the {skills.length} old skill module{skills.length === 1 ? '' : 's'} ({skills.map(m => m.title || '(no name)').join(', ')}).
         Every trainee's Episode A score stays exactly the same. The skill modules are then deleted, including their pages in the weekly outline.
       </p>
       <div className="bg-surface rounded-2xl p-4 overflow-x-auto">
         <table className="text-sm w-full">
-          <thead><tr className="text-[10px] font-black uppercase text-gray-400 text-left"><th className="pb-2">Assignment</th><th className="pb-2">Weight in Episode A</th><th className="pb-2">Criteria</th></tr></thead>
+          <thead><tr className="text-[10px] font-bold uppercase text-gray-400 text-left"><th className="pb-2">Assignment</th><th className="pb-2">Weight in Episode A</th><th className="pb-2">Criteria</th></tr></thead>
           <tbody>
             {preview.assignments.map(a => (
               <tr key={a.id} className="border-t border-gray-100">
                 <td className="py-2 pr-3 font-bold text-gray-800">{a.title}</td>
-                <td className="py-2 pr-3 font-black text-navy">{a.weight}%</td>
+                <td className="py-2 pr-3 font-bold text-navy">{a.weight}%</td>
                 <td className="py-2 text-xs text-gray-600">{preview.criteria.filter(c => c.assignmentId === a.id).map(c => `${c.title} ${c.weight}`).join(' · ') || <span className="text-ember font-bold">none - add criteria after converting</span>}</td>
               </tr>
             ))}
@@ -806,7 +806,7 @@ const PeopleTab: React.FC = () => {
         </p>
         <ul className="grid sm:grid-cols-2 gap-2 mb-4">
           {ROLE_OPTIONS.map(o => (
-            <li key={o.id} className="bg-gray-50 rounded-2xl p-3 text-xs"><span className="font-black text-gray-700">{o.label}</span><span className="block text-gray-500">{o.help}</span></li>
+            <li key={o.id} className="bg-gray-50 rounded-2xl p-3 text-xs"><span className="font-bold text-gray-700">{o.label}</span><span className="block text-gray-500">{o.help}</span></li>
           ))}
         </ul>
         <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search by name or email" className={input} aria-label="Search people" />
@@ -881,7 +881,7 @@ export const AssessmentAdmin: React.FC<{ onOpenOutline: () => void }> = ({ onOpe
       {needsSetup && (
         <div className={`${card} flex flex-wrap items-center justify-between gap-4`}>
           <div>
-            <h4 className="font-black text-gray-800">Set up the assessment program</h4>
+            <h4 className="font-bold text-gray-800">Set up the assessment program</h4>
             <p className="text-xs text-gray-500 max-w-xl">
               Creates the default Week 1–4 outline with its assignments (Episode A weights 40/10/20/30) and their criteria, and the grade formula.
               Nothing that already exists is overwritten.
@@ -894,9 +894,9 @@ export const AssessmentAdmin: React.FC<{ onOpenOutline: () => void }> = ({ onOpe
       )}
       <ConvertSkillsCard />
       {problems.length > 0 && (
-        <div className="bg-rose rounded-[32px] p-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="bg-rose rounded-2xl p-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase text-ember mb-1">⚠ {problems.length} problem{problems.length === 1 ? '' : 's'} with grading</p>
+            <p className="text-xs font-bold uppercase text-ember mb-1">⚠ {problems.length} problem{problems.length === 1 ? '' : 's'} with grading</p>
             <ul className="text-sm text-ember font-bold list-disc pl-5 space-y-0.5">{problems.map(p => <li key={p}>{p}</li>)}</ul>
           </div>
           {tab !== 'structure' && <button onClick={() => setTab('structure')} className={primaryBtn}>Open Grade formula</button>}
@@ -906,11 +906,11 @@ export const AssessmentAdmin: React.FC<{ onOpenOutline: () => void }> = ({ onOpe
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
         {TAB_GROUPS.map(g => (
           <div key={g.label}>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5 pl-2">{g.label}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 pl-2">{g.label}</p>
             <div className="flex gap-2 flex-wrap">
               {g.tabs.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
-                  tab === t.id ? 'bg-[#2E9DF7] text-white shadow-md' : 'bg-surface text-gray-500 hover:bg-gray-50'}`}>{t.label}</button>
+                  tab === t.id ? 'bg-brand text-white shadow-md' : 'bg-surface text-gray-500 hover:bg-gray-50'}`}>{t.label}</button>
               ))}
             </div>
           </div>

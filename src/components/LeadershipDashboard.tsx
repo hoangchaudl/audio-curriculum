@@ -17,12 +17,12 @@ const dateOf = (iso: string) => new Date(`${iso}T00:00:00`);
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY);
 const shortDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 const dayMonth = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-const OFFERED_BADGE = { label: '🎉 Offered', cls: 'bg-[#3DDC97] text-[#0B3D2A]' };
+const OFFERED_BADGE = { label: '🎉 Offered', cls: 'bg-go text-go-ink' };
 const score = (v: number | null | undefined) => (v === null || v === undefined ? '–' : roundScore(v).toFixed(2));
 const scoredValue = (o: Outcome | undefined) => (o?.status === 'scored' ? o.value : null);
 
 const panel = 'bg-surface rounded-3xl border border-gray-100 shadow-sm';
-const th = 'px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-gray-400 whitespace-nowrap';
+const th = 'px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap';
 const td = 'px-3 py-2.5 whitespace-nowrap';
 
 interface Batch {
@@ -43,8 +43,8 @@ const batchNow = (b: Batch, weeks: number, now: Date) => {
 
 const Kpi: React.FC<{ label: string; value: string | number; hint?: string; tone?: string }> = ({ label, value, hint, tone = 'text-gray-900' }) => (
   <div className={`${panel} px-5 py-4`}>
-    <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p>
-    <p className={`text-3xl font-black tabular-nums mt-1 ${tone}`}>{value}</p>
+    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
+    <p className={`text-3xl font-bold tabular-nums mt-1 ${tone}`}>{value}</p>
     {hint && <p className="text-xs font-bold text-gray-400 mt-0.5">{hint}</p>}
   </div>
 );
@@ -70,7 +70,7 @@ const TraineeDialog: React.FC<{ row: RosterRow | null; onClose: () => void }> = 
           <div className="flex justify-end">
             <button onClick={onClose} className="bg-surface text-gray-700 font-bold text-sm px-4 py-2 rounded-full shadow">Close</button>
           </div>
-          <DesignerCard designer={row.designer} standing={row.standing} accent="#2E9DF7" lockedCategories={[]} readOnly />
+          <DesignerCard designer={row.designer} standing={row.standing} accent="var(--color-brand)" lockedCategories={[]} readOnly />
         </div>
       )}
     </dialog>
@@ -145,7 +145,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
       <AdminHeader>
         <span className="text-xs font-bold text-gray-500 hidden md:inline">As of {shortDate(now)}</span>
         {onBrowse && (
-          <button onClick={onBrowse} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20 whitespace-nowrap">
+          <button onClick={onBrowse} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-brand/20 whitespace-nowrap">
             Browse program content →
           </button>
         )}
@@ -155,7 +155,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
       <div className="flex-1 overflow-y-auto">
       <div className="px-4 md:px-10 py-6 md:py-8 space-y-8 max-w-7xl w-full mx-auto">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Probation program overview</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Probation program overview</h1>
           <p className="text-sm text-gray-500 font-medium mt-1">
             {weeks}-week program. Pass = final score {config.passThreshold}+ / 5{config.skillFloor ? ` with every skill ${config.skillFloor}+` : ''} → full-time offer.
           </p>
@@ -173,8 +173,8 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
 
         {/* Needs attention */}
         <section aria-labelledby="attention-title">
-          <h2 id="attention-title" className="text-sm font-black uppercase tracking-wider text-gray-700 mb-3">
-            Needs attention {attentionCount > 0 && <span className="ml-1 bg-[#F4511E] text-white text-[10px] px-2 py-0.5 rounded-full align-middle">{attentionCount}</span>}
+          <h2 id="attention-title" className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-3">
+            Needs attention {attentionCount > 0 && <span className="ml-1 bg-warm text-white text-[10px] px-2 py-0.5 rounded-full align-middle">{attentionCount}</span>}
           </h2>
           {attention.length === 0 ? (
             <p className={`${panel} px-5 py-4 text-sm text-gray-500`}>Nothing right now - everyone is on track and reviews are up to date.</p>
@@ -182,7 +182,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {attention.map(g => (
                 <div key={g.title} className={`${panel} p-4`}>
-                  <p className={`text-xs font-black uppercase tracking-wide mb-2 ${g.tone}`}>
+                  <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${g.tone}`}>
                     <span aria-hidden="true">{g.icon}</span> {g.title} · {g.items.length}
                   </p>
                   <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -200,7 +200,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
           {/* Hiring batches */}
         <section className={panel} aria-labelledby="batches-title">
           <div className="px-5 pt-5 pb-3">
-            <h2 id="batches-title" className="text-sm font-black uppercase tracking-wider text-gray-700">Hiring batches</h2>
+            <h2 id="batches-title" className="text-sm font-bold uppercase tracking-wider text-gray-700">Hiring batches</h2>
             <p className="text-xs text-gray-400 font-medium">Pick a batch to see its trainees below.</p>
           </div>
           {batches.length === 0 ? <p className="px-5 pb-5 text-sm text-gray-500">No trainees enrolled yet.</p> : (
@@ -217,23 +217,23 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
                     return (
                       <tr key={b.key} className={`border-b border-gray-50 last:border-0 ${on ? 'bg-sky/60' : 'hover:bg-gray-50'}`}>
                         <td className={td}>
-                          <button onClick={() => setPicked(b.key)} aria-pressed={on} className="font-black text-gray-900 hover:text-[#2E9DF7] text-left">{b.name}</button>
+                          <button onClick={() => setPicked(b.key)} aria-pressed={on} className="font-bold text-gray-900 hover:text-brand text-left">{b.name}</button>
                         </td>
                         <td className={`${td} text-gray-600 tabular-nums`}>{shortDate(b.start)} – {shortDate(b.end)}</td>
-                        <td className={`${td} text-right font-black tabular-nums`}>{b.rows.length}</td>
+                        <td className={`${td} text-right font-bold tabular-nums`}>{b.rows.length}</td>
                         <td className={`${td} min-w-[9rem]`}>
                           <p className="text-xs font-bold text-gray-600">{n.label}</p>
                           <div className="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden" aria-hidden="true">
-                            <div className="h-full bg-[#2E9DF7] rounded-full" style={{ width: `${Math.round(n.share * 100)}%` }} />
+                            <div className="h-full bg-brand rounded-full" style={{ width: `${Math.round(n.share * 100)}%` }} />
                           </div>
                         </td>
                         <td className={`${td} whitespace-normal`}>
                           <div className="flex flex-wrap gap-1">
-                            <Count n={c.onTrack} label="on track" cls="bg-[#3DDC97]/20 text-leaf" />
-                            <Count n={c.behind} label="behind" cls="bg-[#F4511E]/20 text-ember" />
+                            <Count n={c.onTrack} label="on track" cls="bg-go/20 text-leaf" />
+                            <Count n={c.behind} label="behind" cls="bg-warm/20 text-ember" />
                             <Count n={c.grading} label="grading" cls="bg-sky text-navy" />
                             <Count n={c.awaiting} label="to decide" cls="bg-sky text-navy" />
-                            <Count n={c.offered} label="offered" cls="bg-[#3DDC97] text-[#0B3D2A]" />
+                            <Count n={c.offered} label="offered" cls="bg-go text-go-ink" />
                             <Count n={c.released} label="released" cls="bg-gray-200 text-gray-700" />
                             <Count n={c.upcoming} label="not started" cls="bg-gray-100 text-gray-500" />
                           </div>
@@ -253,12 +253,12 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
           <section className={panel} aria-labelledby="trainees-title">
             <div className="flex flex-wrap items-end justify-between gap-3 px-5 pt-5 pb-3">
               <div>
-                <h2 id="trainees-title" className="text-sm font-black uppercase tracking-wider text-gray-700">{selected.name} · trainees</h2>
+                <h2 id="trainees-title" className="text-sm font-bold uppercase tracking-wider text-gray-700">{selected.name} · trainees</h2>
                 <p className="text-xs text-gray-400 font-medium">
                   {selected.rows.length} trainee{selected.rows.length === 1 ? '' : 's'} · {shortDate(selected.start)} – {shortDate(selected.end)} · click a name for skills, evidence and decisions
                 </p>
               </div>
-              <button onClick={() => downloadReport(selected.rows, selected.key)} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+              <button onClick={() => downloadReport(selected.rows, selected.key)} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-brand/20">
                 Download report (CSV)
               </button>
             </div>
@@ -292,7 +292,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
                       <tr key={r.designer.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
                         <td className={td}>
                           <button onClick={() => setDetail(r)} className="text-left">
-                            <span className="block font-black text-gray-900 hover:text-[#2E9DF7]">{r.designer.name}</span>
+                            <span className="block font-bold text-gray-900 hover:text-brand">{r.designer.name}</span>
                             <span className="block text-xs text-gray-400">{r.designer.email}</span>
                           </button>
                         </td>
@@ -304,7 +304,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
                             {s.status === 'upcoming' ? 'Not started' : s.ended ? 'Finished' : `Week ${s.week}`} · {pct}%
                           </p>
                           <div className="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden" aria-hidden="true">
-                            <div className="h-full bg-[#3DDC97] rounded-full" style={{ width: `${pct}%` }} />
+                            <div className="h-full bg-go rounded-full" style={{ width: `${pct}%` }} />
                           </div>
                         </td>
                         {stageCols.map(([k]) => <td key={k} className={`${td} text-right tabular-nums text-gray-700`}>{score(stage(k))}</td>)}
@@ -313,7 +313,7 @@ export const LeadershipDashboard: React.FC<{ onBrowse?: () => void }> = ({ onBro
                             ? <b className={meets ? 'text-leaf' : 'text-ember'}>{score(final)}</b>
                             : <span className="text-gray-400" title="Weighted average of the stages scored so far">{s.scoreSoFar === null ? '–' : `${score(s.scoreSoFar)}*`}</span>}
                         </td>
-                        <td className={td}><span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${badge.cls}`}>{badge.label}</span></td>
+                        <td className={td}><span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${badge.cls}`}>{badge.label}</span></td>
                         <td className={`${td} text-xs font-bold text-gray-600`}>{decision}</td>
                       </tr>
                     );
