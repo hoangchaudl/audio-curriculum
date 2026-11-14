@@ -49,8 +49,8 @@ export const ContentPageView: React.FC<{ moduleId: string; viewOnly?: boolean }>
     <button
       onClick={() => (done ? unmarkVideoWatched(mod.id) : markVideoWatched(mod.id))}
       aria-pressed={done}
-      className={`flex-shrink-0 text-xs font-black uppercase tracking-wide px-5 py-2.5 rounded-full transition-colors ${
-        done ? 'bg-[#3DDC97] text-[#0B3D2A] hover:bg-[#3DDC97]/80' : 'bg-[#2E9DF7] text-white shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]'
+      className={`flex-shrink-0 text-xs font-bold uppercase tracking-wide px-5 py-2.5 rounded-full transition-colors ${
+        done ? 'bg-go text-go-ink hover:bg-go/80' : 'bg-brand text-white active:shadow-none active:translate-y-[2px]'
       }`}
     >
       {done ? '✓ Completed' : 'Mark as complete'}
@@ -59,9 +59,9 @@ export const ContentPageView: React.FC<{ moduleId: string; viewOnly?: boolean }>
 
   const navCard = (step: Step | null, dir: 'prev' | 'next') => step ? (
     <button onClick={() => go(step.hash)}
-      className={`${card} group !p-5 flex-1 min-w-0 text-left transition-all hover:!bg-[#2E9DF7] hover:!border-[#2E9DF7] hover:shadow-lg hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-[#2E9DF7]/40 ${dir === 'next' ? 'sm:text-right' : ''}`}>
-      <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white/80">{dir === 'prev' ? '← Previous' : 'Next →'}</span>
-      <span className="block text-sm font-black text-gray-800 truncate mt-1 group-hover:text-white">{step.kind === 'assignment' ? '📝 ' : ''}{step.title}</span>
+      className={`${card} group !p-5 flex-1 min-w-0 text-left transition-all hover:!bg-brand hover:!border-brand hover:shadow-lg hover:-translate-y-0.5 focus-visible:ring-4 focus-visible:ring-brand/40 ${dir === 'next' ? 'sm:text-right' : ''}`}>
+      <span className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 group-hover:text-white/80">{dir === 'prev' ? '← Previous' : 'Next →'}</span>
+      <span className="block text-sm font-bold text-gray-800 truncate mt-1 group-hover:text-white">{step.kind === 'assignment' ? '📝 ' : ''}{step.title}</span>
     </button>
   ) : <span className="flex-1 hidden sm:block" />;
 
@@ -69,7 +69,7 @@ export const ContentPageView: React.FC<{ moduleId: string; viewOnly?: boolean }>
     <ul className="space-y-2.5">
       {items.map((x, i) => (
         <li key={i} className="flex gap-2.5 text-sm text-gray-700 leading-snug">
-          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-sky text-navy text-[10px] font-black flex items-center justify-center mt-0.5">{icon}</span>
+          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-sky text-navy text-[10px] font-bold flex items-center justify-center mt-0.5">{icon}</span>
           <span>{x}</span>
         </li>
       ))}
@@ -81,12 +81,12 @@ export const ContentPageView: React.FC<{ moduleId: string; viewOnly?: boolean }>
       <header className="bg-surface border-b px-4 md:px-10 py-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
           {ctx && (
-            <p className="text-[11px] font-black uppercase tracking-widest text-[#2E9DF7] truncate">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-brand truncate">
               Week {ctx.week}{ctx.section ? ` · ${ctx.section}` : ''}
               <span className="text-gray-400"> · {mod.quiz ? 'Quiz' : `Lesson ${ctx.lessonNumber} of ${ctx.lessonCount}`}</span>
             </p>
           )}
-          <h2 className="text-xl md:text-3xl font-black text-gray-800 mt-1">{mod.title}</h2>
+          <h2 className="text-xl md:text-3xl font-bold text-gray-800 mt-1">{mod.title}</h2>
           {(mod.videoSeconds || plannedHours) ? (
             <p className="text-xs font-bold text-gray-500 mt-1">
               {[mod.videoSeconds ? `▶ ${formatLength(mod.videoSeconds)} of video` : '', plannedHours ? `⏱ about ${plannedHours} h in total` : ''].filter(Boolean).join(' · ')}

@@ -8,7 +8,7 @@ import { scoreRange } from '../../assessment/scoring';
 // "Score n". Saved when a box loses focus.
 export const BandInputs: React.FC<{ bands?: string[]; onSave: (bands: string[]) => void; max?: number }> = ({ bands, onSave, max = 5 }) => (
   <div>
-    <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Score names (optional) - leave blank for the defaults shown</p>
+    <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Score names (optional) - leave blank for the defaults shown</p>
     <div className={`grid gap-2 grid-cols-2 ${max === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-5'}`}>
       {scoreRange(max).map(n => (
         <input key={`${n}:${bands?.[n - 1] ?? ''}`} defaultValue={bands?.[n - 1] ?? ''} placeholder={(max === 3 ? DEFAULT_BANDS_3 : DEFAULT_BANDS)[n - 1]} aria-label={`Name for score ${n}`}
@@ -42,7 +42,7 @@ export const RubricPaste: React.FC<{ onApply: (r: PastedRubric) => void; vietnam
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-xs font-bold text-[#2E9DF7] hover:underline">
+      <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-xs font-bold text-brand hover:underline">
         <ClipboardPaste className="w-4 h-4" strokeWidth={2.5} aria-hidden="true" />{vietnamese !== undefined ? 'Paste Vietnamese table (VI)' : 'Paste table'}
       </button>
     );

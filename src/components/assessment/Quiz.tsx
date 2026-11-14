@@ -88,7 +88,7 @@ export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[]; onC
           <h4 className={sectionTitle}>📝 {title || 'Quick check'}</h4>
           {note && <p className="text-xs font-bold text-gray-400 mt-0.5">{note}</p>}
         </div>
-        {checked && <span className={`text-sm font-black ${score === questions.length ? 'text-leaf' : 'text-navy'}`}>{score} / {questions.length} correct</span>}
+        {checked && <span className={`text-sm font-bold ${score === questions.length ? 'text-leaf' : 'text-navy'}`}>{score} / {questions.length} correct</span>}
       </div>
       <ol className="space-y-5">
         {questions.map((q, i) => {
@@ -100,7 +100,7 @@ export const QuizView: React.FC<{ title?: string; questions: QuizQuestion[]; onC
                 {q.options.map((o, k) => {
                   const on = picked[i].includes(k);
                   const tone = !checked ? (on ? 'bg-sky text-navy' : 'bg-gray-50 text-gray-700 hover:bg-gray-100')
-                    : q.correct.includes(k) ? 'bg-[#3DDC97]/20 text-leaf' : on ? 'bg-rose text-ember' : 'bg-gray-50 text-gray-500';
+                    : q.correct.includes(k) ? 'bg-go/20 text-leaf' : on ? 'bg-rose text-ember' : 'bg-gray-50 text-gray-500';
                   return (
                     <label key={k} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium cursor-pointer ${tone}`}>
                       <input type={multi ? 'checkbox' : 'radio'} name={`q${i}`} checked={on} disabled={checked} onChange={() => toggle(i, k)} />

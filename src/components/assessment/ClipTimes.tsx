@@ -9,7 +9,7 @@ export const ClipTimes: React.FC<{ start?: number; end?: number; onChange: (star
   const s = parseClipTime(from), e = parseClipTime(to);
   const problem = clipProblem(s, e);
   const commit = () => { if (!problem) onChange(s, e); };
-  const box = 'w-24 bg-gray-50 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-[#2E9DF7]';
+  const box = 'w-24 bg-gray-50 rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-brand';
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-gray-500">
       <span>YouTube only - play just part of it:</span>

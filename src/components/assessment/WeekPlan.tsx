@@ -25,10 +25,10 @@ export const WeekPlan: React.FC<{ traineeId: string | undefined }> = ({ traineeI
 
   const chip = (it: PlanItem) => {
     const tone = it.kind === 'assignment'
-      ? (it.status === 'done' ? 'bg-[#3DDC97]/20 text-leaf' : it.status === 'late' ? 'bg-[#F4511E] text-white' : 'bg-[#F4511E]/10 text-ember border border-[#F4511E]/30')
-      : it.kind === 'milestone' ? 'bg-[#3DDC97]/10 text-leaf'
+      ? (it.status === 'done' ? 'bg-go/20 text-leaf' : it.status === 'late' ? 'bg-warm text-white' : 'bg-warm/10 text-ember border border-warm/30')
+      : it.kind === 'milestone' ? 'bg-go/10 text-leaf'
       : it.status === 'done' ? 'bg-gray-50 text-gray-400 line-through decoration-2'
-      : it.status === 'late' ? 'bg-[#F4511E]/10 text-ember'
+      : it.status === 'late' ? 'bg-warm/10 text-ember'
       : 'bg-sky text-navy';
     const Icon = it.status === 'done' && it.kind !== 'milestone' ? Check : it.kind === 'assignment' ? FileText : it.kind === 'milestone' ? Flag : BookOpen;
     return (
@@ -36,11 +36,11 @@ export const WeekPlan: React.FC<{ traineeId: string | undefined }> = ({ traineeI
         className={`w-full text-left rounded-xl px-2.5 py-2 text-xs font-bold leading-snug transition-transform enabled:hover:-translate-y-0.5 enabled:hover:shadow-md ${tone}`}>
         <Icon className="inline-block w-3 h-3 -mt-0.5 mr-1" strokeWidth={3} aria-hidden="true" />{it.title}
         {it.hours || it.videoSeconds ? (
-          <span className="block text-[10px] font-black opacity-70 no-underline">
+          <span className="block text-[10px] font-bold opacity-70 no-underline">
             {[it.videoSeconds ? `▶ ${formatLength(it.videoSeconds)}` : '', it.hours ? `⏱ ~${it.hours} h` : ''].filter(Boolean).join(' · ')}
           </span>
         ) : null}
-        {it.kind === 'assignment' && it.status !== 'done' && <span className="block text-[10px] font-black opacity-80">{it.status === 'late' ? 'Overdue' : 'Due'}</span>}
+        {it.kind === 'assignment' && it.status !== 'done' && <span className="block text-[10px] font-bold opacity-80">{it.status === 'late' ? 'Overdue' : 'Due'}</span>}
       </button>
     );
   };
@@ -56,17 +56,17 @@ export const WeekPlan: React.FC<{ traineeId: string | undefined }> = ({ traineeI
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setWeekIndex(i => i - 1)} disabled={weekIndex === 0} aria-label="Previous week" className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-sky hover:text-navy disabled:opacity-30 font-black">‹</button>
-          {weekIndex !== current && <button onClick={() => setWeekIndex(current)} className="text-xs font-bold text-[#2E9DF7] px-2 hover:underline">This week</button>}
-          <button onClick={() => setWeekIndex(i => i + 1)} disabled={weekIndex === weeks - 1} aria-label="Next week" className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-sky hover:text-navy disabled:opacity-30 font-black">›</button>
+          <button onClick={() => setWeekIndex(i => i - 1)} disabled={weekIndex === 0} aria-label="Previous week" className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-sky hover:text-navy disabled:opacity-30 font-bold">‹</button>
+          {weekIndex !== current && <button onClick={() => setWeekIndex(current)} className="text-xs font-bold text-brand px-2 hover:underline">This week</button>}
+          <button onClick={() => setWeekIndex(i => i + 1)} disabled={weekIndex === weeks - 1} aria-label="Next week" className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-sky hover:text-navy disabled:opacity-30 font-bold">›</button>
         </div>
       </div>
       {week.goal && <p className="text-xs text-gray-600 mb-4"><b><Target className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Goal:</b> {week.goal}</p>}
 
       <div className={`grid gap-2 grid-cols-1 ${days.length === 7 ? 'sm:grid-cols-4 lg:grid-cols-7' : days.length === 6 ? 'sm:grid-cols-3 lg:grid-cols-6' : 'sm:grid-cols-5'}`}>
         {days.map(d => (
-          <div key={d.day} className={`rounded-2xl p-2.5 space-y-1.5 min-h-24 ${d.isToday ? 'bg-[#2E9DF7]/10 ring-2 ring-[#2E9DF7]' : 'bg-gray-50/60'}`}>
-            <p className={`text-[10px] font-black uppercase tracking-wide ${d.isToday ? 'text-[#2E9DF7]' : 'text-gray-400'}`}>
+          <div key={d.day} className={`rounded-2xl p-2.5 space-y-1.5 min-h-24 ${d.isToday ? 'bg-brand/10 ring-2 ring-brand' : 'bg-gray-50/60'}`}>
+            <p className={`text-[10px] font-bold uppercase tracking-wide ${d.isToday ? 'text-brand' : 'text-gray-400'}`}>
               {d.date ? `${DAY_SHORT[(d.date.getDay() + 6) % 7]} ${d.date.getDate()}` : `Day ${d.day}`}{d.isToday ? ' · Today' : ''}
             </p>
             {d.items.length ? d.items.map(chip) : <p className="text-[11px] text-gray-300 font-bold">—</p>}
@@ -75,7 +75,7 @@ export const WeekPlan: React.FC<{ traineeId: string | undefined }> = ({ traineeI
       </div>
       {anyDay.length > 0 && (
         <div className="mt-3">
-          <p className="text-[10px] font-black uppercase tracking-wide text-gray-400 mb-1.5">Any day this week</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">Any day this week</p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{anyDay.map(chip)}</div>
         </div>
       )}

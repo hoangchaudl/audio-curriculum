@@ -240,7 +240,7 @@ const AppContent = () => {
         </p>
         <button
           onClick={logout}
-          className="text-xs font-bold uppercase tracking-wide text-white bg-[#2E9DF7] px-6 py-3 rounded-2xl transition-all shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
+          className="text-xs font-bold uppercase tracking-wide text-white bg-brand px-6 py-3 rounded-2xl transition-all active:shadow-none active:translate-y-[2px]"
         >
           Sign out and try again
         </button>
@@ -259,13 +259,13 @@ const AppContent = () => {
   const isLeadership = effectiveRole === 'leadership';
   const leadershipBrowsing = isLeadership && (view === 'assignment' || (view === 'module' && !!selectedModuleId));
   const previewBanner = isRealAdmin && previewRole && (
-    <div className="bg-[#F4511E] text-white text-xs font-bold px-6 py-2 shadow-md z-10 flex items-center justify-between flex-shrink-0">
+    <div className="bg-warm text-white text-xs font-bold px-6 py-2 shadow-md z-10 flex items-center justify-between flex-shrink-0">
       <span>
         👁 Previewing as {previewRole.replace('_', ' ')} - you're still signed in as admin, this is view-only for checking the experience.
       </span>
       <button
         onClick={() => setPreviewRole(null)}
-        className="bg-surface text-[#F4511E] hover:bg-white/90 px-3 py-1 rounded-full transition-colors font-black uppercase text-[10px] tracking-wide shadow-sm"
+        className="bg-surface text-warm hover:bg-white/90 px-3 py-1 rounded-full transition-colors font-bold uppercase text-[10px] tracking-wide shadow-sm"
       >
         Return to Admin View
       </button>
@@ -348,13 +348,13 @@ const AppContent = () => {
           <button
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Open menu"
-            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-sky text-[#2E9DF7] hover:bg-[#2E9DF7]/20 transition-colors"
+            className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-sky text-brand hover:bg-brand/20 transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
-          <span className="font-black text-sm uppercase tracking-tight text-[#2E9DF7] truncate">Story Co Audio Training Program</span>
+          <span className="font-bold text-sm uppercase tracking-tight text-brand truncate">Story Co Audio Training Program</span>
           <div className="ml-auto"><NotificationBell align="right" light /></div>
         </div>
         {previewBanner}

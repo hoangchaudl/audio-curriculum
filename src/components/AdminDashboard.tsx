@@ -61,9 +61,9 @@ const rowsToMaterials = (rows: MaterialRow[]): Resource[] =>
 
 // Cycles through the three brand colors only (blue / orange / green).
 const CARD_THEMES = [
-  { bg: 'var(--color-sky)', accent: '#2E9DF7' },
-  { bg: 'var(--color-peach)', accent: '#F4511E' },
-  { bg: 'var(--color-mint)', accent: '#3DDC97' },
+  { bg: 'var(--color-sky)', accent: 'var(--color-brand)' },
+  { bg: 'var(--color-peach)', accent: 'var(--color-warm)' },
+  { bg: 'var(--color-mint)', accent: 'var(--color-go)' },
 ];
 
 const getInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -91,11 +91,11 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   const undecided = (r: typeof roster[number]) => r.designer.status !== 'released' && !outcomeOf(r.designer.id)?.decision;
   const summary = [
     { label: 'Trainees', n: shownRoster.length, cls: 'bg-surface text-gray-800' },
-    { label: 'On track', n: count(r => undecided(r) && r.standing?.status === 'on_track'), cls: 'bg-[#3DDC97]/20 text-leaf' },
-    { label: 'Falling behind', n: count(r => undecided(r) && r.standing?.status === 'behind'), cls: 'bg-[#F4511E]/20 text-ember' },
+    { label: 'On track', n: count(r => undecided(r) && r.standing?.status === 'on_track'), cls: 'bg-go/20 text-leaf' },
+    { label: 'Falling behind', n: count(r => undecided(r) && r.standing?.status === 'behind'), cls: 'bg-warm/20 text-ember' },
     { label: 'Waiting for grades', n: count(r => undecided(r) && r.standing?.status === 'grading'), cls: 'bg-sky text-navy' },
     { label: 'Awaiting offer decision', n: count(r => undecided(r) && (r.standing?.status === 'passed' || r.standing?.status === 'not_passed')), cls: 'bg-sky text-navy' },
-    { label: 'Offered', n: count(r => outcomeOf(r.designer.id)?.decision === 'offered'), cls: 'bg-[#3DDC97] text-[#0B3D2A]' },
+    { label: 'Offered', n: count(r => outcomeOf(r.designer.id)?.decision === 'offered'), cls: 'bg-go text-go-ink' },
     { label: 'Released', n: count(r => r.designer.status === 'released'), cls: 'bg-gray-200 text-gray-700' },
     { label: 'Not started', n: count(r => undecided(r) && (!r.standing || r.standing.status === 'upcoming')), cls: 'bg-gray-100 text-gray-500' },
   ].filter(x => x.n > 0 || x.label !== 'Not started');
@@ -281,7 +281,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <AdminHeader onPreview={onPreview}>
         {hasReviews && (
-          <button onClick={() => { window.location.hash = '#/review'; }} className="flex items-center gap-1.5 text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+          <button onClick={() => { window.location.hash = '#/review'; }} className="flex items-center gap-1.5 text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-brand/20">
             <ClipboardCheck className="w-4 h-4" strokeWidth={2.5} aria-hidden="true" />Review Queue{reviewTodo ? ` (${reviewTodo})` : ''}
           </button>
         )}
@@ -296,17 +296,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         {(behind.length > 0 || awaitingDecision.length > 0 || checkpointDue.length > 0 || waiting.length > 0 || splits.length > 0) && (
           <div className="space-y-3">
             {checkpointDue.length > 0 && (
-              <div className="bg-sky rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-sky rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm font-bold text-navy">
                   🚦 Week 2 checkpoint due for {checkpointDue.map(r => r.designer.name).join(', ')} - record continue or release.
                 </p>
-                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-brand text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
               </div>
             )}
             {behind.length > 0 && (
-              <div className="bg-rose rounded-[32px] p-5 flex flex-wrap items-start justify-between gap-3">
+              <div className="bg-rose rounded-2xl p-5 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-black uppercase text-ember mb-1">⚠ {behind.length} sound designer{behind.length === 1 ? ' is' : 's are'} falling behind</p>
+                  <p className="text-xs font-bold uppercase text-ember mb-1">⚠ {behind.length} sound designer{behind.length === 1 ? ' is' : 's are'} falling behind</p>
                   <ul className="text-sm text-ember font-bold space-y-0.5">
                     {behind.map(({ designer, standing }) => (
                       <li key={designer.id}><b>{designer.name}</b> - {[
@@ -316,12 +316,12 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                     ))}
                   </ul>
                 </div>
-                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#F4511E] text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-warm text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
               </div>
             )}
             {waiting.length > 0 && (
-              <div className="bg-peach rounded-[32px] p-5">
-                <p className="text-xs font-black uppercase text-ember mb-1">
+              <div className="bg-peach rounded-2xl p-5">
+                <p className="text-xs font-bold uppercase text-ember mb-1">
                   ⏳ {waiting.length} hand-in{waiting.length === 1 ? ' is' : 's are'} waiting over {REVIEW_LAG_DAYS} days for scores
                 </p>
                 <ul className="text-sm text-ember font-bold space-y-0.5">
@@ -334,19 +334,19 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               </div>
             )}
             {splits.length > 0 && (
-              <div className="bg-sky rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-sky rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm font-bold text-navy">
                   ⚖ Reviewers disagree by {DISAGREEMENT_GAP}+ points for {splits.map(x => `${x.name} (${x.n})`).join(', ')} - check before publishing.
                 </p>
-                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#2E9DF7] text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-brand text-white font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
               </div>
             )}
             {awaitingDecision.length > 0 && (
-              <div className="bg-[#3DDC97]/15 rounded-[32px] p-5 flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-go/15 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm font-bold text-leaf">
                   🎓 Probation finished for {awaitingDecision.map(r => `${r.designer.name} (${r.standing!.status === 'passed' ? 'passed' : 'below benchmark'})`).join(', ')} - record the full-time offer decision.
                 </p>
-                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-[#3DDC97] text-[#0B3D2A] font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
+                {activeTab !== 'designers' && <button onClick={() => setActiveTab('designers')} className="bg-go text-go-ink font-bold text-sm px-5 py-2 rounded-2xl">View</button>}
               </div>
             )}
           </div>
@@ -358,7 +358,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             onClick={() => setActiveTab('outline')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'outline'
-                ? 'bg-[#F4511E] text-white shadow-md'
+                ? 'bg-warm text-white shadow-md'
                 : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
@@ -368,7 +368,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             onClick={() => setActiveTab('modules')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'modules'
-                ? 'bg-[#3DDC97] text-white shadow-md'
+                ? 'bg-go text-white shadow-md'
                 : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
@@ -378,18 +378,18 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             onClick={() => setActiveTab('designers')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'designers'
-                ? 'bg-[#2E9DF7] text-white shadow-md'
+                ? 'bg-brand text-white shadow-md'
                 : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
             Sound Designers
-            {behind.length > 0 && <span className="ml-2 bg-[#F4511E] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{behind.length}</span>}
+            {behind.length > 0 && <span className="ml-2 bg-warm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{behind.length}</span>}
           </button>
           <button
             onClick={() => setActiveTab('assessment')}
             className={`px-6 py-2 rounded-full font-bold transition-all ${
               activeTab === 'assessment'
-                ? 'bg-[#1E40AF] text-white shadow-md'
+                ? 'bg-navy text-white shadow-md'
                 : 'bg-surface text-gray-500 hover:bg-gray-50'
             }`}
           >
@@ -414,13 +414,13 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         {activeTab === 'designers' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
+              <h3 className="text-lg font-bold uppercase text-gray-800 tracking-wider flex items-center gap-2">
                 📋 Probation progress
               </h3>
               <div className="flex items-center gap-4 flex-wrap">
                 <BatchFilter value={batch} onChange={setBatch} batches={batches} />
                 {shownRoster.length > 0 && (
-                  <button onClick={() => downloadReport(shownRoster, batch)} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-[#2E9DF7]/20">
+                  <button onClick={() => downloadReport(shownRoster, batch)} className="text-xs font-bold text-navy bg-sky px-4 py-2 rounded-full hover:bg-brand/20">
                     Download report (CSV)
                   </button>
                 )}
@@ -433,7 +433,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <div className="flex flex-wrap gap-2" aria-label="Batch summary">
                 {summary.map(x => (
                   <span key={x.label} className={`rounded-2xl px-4 py-2 text-xs font-bold ${x.cls}`}>
-                    <span className="text-lg font-black mr-1.5">{x.n}</span>{x.label}
+                    <span className="text-lg font-bold mr-1.5">{x.n}</span>{x.label}
                   </span>
                 ))}
               </div>
@@ -451,26 +451,26 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         {activeTab === 'modules' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <h3 className="text-lg font-black uppercase text-gray-800 tracking-wider flex items-center gap-2">
+              <h3 className="text-lg font-bold uppercase text-gray-800 tracking-wider flex items-center gap-2">
                 📚 Lesson library
               </h3>
               <div className="flex items-center gap-3">
-                <span className="bg-sky text-navy text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
+                <span className="bg-sky text-navy text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full whitespace-nowrap">
                   {modules.filter(m => getMissingContentFields(m).length === 0).length} / {modules.length} Complete
                 </span>
-                <span className="flex items-center gap-1.5 bg-[#3DDC97]/20 rounded-full px-3 py-1 text-xs font-black text-leaf">
-                  <span className="w-2 h-2 rounded-full bg-[#3DDC97]"></span> LIVE
+                <span className="flex items-center gap-1.5 bg-go/20 rounded-full px-3 py-1 text-xs font-bold text-leaf">
+                  <span className="w-2 h-2 rounded-full bg-go"></span> LIVE
                 </span>
                 <button
                   onClick={handleAddModule}
-                  className="bg-[#3DDC97] text-white font-bold text-sm px-5 py-2 rounded-full transition-all shadow-[0_4px_0_#2A8F62] active:shadow-none active:translate-y-[2px]"
+                  className="bg-go text-white font-bold text-sm px-5 py-2 rounded-full transition-all active:shadow-none active:translate-y-[2px]"
                 >
                   + Add Module
                 </button>
               </div>
             </div>
             <details className="group">
-              <summary className="cursor-pointer text-xs font-black uppercase tracking-widest text-gray-400 hover:text-[#2E9DF7] list-none flex items-center gap-1.5">
+              <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-brand list-none flex items-center gap-1.5">
                 <span className="transition-transform group-open:rotate-90">›</span> Manage categories ({categories.length})
               </summary>
               <div className="mt-3"><CategoryManager /></div>
@@ -482,13 +482,13 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 onChange={(e) => setModuleQuery(e.target.value)}
                 placeholder="Search modules…"
                 aria-label="Search modules"
-                className="flex-1 min-w-[200px] bg-surface border border-gray-100 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-medium"
+                className="flex-1 min-w-[200px] bg-surface border border-gray-100 rounded-xl p-3 text-sm focus:ring-2 focus:ring-brand font-medium"
               />
               <button
                 onClick={() => setOnlyIncomplete(v => !v)}
                 aria-pressed={onlyIncomplete}
-                className={`text-xs font-black uppercase tracking-wide px-4 py-3 rounded-xl transition-colors ${
-                  onlyIncomplete ? 'bg-[#F4511E] text-white' : 'bg-[#F4511E]/15 text-ember hover:bg-[#F4511E]/25'
+                className={`text-xs font-bold uppercase tracking-wide px-4 py-3 rounded-xl transition-colors ${
+                  onlyIncomplete ? 'bg-warm text-white' : 'bg-warm/15 text-ember hover:bg-warm/25'
                 }`}
               >
                 Needs work ({modules.filter(m => getMissingContentFields(m).length > 0).length})
@@ -505,10 +505,10 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <button
                 onClick={() => toggleCat(group.id)}
                 aria-expanded={open}
-                className="w-full flex items-center gap-2 text-left px-1 py-1 text-gray-700 hover:text-[#2E9DF7]"
+                className="w-full flex items-center gap-2 text-left px-1 py-1 text-gray-700 hover:text-brand"
               >
                 <span className={`text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
-                <span className="text-sm font-black uppercase tracking-wider">{group.name}</span>
+                <span className="text-sm font-bold uppercase tracking-wider">{group.name}</span>
                 {group.restricted && <span className="text-[10px]" title="Locked category">🔒</span>}
                 <span className="text-[10px] font-bold uppercase text-gray-400">
                   {group.all.length} module{group.all.length === 1 ? '' : 's'} · {doneCount}/{group.all.length} complete
@@ -520,7 +520,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
                 const missingFields = getMissingContentFields(mod);
                 return (
-                <div key={mod.id} className={`bg-surface border border-gray-100 shadow-sm ${editingModule === mod.id ? 'rounded-[32px] p-6' : 'rounded-2xl px-4 py-3'}`}>
+                <div key={mod.id} className={`bg-surface border border-gray-100 shadow-sm ${editingModule === mod.id ? 'rounded-2xl p-6' : 'rounded-2xl px-4 py-3'}`}>
                   {editingModule === mod.id ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-3 gap-3">
@@ -529,7 +529,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           <select id="module-category"
                             value={editForm.category || sortCategories(categories)[0]?.id || ''}
                             onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                           >
                             {sortCategories(categories).map(c => <option key={c.id} value={c.id}>{c.name}{c.restricted ? ' (locked)' : ''}</option>)}
                             {editForm.category && !categories.some(c => c.id === editForm.category) && (
@@ -543,7 +543,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             type="number"
                             value={editForm.order ?? ''}
                             onChange={(e) => setEditForm({ ...editForm, order: e.target.value })}
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                           />
                         </div>
                         <div>
@@ -553,7 +553,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             value={editForm.label || ''}
                             onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
                             placeholder="e.g. A, 4"
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                           />
                         </div>
                       </div>
@@ -563,7 +563,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           type="text"
                           value={editForm.title || ''}
                           onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                         />
                       </div>
                       <div>
@@ -572,7 +572,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                         <textarea id="module-description"
                           value={editForm.description || ''}
                           onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
+                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium h-24"
                         />
                       </div>
                       <div>
@@ -581,7 +581,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           value={outlineText}
                           onChange={(e) => setOutlineText(e.target.value)}
                           placeholder={'1. Intro to EQ\n2. Subtractive vs Additive EQ'}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-20"
+                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium h-20"
                         />
                       </div>
                       <div>
@@ -590,7 +590,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           value={objectivesText}
                           onChange={(e) => setObjectivesText(e.target.value)}
                           placeholder={'e.g. Understand subtractive EQ\nApply gain staging correctly'}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
+                          className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-go transition-all font-medium h-24"
                         />
                       </div>
                       <div>
@@ -599,7 +599,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           value={outcomesText}
                           onChange={(e) => setOutcomesText(e.target.value)}
                           placeholder={'e.g. A mix with balanced frequency content'}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium h-24"
+                          className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-go transition-all font-medium h-24"
                         />
                       </div>
                       <div>
@@ -620,19 +620,19 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                                 value={material.title}
                                 onChange={(e) => patchMaterial(idx, { title: e.target.value })}
                                 placeholder="Title (e.g. The Sound Effects Bible)"
-                                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                               />
                               <input
                                 type="text"
                                 value={material.url}
                                 onChange={(e) => patchMaterial(idx, { url: e.target.value })}
                                 placeholder="https://... (leave blank for a book)"
-                                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                               />
                               <button
                                 onClick={() => removeMaterial(idx)}
                                 title="Remove material"
-                                className="bg-rose text-ember hover:bg-[#F4511E] hover:text-white font-bold px-3 rounded-xl transition-colors"
+                                className="bg-rose text-ember hover:bg-warm hover:text-white font-bold px-3 rounded-xl transition-colors"
                               >
                                 ✕
                               </button>
@@ -640,7 +640,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           ))}
                           <button
                             onClick={addMaterial}
-                            className="bg-surface border-2 border-dashed border-gray-200 text-gray-500 hover:border-[#2E9DF7] hover:text-[#2E9DF7] font-bold py-2 px-4 rounded-xl transition-colors text-sm"
+                            className="bg-surface border-2 border-dashed border-gray-200 text-gray-500 hover:border-brand hover:text-brand font-bold py-2 px-4 rounded-xl transition-colors text-sm"
                           >
                             + Add Material
                           </button>
@@ -649,7 +649,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       </div>
 
                       <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-3">
-                        <p className="text-xs font-black text-gray-500 uppercase">Module Video</p>
+                        <p className="text-xs font-bold text-gray-500 uppercase">Module Video</p>
                         <div className="grid grid-cols-[auto_1fr] gap-3">
                           <select
                             value={videoType}
@@ -664,7 +664,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                             value={videoUrl}
                             onChange={(e) => setVideoUrl(e.target.value)}
                             placeholder="https://youtube.com/watch?v=..."
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                           />
                         </div>
                         <input
@@ -672,7 +672,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                           value={videoTitle}
                           onChange={(e) => setVideoTitle(e.target.value)}
                           placeholder="Video title"
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#3DDC97] transition-all font-medium"
+                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
                         />
                         <ClipTimes key={editingModule} start={videoClip.start} end={videoClip.end} onChange={(start, end) => setVideoClip({ start, end })} />
                         <p className="text-[10px] text-gray-400">Leave the URL blank and save to remove the video from this module.</p>
@@ -681,7 +681,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={handleSaveModule}
-                          className="bg-[#3DDC97] text-white font-bold py-2 px-6 rounded-xl hover:bg-[#2A8F62] transition-colors"
+                          className="bg-go text-white font-bold py-2 px-6 rounded-xl hover:bg-leaf transition-colors"
                         >
                           Save Changes
                         </button>
@@ -697,35 +697,35 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                     <div className="flex justify-between items-center gap-4">
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0"
+                          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
                           style={{ background: theme.bg, color: theme.accent }}
                         >
                           {mod.label || mod.order.toString().padStart(2, '0')}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-black text-base leading-tight">{mod.title || <span className="text-ember">(no name)</span>}</h4>
+                            <h4 className="font-bold text-base leading-tight">{mod.title || <span className="text-ember">(no name)</span>}</h4>
                             {mod.program === 'episodeA' && (
-                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Old grading module - use Convert in Assessment (1–5) to remove it">
+                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Old grading module - use Convert in Assessment (1–5) to remove it">
                                 Old skill module
                               </span>
                             )}
-                            {mod.quiz && <span className="bg-[#F4511E]/15 text-ember px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">❓ Quiz</span>}
+                            {mod.quiz && <span className="bg-warm/15 text-ember px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">❓ Quiz</span>}
                             {programOutline && (lessonWeek(mod.id)
-                              ? <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">Week {lessonWeek(mod.id)}</span>
-                              : <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Trainees don't see it - add it from Program outline">Not in outline</span>)}
+                              ? <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">Week {lessonWeek(mod.id)}</span>
+                              : <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Trainees don't see it - add it from Program outline">Not in outline</span>)}
                             {(lengths[mod.id]?.sec > 0 || lengths[mod.id]?.unknown > 0) && (
-                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0" title="Video watch time (only the clip, if one is set)">
+                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Video watch time (only the clip, if one is set)">
                                 ▶ {lengths[mod.id].sec ? formatLength(lengths[mod.id].sec) : ''}{lengths[mod.id].unknown ? ' +?' : ''}
                               </span>
                             )}
                             {missingFields.length === 0 ? (
-                              <span className="bg-[#3DDC97]/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0">
+                              <span className="bg-go/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
                                 ✓ Complete
                               </span>
                             ) : (
                               <span
-                                className="bg-[#F4511E]/20 text-ember px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex-shrink-0"
+                                className="bg-warm/20 text-ember px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
                                 title={`Missing: ${missingFields.join(', ')}`}
                               >
                                 Missing {missingFields.join(', ')}
@@ -738,7 +738,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => requestEditChange(() => handleEditClick(mod))}
-                          className="bg-surface border-2 border-sky text-[#2E9DF7] hover:bg-sky font-bold text-sm py-1.5 px-4 rounded-xl transition-colors"
+                          className="bg-surface border-2 border-sky text-brand hover:bg-sky font-bold text-sm py-1.5 px-4 rounded-xl transition-colors"
                         >
                           Edit
                         </button>
@@ -772,7 +772,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         <div className="bg-surface text-gray-400 text-[11px] font-bold uppercase tracking-wide px-6 py-3 rounded-full flex flex-wrap gap-x-8 gap-y-1 justify-center shadow-sm border border-gray-100">
           <span>{designers.length} designers tracked</span>
           <span>{engineers.length} engineers tracked</span>
-          <button onClick={exportLegacy} disabled={exporting} className="uppercase tracking-wide hover:text-[#2E9DF7] disabled:opacity-50"
+          <button onClick={exportLegacy} disabled={exporting} className="uppercase tracking-wide hover:text-brand disabled:opacity-50"
             title="The retired 1–4 homework system: submissions, grades and engineer video tasks (read-only archive)">
             {exporting ? 'Exporting…' : '⬇ Export legacy 1–4 data'}
           </button>

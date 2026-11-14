@@ -47,7 +47,7 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="font-display font-black text-2xl text-gray-800">Access</h1>
+        <h1 className="font-display font-bold text-2xl text-gray-800">Access</h1>
         <p className="text-sm text-gray-600">Grant Operations access to an existing StoryCo Audio account by its email address. Training Program roles are not affected. Training Program admins always administer Operations.</p>
       </header>
       <form onSubmit={grant} className={`${card} space-y-3`} noValidate>

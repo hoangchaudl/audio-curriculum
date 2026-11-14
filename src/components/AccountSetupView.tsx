@@ -40,12 +40,12 @@ export const AccountSetupView: React.FC = () => {
 
   return (
     <main className="flex h-screen w-full items-center justify-center p-6 bg-page overflow-y-auto">
-      <div className="bg-surface rounded-[32px] p-8 md:p-10 border border-gray-100 shadow-sm max-w-lg text-center space-y-4" role="status" aria-live="polite">
+      <div className="bg-surface rounded-2xl p-8 md:p-10 border border-gray-100 shadow-sm max-w-lg text-center space-y-4" role="status" aria-live="polite">
         {status === 'checking' && <p className="text-sm font-bold text-gray-600">Checking your account…</p>}
 
         {status === 'unverified' && (
           <>
-            <h2 className="text-2xl font-black text-[#2E9DF7]">Check your inbox</h2>
+            <h2 className="text-2xl font-bold text-brand">Check your inbox</h2>
             <p className="text-sm text-gray-600">
               We sent a verification link to <b>{email}</b>. Click it, then come back here - this page continues by itself.
             </p>
@@ -55,7 +55,7 @@ export const AccountSetupView: React.FC = () => {
 
         {status === 'no-invite' && (
           <>
-            <h2 className="text-2xl font-black text-[#2E9DF7]">No invite for this email</h2>
+            <h2 className="text-2xl font-bold text-brand">No invite for this email</h2>
             <p className="text-sm text-gray-600">
               The StoryCo Audio Training Program is invite-only. Ask your coordinator to invite <b>{email}</b> exactly, then press Check again.
             </p>

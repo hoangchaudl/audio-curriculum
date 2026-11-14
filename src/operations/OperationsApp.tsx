@@ -39,7 +39,7 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => (
       <div className="flex items-center gap-3">
         <img src="/storyco-logo-light.png" alt="" className="w-10 h-auto rounded-md shadow-md dark:hidden" />
         <img src="/storyco-logo-dark.png" alt="" className="w-10 h-auto rounded-md shadow-md hidden dark:block" />
-        <h1 className="font-display font-black text-xl text-gray-800">StoryCo Audio Operations</h1>
+        <h1 className="font-display font-bold text-xl text-gray-800">StoryCo Audio Operations</h1>
       </div>
       {children}
     </div>
@@ -79,7 +79,7 @@ const SignIn: React.FC = () => {
         {error && <p role="alert" className="text-sm font-bold text-ember">{error}</p>}
         <button type="submit" disabled={busy} className={`${primaryBtn} w-full`}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
-      <p className="text-xs text-gray-500">Forgot your password or new here? Use the <a href="/" className="text-[#2E9DF7] underline">Audio Training Program sign-in</a>.</p>
+      <p className="text-xs text-gray-500">Forgot your password or new here? Use the <a href="/" className="text-brand underline">Audio Training Program sign-in</a>.</p>
     </Centered>
   );
 };
@@ -92,7 +92,7 @@ const NoAccess: React.FC<{ session: OpsSession }> = ({ session }) => (
         <p className="text-sm text-gray-600">
           {session.email
             ? <>You're signed in as <strong>{session.fbUser?.email}</strong>. Ask an Operations admin to grant access to this email address.</>
-            : <>Your email address isn't verified yet. Finish setting up your account in the <a href="/" className="text-[#2E9DF7] underline">Audio Training Program</a>, then come back.</>}
+            : <>Your email address isn't verified yet. Finish setting up your account in the <a href="/" className="text-brand underline">Audio Training Program</a>, then come back.</>}
         </p>
       </>
     )}
@@ -121,45 +121,56 @@ const Shell: React.FC<{ session: OpsSession; route: Route; children: React.React
   return (
     <div className="flex h-screen w-full bg-page text-ink font-sans overflow-hidden">
       {open && <div onClick={() => setOpen(false)} className="fixed inset-0 bg-black/50 z-30 lg:hidden" aria-hidden="true" />}
-      <aside className={`w-72 fixed lg:static inset-y-0 left-0 z-40 bg-rail flex flex-col p-4 shadow-xl flex-shrink-0 transition-transform ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`} aria-label="Operations navigation">
-        <div className="flex items-center gap-3 mb-8">
-          <img src="/storyco-logo-light.png" alt="StoryCo" className="w-10 h-auto rounded-md shadow-md dark:hidden" />
-          <img src="/storyco-logo-dark.png" alt="StoryCo" className="w-10 h-auto rounded-md shadow-md hidden dark:block" />
-          <p className="flex flex-col leading-none">
-            <span className="text-white font-black text-sm">StoryCo</span>
-            <span className="text-[#E0F2FE] text-[10px] font-extrabold uppercase tracking-[0.08em] mt-0.5">Audio Operations</span>
+      <aside className={`w-64 fixed lg:static inset-y-0 left-0 z-40 glass bg-surface lg:bg-rail lg:m-3 lg:rounded-2xl flex flex-col p-3 gap-6 flex-shrink-0 transition-transform ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`} aria-label="Operations navigation">
+        <div className="flex items-center gap-2.5 px-1.5 pt-1">
+          <img src="/storyco-logo-light.png" alt="StoryCo" className="w-8 h-auto rounded-lg dark:hidden" />
+          <img src="/storyco-logo-dark.png" alt="StoryCo" className="w-8 h-auto rounded-lg hidden dark:block" />
+          <p className="flex flex-col leading-tight">
+            <span className="text-sm font-bold text-gray-900">StoryCo</span>
+            <span className="text-xs text-rail-ink">Audio Operations</span>
           </p>
-          <button onClick={() => setOpen(false)} aria-label="Close menu" className="ml-auto lg:hidden w-7 h-7 bg-white/20 rounded-full text-white font-black text-xs">✕</button>
+          <button onClick={() => setOpen(false)} aria-label="Close menu" className="ml-auto lg:hidden w-7 h-7 bg-gray-100 rounded-full text-gray-600 font-bold text-xs">✕</button>
         </div>
-        <nav className="flex-1 overflow-y-auto space-y-2">
-          {links.map(l => {
-            const active = l.match(route);
-            return (
-              <a key={l.href} href={l.href} aria-current={active ? 'page' : undefined}
-                className={`w-full p-3 gap-3 flex items-center rounded-2xl transition-all ${active ? 'theme-light bg-surface text-navy font-bold shadow-md' : 'text-white/80 font-semibold hover:bg-white/10'}`}>
-                <span aria-hidden="true" className="w-6 flex justify-center">{l.icon}</span>
-                <span className="leading-tight">{l.label}</span>
-              </a>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto space-y-5">
+          {[{ label: 'Workspace', items: links.filter(l => l.href !== '#/access') }, { label: 'Admin', items: links.filter(l => l.href === '#/access') }]
+            .filter(g => g.items.length).map(g => (
+              <div key={g.label} className="space-y-0.5">
+                <p className="px-2.5 pb-1.5 text-[11px] font-semibold tracking-wide text-rail-ink">{g.label}</p>
+                {g.items.map(l => {
+                  const active = l.match(route);
+                  return (
+                    <a key={l.href} href={l.href} aria-current={active ? 'page' : undefined}
+                      className={`w-full px-2.5 py-2 gap-2.5 flex items-center rounded-xl text-sm transition-colors ${active ? 'bg-surface text-navy font-semibold shadow-sm' : 'text-gray-700 font-medium hover:bg-white/60 dark:hover:bg-white/5'}`}>
+                      <span aria-hidden="true" className="flex justify-center [&>svg]:w-4 [&>svg]:h-4">{l.icon}</span>
+                      <span className="leading-tight">{l.label}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            ))}
         </nav>
-        <div className="pt-4 border-t border-white/20 space-y-2 text-white">
-          <p className="text-sm font-bold truncate">{session.name}</p>
-          <p className="text-[10px] uppercase font-extrabold tracking-widest text-[#E0F2FE]">Operations {session.access}</p>
+        <div className="pt-3 border-t border-gray-200/70 space-y-2.5 px-1">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">{session.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
+            <p className="min-w-0 leading-tight">
+              <span className="block text-sm font-semibold text-gray-900 truncate">{session.name}</span>
+              <span className="block text-xs text-rail-ink capitalize">Operations {session.access}</span>
+            </p>
+          </div>
           <div className="flex gap-2">
-            <a href="/" className="text-xs font-bold bg-white/15 hover:bg-white/25 rounded-xl px-3 py-1.5">Training Program</a>
-            <button onClick={() => { window.location.hash = '#/'; signOut(auth); }} className="text-xs font-bold bg-white/15 hover:bg-white/25 rounded-xl px-3 py-1.5">Sign out</button>
+            <a href="/" className="text-xs font-semibold bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-white/70 dark:border-white/10 rounded-full px-3 py-1.5 text-gray-700">Training Program</a>
+            <button onClick={() => { window.location.hash = '#/'; signOut(auth); }} className="text-xs font-semibold bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-white/70 dark:border-white/10 rounded-full px-3 py-1.5 text-gray-700">Sign out</button>
           </div>
         </div>
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="lg:hidden flex items-center gap-3 h-14 px-4 bg-surface border-b flex-shrink-0">
-          <button onClick={() => setOpen(true)} aria-label="Open menu" className="w-9 h-9 flex items-center justify-center rounded-xl bg-sky text-[#2E9DF7]">
+        <div className="lg:hidden flex items-center gap-3 h-14 px-4 glass !rounded-none !border-x-0 !border-t-0 flex-shrink-0">
+          <button onClick={() => setOpen(true)} aria-label="Open menu" className="w-9 h-9 flex items-center justify-center rounded-full bg-sky text-brand">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
-          <span className="font-black text-sm uppercase tracking-tight text-[#2E9DF7] truncate">StoryCo Audio Operations</span>
+          <span className="font-semibold text-sm text-gray-900 truncate">StoryCo Audio Operations</span>
         </div>
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-7">
           <div className="max-w-5xl mx-auto">{children}</div>
         </main>
       </div>
@@ -192,7 +203,7 @@ export const OperationsApp: React.FC = () => {
     }
     if (route.page === 'list') return <ListPage key={route.type} type={route.type} access={session.access} content={content} />;
     if (route.page === 'detail') return <DetailPage key={route.id} id={route.id} uid={uid!} access={session.access} content={content} />;
-    return <HomePage access={session.access} content={content} />;
+    return <HomePage access={session.access} content={content} name={session.name} />;
   })();
 
   return (

@@ -26,9 +26,9 @@ export const MarkdownEditor: React.FC<{ value: string; onChange: (v: string) => 
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + text.length, s + text.length); });
   };
 
-  const btn = 'px-2 py-1 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-100 hover:text-[#2E9DF7]';
+  const btn = 'px-2 py-1 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-100 hover:text-brand';
   const tools: [string, string, () => void, string?][] = [
-    ['B', 'Bold', () => apply(wrap('**')), 'font-black'],
+    ['B', 'Bold', () => apply(wrap('**')), 'font-bold'],
     ['I', 'Italic', () => apply(wrap('*')), 'italic'],
     ['H2', 'Heading', () => apply(lines(() => '## '), true)],
     ['H3', 'Subheading', () => apply(lines(() => '### '), true)],
@@ -52,7 +52,7 @@ export const MarkdownEditor: React.FC<{ value: string; onChange: (v: string) => 
             className={`${btn} ${cls} disabled:opacity-30`}>A</button>
         ))}
         <button type="button" onClick={() => setPreview(p => !p)} aria-pressed={preview}
-          className={`ml-auto ${btn} ${preview ? 'bg-[#2E9DF7] text-white hover:bg-[#2E9DF7] hover:text-white' : ''}`}>
+          className={`ml-auto ${btn} ${preview ? 'bg-brand text-white hover:bg-brand hover:text-white' : ''}`}>
           {preview ? 'Edit' : 'Preview'}
         </button>
       </div>

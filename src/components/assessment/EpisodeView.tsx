@@ -34,7 +34,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
     <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-page">
       <header className="min-h-20 bg-surface border-b flex items-center justify-between gap-4 px-4 md:px-10 py-3 flex-shrink-0">
         <div className="min-w-0">
-          <h2 className="text-lg md:text-2xl font-black text-[#2E9DF7] truncate">{assignment?.title ?? STAGE_LABELS[stage]}</h2>
+          <h2 className="text-lg md:text-2xl font-bold text-brand truncate">{assignment?.title ?? STAGE_LABELS[stage]}</h2>
           <p className="text-xs text-gray-400 font-medium mt-1">
             {stage === 'B' ? `${w.episodeB}% of your final grade · work independently on a new full episode`
               : stage === 'DA' ? `${w.da}% of your final grade · recreate a picture-led scene as audio only`
@@ -59,7 +59,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[10px] font-black uppercase text-gray-500">
+                  <tr className="text-[10px] font-bold uppercase text-gray-500">
                     <th className="text-left py-2 pr-3">Criterion</th>
                     {slots.map(s => <th key={s} className="text-right py-2 px-2">{REVIEWER_SLOTS.find(r => r.id === s)?.label}</th>)}
                   </tr>
@@ -79,7 +79,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
             </div>
             {criteria.some(c => c.levels?.some(Boolean) || c.outcome) && (
               <div className="mt-5">
-                <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Rubric - what each score means</p>
+                <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Rubric - what each score means</p>
                 <RubricTable lines={criteria.map(c => ({ ...c, note: `${Math.round(cells.filter(x => x.criterion === c.id).reduce((t, x) => t + x.weight, 0) * 100) / 100}%` }))}
                   bands={assessmentConfig.bands?.[cellGroup(stage)]} bandsVi={assessmentConfig.bandsVi?.[cellGroup(stage)]} />
               </div>
@@ -92,7 +92,7 @@ export const EpisodeView: React.FC<{ stage: 'B' | 'P1' | 'P2' | 'DA'; assignment
               <ul className="space-y-3">
                 {reviews.filter(r => r.feedback).map(r => (
                   <li key={r.id} className="bg-sky rounded-2xl p-4">
-                    <p className="text-[10px] font-black uppercase text-navy mb-1">{REVIEWER_SLOTS.find(s => s.id === r.reviewerSlot)?.label}</p>
+                    <p className="text-[10px] font-bold uppercase text-navy mb-1">{REVIEWER_SLOTS.find(s => s.id === r.reviewerSlot)?.label}</p>
                     <p className="text-sm text-navy whitespace-pre-wrap">{r.feedback}</p>
                   </li>
                 ))}

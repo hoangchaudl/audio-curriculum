@@ -15,7 +15,7 @@ import { bandLabel, card, input, primaryBtn, saveWith, secondaryBtn } from './ui
 
 const uid = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 // `input` is full-width; the per-item day/week pickers stay compact.
-const smallSelect = 'bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-[#2E9DF7]';
+const smallSelect = 'bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-brand';
 const round = (n: number) => Math.round(n * 100) / 100;
 const PROGRAM_WEEKS = 4;
 const dayOption = (d: number) => `Day ${d} · ${DAY_NAMES[d - 1]}`;
@@ -71,23 +71,23 @@ export const AssignmentForm: React.FC<{
           ⏱ Takes about
           <input type="number" min={0} step="0.5" value={a.hours ?? ''} placeholder="–" aria-label="Estimated hours"
             onChange={e => setA({ ...a, hours: e.target.value === '' ? undefined : Number(e.target.value) })}
-            className="w-20 bg-surface rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-[#2E9DF7]" />
+            className="w-20 bg-surface rounded-xl p-2 text-sm font-bold focus:ring-2 focus:ring-brand" />
           hours to do - trainees see this to plan their time
         </label>
       </div>
       <div>
-        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Instructions - use • List / 1. List for steps</p>
+        <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Instructions - use • List / 1. List for steps</p>
         <MarkdownEditor value={a.instructions ?? ''} onChange={instructions => setA({ ...a, instructions })}
           placeholder={'What to submit, e.g.\n- Export the session as WAV\n- Name it Week1_YourName\n- Upload the Drive link below'} />
       </div>
       <div>
-        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Instructions (Vietnamese) - optional, trainees switch EN / VI</p>
+        <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Instructions (Vietnamese) - optional, trainees switch EN / VI</p>
         <MarkdownEditor value={a.instructionsVi ?? ''} onChange={instructionsVi => setA({ ...a, instructionsVi })}
           placeholder={'Hướng dẫn nộp bài, ví dụ\n- Xuất session ra WAV\n- Đặt tên Week1_TenBan\n- Dán link Drive bên dưới'} />
       </div>
 
       <div className="space-y-2">
-        <p className="text-[10px] font-black uppercase text-gray-500">Materials links</p>
+        <p className="text-[10px] font-bold uppercase text-gray-500">Materials links</p>
         {a.materials.map((m, i) => (
           <div key={i} className="grid grid-cols-[9rem_1fr_auto] gap-2">
             <input value={m.label} onChange={e => setA({ ...a, materials: a.materials.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} placeholder="Label" aria-label="Material label" className={`${input} bg-surface`} />
@@ -100,14 +100,14 @@ export const AssignmentForm: React.FC<{
 
       {a.stage === 'A' ? (
         <div className="bg-surface rounded-2xl p-4 space-y-3">
-          <p className="text-[10px] font-black uppercase text-gray-500">How it's graded</p>
+          <p className="text-[10px] font-bold uppercase text-gray-500">How it's graded</p>
           {a.practice ? (
             <p className="text-xs font-bold text-gray-500">Practice: the trainer scores the criteria below from 1 to 3 and gives feedback, but it doesn't count toward Episode A or the final grade.</p>
           ) : (
           <label className="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-700">
             Counts
             <input type="number" min={0} step="0.5" value={a.weight ?? 0} onChange={e => setA({ ...a, weight: Number(e.target.value) })}
-              aria-label="Weight in Episode A" className="w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-[#2E9DF7] font-bold" />
+              aria-label="Weight in Episode A" className="w-20 bg-gray-50 rounded-xl p-2 text-sm focus:ring-2 focus:ring-brand font-bold" />
             % of Episode A
             <span className="text-xs font-bold text-gray-400">= {round(((a.weight ?? 0) * assessmentConfig.stageWeights.episodeA) / 100)}% of the final grade · other Episode A assignments use {round(othersWeight)}%, so {round(100 - othersWeight)}% is left</span>
           </label>
@@ -139,7 +139,7 @@ export const AssignmentForm: React.FC<{
               <div key={l.id} className="bg-gray-50 rounded-2xl p-3 space-y-2">
               <div className="grid grid-cols-[1fr_6rem_auto] gap-2 items-center">
                 <input value={l.title} onChange={e => setLine(i, { title: e.target.value })} placeholder="What's judged, e.g. Workflow" aria-label="Criterion name"
-                  className={`${input} ${l.title.trim() ? '' : 'ring-2 ring-[#F4511E]'}`} />
+                  className={`${input} ${l.title.trim() ? '' : 'ring-2 ring-warm'}`} />
                 <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
                   <input type="number" min={0} step="0.01" value={l.weight} onChange={e => setLine(i, { weight: Number(e.target.value) })} aria-label="Share of assignment" className={input} />%
                 </label>
@@ -158,7 +158,7 @@ export const AssignmentForm: React.FC<{
               <div className={`grid gap-2 ${a.practice ? 'sm:grid-cols-3' : 'sm:grid-cols-5'}`}>
                 {scoreRange(maxScore(a)).map(n => (
                   <label key={n} className="block">
-                    <span className="text-[10px] font-black uppercase text-gray-400">{n} — {bandLabel(a.bands, n, maxScore(a))}</span>
+                    <span className="text-[10px] font-bold uppercase text-gray-400">{n} — {bandLabel(a.bands, n, maxScore(a))}</span>
                     <textarea value={l.levels?.[n - 1] ?? ''} placeholder={`What a ${n} looks like`} aria-label={`${l.title || 'Criterion'} - score ${n} description`}
                       onChange={e => { const levels = scoreRange(maxScore(a)).map(k => (k === n ? e.target.value : l.levels?.[k - 1] ?? '')); setLine(i, { levels }); }}
                       className={`${input} bg-surface h-24 text-xs`} />
@@ -171,11 +171,11 @@ export const AssignmentForm: React.FC<{
               <div className="flex gap-2">
                 <button type="button" onClick={() => setLines(ls => [...ls, { id: uid('ex'), assignmentId: a.id, title: '', order: ls.length + 1, weight: ls.length ? 0 : 100 }])} className={secondaryBtn}>+ Criterion</button>
                 {lines.length > 1 && (
-                  <button type="button" onClick={() => { const sh = splitEvenly(lines.length); setLines(ls => ls.map((l, i) => ({ ...l, weight: sh[i] }))); }} className="text-xs font-bold text-[#2E9DF7] hover:underline">Split equally</button>
+                  <button type="button" onClick={() => { const sh = splitEvenly(lines.length); setLines(ls => ls.map((l, i) => ({ ...l, weight: sh[i] }))); }} className="text-xs font-bold text-brand hover:underline">Split equally</button>
                 )}
               </div>
               {lines.length > 0 && (
-                <span className={`text-xs font-black ${linesOk ? 'text-leaf' : 'text-ember'}`}>{linesOk ? '✓ ' : ''}Criteria total {round(lineTotal)}%</span>
+                <span className={`text-xs font-bold ${linesOk ? 'text-leaf' : 'text-ember'}`}>{linesOk ? '✓ ' : ''}Criteria total {round(lineTotal)}%</span>
               )}
             </div>
           </div>
@@ -351,11 +351,11 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
     const asg = it.kind === 'assignment' ? assignments.find(a => a.id === it.assignmentId) : undefined;
     const day = itemDay(it, assignments);
     return (
-      <div key={it.id} className={`rounded-2xl p-2 pl-3 ${it.kind === 'assignment' ? 'bg-[#F4511E]/10' : it.kind === 'milestone' ? 'bg-[#3DDC97]/10' : 'bg-gray-50'}`}>
+      <div key={it.id} className={`rounded-2xl p-2 pl-3 ${it.kind === 'assignment' ? 'bg-warm/10' : it.kind === 'milestone' ? 'bg-go/10' : 'bg-gray-50'}`}>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-col">
-            <button onClick={() => moveInGroup(week.id, it, -1)} disabled={ii === 0} aria-label="Move up" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▲</button>
-            <button onClick={() => moveInGroup(week.id, it, 1)} disabled={ii === count - 1} aria-label="Move down" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-[10px] leading-none px-1">▼</button>
+            <button onClick={() => moveInGroup(week.id, it, -1)} disabled={ii === 0} aria-label="Move up" className="text-gray-400 hover:text-brand disabled:opacity-30 text-[10px] leading-none px-1">▲</button>
+            <button onClick={() => moveInGroup(week.id, it, 1)} disabled={ii === count - 1} aria-label="Move down" className="text-gray-400 hover:text-brand disabled:opacity-30 text-[10px] leading-none px-1">▼</button>
           </div>
           <span className="text-lg" aria-hidden="true">{isQuiz(it) ? '❓' : it.kind === 'content' ? '📖' : it.kind === 'assignment' ? '📝' : '🏁'}</span>
           <div className="flex-1 min-w-[160px]">
@@ -379,7 +379,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
               <label className="flex items-center gap-1 text-xs font-bold text-gray-500">
                 <input type="number" min={0} step="0.5" defaultValue={it.hours ?? ''} key={it.hours ?? ''} placeholder="–" aria-label="Estimated hours"
                   onBlur={e => { const v = e.target.value === '' ? null : Number(e.target.value); if (v !== (it.hours ?? null)) setLessonPlan(week.id, it, { hours: v }); }}
-                  className="w-14 bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-[#2E9DF7]" />h
+                  className="w-14 bg-surface rounded-xl px-2 py-1.5 text-xs font-bold text-gray-600 focus:ring-2 focus:ring-brand" />h
               </label>
             </>
           ) : (
@@ -410,7 +410,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
   const addArea = (week: OutlineWeek, sectionId: string | null) => {
     const here = adding?.weekId === week.id && adding.sectionId === sectionId;
     if (!here) {
-      return <button onClick={() => { closeAdd(); setAdding({ weekId: week.id, sectionId }); }} className="text-[11px] font-bold text-gray-400 hover:text-[#2E9DF7] px-1 py-1">+ Add here</button>;
+      return <button onClick={() => { closeAdd(); setAdding({ weekId: week.id, sectionId }); }} className="text-[11px] font-bold text-gray-400 hover:text-brand px-1 py-1">+ Add here</button>;
     }
     if (!adding.kind) {
       return (
@@ -480,14 +480,14 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
       <div className="flex flex-wrap gap-2 px-2">
         {outline.weeks.map((w, wi) => (
           <a key={w.id} href={`#outline-${w.id}`} onClick={e => { e.preventDefault(); setCollapsed(c => c.filter(x => x !== w.id)); document.getElementById(`outline-${w.id}`)?.scrollIntoView({ behavior: 'smooth' }); }}
-            className="text-xs font-bold text-navy bg-sky px-3 py-1.5 rounded-full hover:bg-[#2E9DF7]/20">{weekLabel(wi)}</a>
+            className="text-xs font-bold text-navy bg-sky px-3 py-1.5 rounded-full hover:bg-brand/20">{weekLabel(wi)}</a>
         ))}
-        <button onClick={() => setCollapsed(collapsed.length ? [] : outline.weeks.map(w => w.id))} className="ml-auto text-xs font-bold text-[#2E9DF7] hover:underline">
+        <button onClick={() => setCollapsed(collapsed.length ? [] : outline.weeks.map(w => w.id))} className="ml-auto text-xs font-bold text-brand hover:underline">
           {collapsed.length ? 'Expand all weeks' : 'Collapse all weeks'}
         </button>
       </div>
       {outline.weeks.slice(0, DEFAULT_WEEK_GOALS.length).some(w => !w.goal) && (
-        <div className="bg-[#3DDC97]/15 rounded-2xl px-4 py-3 text-xs text-gray-700 flex flex-wrap items-center justify-between gap-2">
+        <div className="bg-go/15 rounded-2xl px-4 py-3 text-xs text-gray-700 flex flex-wrap items-center justify-between gap-2">
           <span>Some weeks have no goal yet. Fill the empty ones with the program's standard weekly goals (you can edit them after).</span>
           <button onClick={() => save(outline.weeks.map((w, i) => (!w.goal && DEFAULT_WEEK_GOALS[i] ? { ...w, goal: DEFAULT_WEEK_GOALS[i] } : w)))} className={secondaryBtn}>
             Fill in standard weekly goals
@@ -513,7 +513,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
         return (
           <div key={week.id} id={`outline-${week.id}`} className={`${card} scroll-mt-4`}>
             <div className={`flex flex-wrap items-center gap-2 ${isOpen ? 'mb-4' : ''}`}>
-              <button onClick={() => toggleWeek(week.id)} aria-expanded={isOpen} className="flex items-center gap-1 text-lg font-black text-gray-800 hover:text-[#2E9DF7]">
+              <button onClick={() => toggleWeek(week.id)} aria-expanded={isOpen} className="flex items-center gap-1 text-lg font-bold text-gray-800 hover:text-brand">
                 <ChevronRight className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-90' : ''}`} strokeWidth={3} aria-hidden="true" />{weekLabel(wi)}
               </button>
               {!isOpen && (
@@ -524,20 +524,20 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
                 </span>
               )}
               <div className="flex gap-1">
-                <button onClick={() => moveWeek(wi, -1)} disabled={wi === 0} aria-label="Swap with the week before" title="Swap with the week before" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▲</button>
-                <button onClick={() => moveWeek(wi, 1)} disabled={wi === outline.weeks.length - 1} aria-label="Swap with the week after" title="Swap with the week after" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-black">▼</button>
+                <button onClick={() => moveWeek(wi, -1)} disabled={wi === 0} aria-label="Swap with the week before" title="Swap with the week before" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-bold">▲</button>
+                <button onClick={() => moveWeek(wi, 1)} disabled={wi === outline.weeks.length - 1} aria-label="Swap with the week after" title="Swap with the week after" className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-sky hover:text-navy disabled:opacity-30 text-xs font-bold">▼</button>
               </div>
               {(() => {
                 const n = groups.flatMap(g => g.items).filter(i => i.kind === 'content' && !i.day).length;
                 return n > 0 && (
                   <button onClick={() => planUnplanned(week)} title="Give each lesson without a planned day a recommended day, spread evenly Mon–Fri"
-                    className="text-xs font-bold text-[#2E9DF7] hover:underline">
+                    className="text-xs font-bold text-brand hover:underline">
                     <CalendarPlus className="inline-block w-4 h-4 -mt-0.5 mr-1" strokeWidth={2.5} aria-hidden="true" />Plan {n} unplanned lesson{n === 1 ? '' : 's'} across Mon–Fri
                   </button>
                 );
               })()}
               {legacyTitle && (
-                <button onClick={() => titleToSection(week, wi)} className="ml-auto text-xs font-bold text-[#2E9DF7] hover:underline">
+                <button onClick={() => titleToSection(week, wi)} className="ml-auto text-xs font-bold text-brand hover:underline">
                   Make "{legacyTitle}" a section of this week
                 </button>
               )}
@@ -565,7 +565,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
               );
             })()}
             <label className="block mb-4">
-              <span className="text-[10px] font-black uppercase text-gray-400">🎯 Goal for this week (shown to trainees on My Program)</span>
+              <span className="text-[10px] font-bold uppercase text-gray-400">🎯 Goal for this week (shown to trainees on My Program)</span>
               <textarea defaultValue={week.goal ?? ''} key={week.goal ?? ''} placeholder="What should trainees be able to do by the end of this week?" aria-label={`${weekLabel(wi)} goal`}
                 onBlur={e => { const v = e.target.value.trim(); if (v !== (week.goal ?? '')) editWeek(week.id, w => { const { goal: _, ...rest } = w; return v ? { ...rest, goal: v } : rest; }); }}
                 className={`${input} mt-1 h-16`} />
@@ -578,9 +578,9 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
                     <input defaultValue={section!.title} key={section!.title} placeholder="Section name" aria-label="Section name"
                       onBlur={e => e.target.value.trim() && e.target.value.trim() !== section!.title && renameSection(week.id, section!.id, e.target.value.trim())}
                       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                      className={`${input} font-black max-w-sm`} />
-                    <button onClick={() => moveSection(week.id, si, -1)} disabled={si === 0} aria-label="Move section up" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-xs font-black px-1">▲</button>
-                    <button onClick={() => moveSection(week.id, si, 1)} disabled={si === sections.length - 1} aria-label="Move section down" className="text-gray-400 hover:text-[#2E9DF7] disabled:opacity-30 text-xs font-black px-1">▼</button>
+                      className={`${input} font-bold max-w-sm`} />
+                    <button onClick={() => moveSection(week.id, si, -1)} disabled={si === 0} aria-label="Move section up" className="text-gray-400 hover:text-brand disabled:opacity-30 text-xs font-bold px-1">▲</button>
+                    <button onClick={() => moveSection(week.id, si, 1)} disabled={si === sections.length - 1} aria-label="Move section down" className="text-gray-400 hover:text-brand disabled:opacity-30 text-xs font-bold px-1">▼</button>
                     <button onClick={() => removeSection(week.id, section!.id)} title="Remove the section - its items stay in the week" className="ml-auto text-xs font-bold text-gray-400 hover:text-ember">Remove section</button>
                   </div>
                   {items.map((it, ii) => itemRow(week, it, ii, items.length))}
@@ -591,7 +591,7 @@ export const OutlineEditor: React.FC<{ onEditModule: (moduleId: string, fresh?: 
 
               {(loose.length > 0 || !sections.length) && (
                 <div className="space-y-2">
-                  {sections.length > 0 && <p className="text-[10px] font-black uppercase text-gray-400 px-1">Not in a section (shown after the sections)</p>}
+                  {sections.length > 0 && <p className="text-[10px] font-bold uppercase text-gray-400 px-1">Not in a section (shown after the sections)</p>}
                   {loose.map((it, ii) => itemRow(week, it, ii, loose.length))}
                   {loose.length === 0 && <p className="text-xs text-gray-400 px-1">Nothing in this week yet.</p>}
                   {addArea(week, null)}

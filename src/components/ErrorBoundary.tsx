@@ -23,7 +23,7 @@ export class ErrorBoundary extends React.Component<{ children?: React.ReactNode 
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="text-xs font-bold uppercase tracking-wide text-white bg-[#2E9DF7] px-6 py-3 rounded-2xl transition-all shadow-[0_4px_0_#1b85df] active:shadow-none active:translate-y-[2px]"
+            className="text-xs font-bold uppercase tracking-wide text-white bg-brand px-6 py-3 rounded-2xl transition-all active:shadow-none active:translate-y-[2px]"
           >
             Reload the app
           </button>
