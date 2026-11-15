@@ -39,7 +39,7 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => (
       <div className="flex items-center gap-3">
         <img src="/storyco-logo-light.png" alt="" className="w-10 h-auto rounded-md shadow-md dark:hidden" />
         <img src="/storyco-logo-dark.png" alt="" className="w-10 h-auto rounded-md shadow-md hidden dark:block" />
-        <h1 className="font-display font-bold text-xl text-gray-800">StoryCo Audio Operations</h1>
+        <h1 className="font-display font-bold text-xl text-gray-800">StoryCo Audio Hub</h1>
       </div>
       {children}
     </div>
@@ -68,7 +68,7 @@ const SignIn: React.FC = () => {
   };
   return (
     <Centered>
-      <p className="text-sm text-gray-600">Sign in with your StoryCo Audio account. Access is granted by an Operations admin.</p>
+      <p className="text-sm text-gray-600">Sign in with your StoryCo Audio account. Access is granted by an Audio Hub admin.</p>
       <form onSubmit={submit} className="space-y-3">
         <label className="block text-xs font-bold text-gray-600">Email
           <input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} className={`${input} mt-1`} />
@@ -88,10 +88,10 @@ const NoAccess: React.FC<{ session: OpsSession }> = ({ session }) => (
   <Centered>
     {session.error ? <p role="alert" className="text-sm font-bold text-ember">{session.error}</p> : (
       <>
-        <p className="text-sm text-gray-700 font-semibold">You don't have access to Operations.</p>
+        <p className="text-sm text-gray-700 font-semibold">You don't have access to the Audio Hub.</p>
         <p className="text-sm text-gray-600">
           {session.email
-            ? <>You're signed in as <strong>{session.fbUser?.email}</strong>. Ask an Operations admin to grant access to this email address.</>
+            ? <>You're signed in as <strong>{session.fbUser?.email}</strong>. Ask an Audio Hub admin to grant access to this email address.</>
             : <>Your email address isn't verified yet. Finish setting up your account in the <a href="/" className="text-brand underline">Audio Training Program</a>, then come back.</>}
         </p>
       </>
@@ -129,7 +129,7 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
           <img src="/storyco-logo-dark.png" alt="StoryCo" className="w-8 h-auto rounded-lg hidden dark:block" />
           <p className="flex flex-col leading-tight">
             <span className="text-sm font-bold text-gray-900">StoryCo</span>
-            <span className="text-xs text-rail-ink">Audio Operations</span>
+            <span className="text-xs text-rail-ink">Audio Hub</span>
           </p>
           <button onClick={() => setOpen(false)} aria-label="Close menu" className="ml-auto lg:hidden w-7 h-7 bg-gray-100 rounded-full text-gray-600 font-bold text-xs">✕</button>
         </div>
@@ -156,7 +156,7 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
             <span className="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">{session.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
             <p className="min-w-0 leading-tight">
               <span className="block text-sm font-semibold text-gray-900 truncate">{session.name}</span>
-              <span className="block text-xs text-rail-ink capitalize">Operations {access}{previewMember ? ' (preview)' : ''}</span>
+              <span className="block text-xs text-rail-ink capitalize">Audio Hub {access}{previewMember ? ' (preview)' : ''}</span>
             </p>
           </div>
           {session.access === 'admin' && (
@@ -176,7 +176,7 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
           <button onClick={() => setOpen(true)} aria-label="Open menu" className="w-9 h-9 flex items-center justify-center rounded-full bg-sky text-brand">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
-          <span className="font-semibold text-sm text-gray-900 truncate">StoryCo Audio Operations</span>
+          <span className="font-semibold text-sm text-gray-900 truncate">StoryCo Audio Hub</span>
         </div>
         {previewMember && (
           <div role="status" className="flex flex-wrap items-center gap-3 bg-warm text-white text-xs font-semibold px-4 md:px-7 py-2 flex-shrink-0">
@@ -204,7 +204,7 @@ export const OperationsApp: React.FC = () => {
   const access: OpsAccess = session.access === 'admin' && previewMember ? 'member' : session.access;
   const content = useOpsContent(uid, access);
 
-  useEffect(() => { document.title = 'StoryCo Audio Operations'; }, []);
+  useEffect(() => { document.title = 'StoryCo Audio Hub'; }, []);
 
   if (session.loading) return <Loading />;
   if (!session.fbUser) return <SignIn />;
@@ -212,9 +212,9 @@ export const OperationsApp: React.FC = () => {
 
   const editor = canEdit(access);
   const page = (() => {
-    if (route.page === 'access') return access === 'admin' ? <AccessPage uid={uid!} selfEmail={session.email} /> : <p>Only Operations admins manage access.</p>;
+    if (route.page === 'access') return access === 'admin' ? <AccessPage uid={uid!} selfEmail={session.email} /> : <p>Only Audio Hub admins manage access.</p>;
     if (route.page === 'new' || route.page === 'edit') {
-      if (!editor) return <p className="text-sm text-gray-600">You can read Operations content but not edit it.</p>;
+      if (!editor) return <p className="text-sm text-gray-600">You can read Audio Hub content but not edit it.</p>;
       return <EditorPage key={route.page === 'edit' ? route.id : `new-${route.type}`} route={route} uid={uid!} access={access} content={content} />;
     }
     if (route.page === 'list') return <ListPage key={route.type} type={route.type} access={access} content={content} />;

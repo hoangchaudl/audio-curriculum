@@ -48,7 +48,7 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
     <div className="space-y-5">
       <header>
         <h1 className="font-display font-bold text-2xl text-gray-800">Access</h1>
-        <p className="text-sm text-gray-600">Grant Operations access to an existing StoryCo Audio account by its email address. Training Program roles are not affected. Training Program admins always administer Operations.</p>
+        <p className="text-sm text-gray-600">Grant Audio Hub access to an existing StoryCo Audio account by its email address. Training Program roles are not affected. Training Program admins always administer the Audio Hub.</p>
       </header>
       <form onSubmit={grant} className={`${card} space-y-3`} noValidate>
         <h2 className={sectionTitle}>Grant access</h2>
@@ -83,7 +83,7 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
                   </select>
                   {m.active ? (
                     <button disabled={!!busy} className={`${secondaryBtn} !text-ember`}
-                      onClick={() => window.confirm(`Revoke Operations access for ${m.email}?${m.email === selfEmail ? ' This includes your own access.' : ''}`) && update(m, { active: false }, `Access revoked for ${m.email}.`)}>Revoke</button>
+                      onClick={() => window.confirm(`Revoke Audio Hub access for ${m.email}?${m.email === selfEmail ? ' This includes your own access.' : ''}`) && update(m, { active: false }, `Access revoked for ${m.email}.`)}>Revoke</button>
                   ) : (
                     <button disabled={!!busy} className={secondaryBtn} onClick={() => update(m, { active: true }, `Access restored for ${m.email}.`)}>Restore</button>
                   )}
