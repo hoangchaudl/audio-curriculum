@@ -50,7 +50,7 @@ export const AdminHeader: React.FC<{ onPreview?: (role: Role) => void; onBack?: 
           {open && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-gray-100 p-2 z-50">
               <button onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className={item}>My Profile</button>
-              {hasOps && <a href="/operations/" className={`${item} block`}>Operations</a>}
+              {hasOps && <a href="/operations/" className={`${item} block`}>Audio Hub</a>}
               {onPreview && <p className="text-[10px] text-gray-400 font-bold uppercase px-3 pt-2 pb-1 border-t mt-1">Preview as</p>}
               {onPreview && (['sound_designer', 'reviewer', 'audio_engineer', 'leadership'] as Role[]).map(role => (
                 <button key={role} onClick={() => { setOpen(false); onPreview(role); }} className={item}>

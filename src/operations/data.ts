@@ -61,7 +61,7 @@ export const useOpsSession = (): OpsSession => {
       // Denied = no access (e.g. no Curriculum profile); never crash.
       if ((err as { code?: string }).code !== 'permission-denied') {
         console.error('Operations: membership', err);
-        setError('Could not check your Operations access. Check your connection and refresh.');
+        setError('Could not check your Audio Hub access. Check your connection and refresh.');
       }
       setMember({ loaded: true, data: null });
     });
