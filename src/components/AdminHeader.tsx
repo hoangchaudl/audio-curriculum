@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
+import { useHasOpsAccess } from '../operations/data';
 import { Role } from '../types';
 import { useResolvedTheme } from '../theme';
 import { ThemeToggle } from './ThemeToggle';
@@ -9,6 +10,7 @@ import { ThemeToggle } from './ThemeToggle';
 // log out. `onBack` shows a "← Dashboard" link on pages other than the dashboard.
 export const AdminHeader: React.FC<{ onPreview?: (role: Role) => void; onBack?: () => void; children?: React.ReactNode }> = ({ onPreview, onBack, children }) => {
   const { currentUser, logout, updateUserTheme } = useAppContext();
+  const hasOps = useHasOpsAccess(currentUser?.role);
   const isDark = useResolvedTheme(currentUser) === 'dark';
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -48,6 +50,7 @@ export const AdminHeader: React.FC<{ onPreview?: (role: Role) => void; onBack?: 
           {open && (
             <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-gray-100 p-2 z-50">
               <button onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className={item}>My Profile</button>
+              {hasOps && <a href="/operations/" className={`${item} block`}>Operations</a>}
               {onPreview && <p className="text-[10px] text-gray-400 font-bold uppercase px-3 pt-2 pb-1 border-t mt-1">Preview as</p>}
               {onPreview && (['sound_designer', 'reviewer', 'audio_engineer', 'leadership'] as Role[]).map(role => (
                 <button key={role} onClick={() => { setOpen(false); onPreview(role); }} className={item}>

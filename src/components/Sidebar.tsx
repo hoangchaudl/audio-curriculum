@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppContext } from '../store';
+import { useHasOpsAccess } from '../operations/data';
 import { Assignment, Module, OutlineSection, Role } from '../types';
 
 // `section`: the week section heading it sits under (null = not in a section).
@@ -36,6 +37,7 @@ export const Sidebar: React.FC<{
   onCloseMobile: () => void;
 }> = ({ selectedModuleId, activePage, setSelectedModuleId, isRealAdmin, effectiveRole, previewRole, onChangePreviewRole, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
   const { modules: allModules, categories, currentUser, logout, updateUserTheme, enrollments, exercises, assessmentSubmissions, programOutline, assignments, videoProgress } = useAppContext();
+  const hasOps = useHasOpsAccess(currentUser?.role);
   // Weeks (and week sections) the trainee folded away in the sidebar - a per-browser
   // convenience, so localStorage is enough (falls back to all open).
   const [foldedWeeks, setFoldedWeeks] = useState<string[]>(() => {
@@ -399,6 +401,8 @@ export const Sidebar: React.FC<{
           {menuOpen && (
             <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-surface p-2 rounded-2xl shadow-xl z-50">
                <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-bold text-warm hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
+
+               {hasOps && <a href="/operations/" className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg">Operations</a>}
 
                {/* Admin-only: preview other dashboards without changing your
                    real role or signing in as anyone else. Purely a client-side

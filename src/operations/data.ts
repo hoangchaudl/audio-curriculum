@@ -76,6 +76,24 @@ export const useOpsSession = (): OpsSession => {
   };
 };
 
+// For the Training Program's account menu: whether to show the Operations
+// link. Curriculum admins always have access; anyone else needs an active
+// membership under their verified email (the same rule Operations applies).
+export const useHasOpsAccess = (curriculumRole: string | undefined): boolean => {
+  const [member, setMember] = useState(false);
+  const u = auth.currentUser;
+  const email = u?.emailVerified && u.email ? u.email.toLowerCase() : '';
+  const isAdmin = curriculumRole === 'admin';
+  useEffect(() => {
+    setMember(false);
+    if (isAdmin || !email) return;
+    return onSnapshot(doc(db, 'operationsMembers', email),
+      snap => setMember(!!snap.exists() && opsAccessFor(curriculumRole, true, snap.data() as OpsMember) !== 'none'),
+      () => setMember(false)); // denied or offline: just hide the link
+  }, [isAdmin, email, curriculumRole]);
+  return isAdmin || member;
+};
+
 // Content the caller may see. Members query only published documents, so
 // the query matches firestore.rules (nothing restricted is downloaded);
 // editors and admins read drafts and archived items too. Losing access

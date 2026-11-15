@@ -4,7 +4,7 @@ import { BookOpen, CalendarDays, ClipboardCheck, FolderOpen, Home, Users } from 
 import { auth } from '../firebase';
 import { useApplyTheme } from '../theme';
 import { card, input, primaryBtn, secondaryBtn } from '../components/assessment/ui';
-import { ContentType, Route, SECTIONS, canEdit, parseRoute } from './model';
+import { ContentType, OpsAccess, Route, SECTIONS, canEdit, parseRoute } from './model';
 import { OpsSession, useOpsContent, useOpsSession } from './data';
 import { DetailPage, HomePage, ListPage } from './pages';
 
@@ -112,10 +112,12 @@ const NAV: { href: string; label: string; icon: React.ReactNode; match: (r: Rout
   })),
 ];
 
-const Shell: React.FC<{ session: OpsSession; route: Route; children: React.ReactNode }> = ({ session, route, children }) => {
+// `access` is what the screens render for: an admin previewing as a member
+// gets 'member' here while `session.access` stays 'admin'.
+const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; previewMember: boolean; onPreviewMember: (on: boolean) => void; children: React.ReactNode }> = ({ session, access, route, previewMember, onPreviewMember, children }) => {
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [route]);
-  const links = session.access === 'admin'
+  const links = access === 'admin'
     ? [...NAV, { href: '#/access', label: 'Access', icon: <Users className="w-5 h-5" />, match: (r: Route) => r.page === 'access' }]
     : NAV;
   return (
@@ -154,9 +156,15 @@ const Shell: React.FC<{ session: OpsSession; route: Route; children: React.React
             <span className="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">{session.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
             <p className="min-w-0 leading-tight">
               <span className="block text-sm font-semibold text-gray-900 truncate">{session.name}</span>
-              <span className="block text-xs text-rail-ink capitalize">Operations {session.access}</span>
+              <span className="block text-xs text-rail-ink capitalize">Operations {access}{previewMember ? ' (preview)' : ''}</span>
             </p>
           </div>
+          {session.access === 'admin' && (
+            <button onClick={() => onPreviewMember(!previewMember)} aria-pressed={previewMember}
+              className={`w-full text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors ${previewMember ? 'bg-brand text-white border-transparent' : 'bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border-white/70 dark:border-white/10 text-gray-700'}`}>
+              {previewMember ? 'Return to admin view' : 'Preview as member'}
+            </button>
+          )}
           <div className="flex gap-2">
             <a href="/" className="text-xs font-semibold bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-white/70 dark:border-white/10 rounded-full px-3 py-1.5 text-gray-700">Training Program</a>
             <button onClick={() => { window.location.hash = '#/'; signOut(auth); }} className="text-xs font-semibold bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-white/70 dark:border-white/10 rounded-full px-3 py-1.5 text-gray-700">Sign out</button>
@@ -170,6 +178,12 @@ const Shell: React.FC<{ session: OpsSession; route: Route; children: React.React
           </button>
           <span className="font-semibold text-sm text-gray-900 truncate">StoryCo Audio Operations</span>
         </div>
+        {previewMember && (
+          <div role="status" className="flex flex-wrap items-center gap-3 bg-warm text-white text-xs font-semibold px-4 md:px-7 py-2 flex-shrink-0">
+            <span className="flex-1 min-w-48">Previewing as a member: you see only published items and no editing. You're still signed in as an admin.</span>
+            <button onClick={() => onPreviewMember(false)} className="bg-white/90 text-ember rounded-full px-3 py-1 font-bold">Return to admin view</button>
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto p-4 md:p-7">
           <div className="max-w-5xl mx-auto">{children}</div>
         </main>
@@ -186,7 +200,9 @@ export const OperationsApp: React.FC = () => {
   const osTheme = useOsTheme();
   useApplyTheme(session.theme ?? osTheme);
   const uid = session.fbUser?.uid;
-  const content = useOpsContent(uid, session.access);
+  const [previewMember, setPreviewMember] = useState(false);
+  const access: OpsAccess = session.access === 'admin' && previewMember ? 'member' : session.access;
+  const content = useOpsContent(uid, access);
 
   useEffect(() => { document.title = 'StoryCo Audio Operations'; }, []);
 
@@ -194,20 +210,20 @@ export const OperationsApp: React.FC = () => {
   if (!session.fbUser) return <SignIn />;
   if (session.access === 'none') return <NoAccess session={session} />;
 
-  const editor = canEdit(session.access);
+  const editor = canEdit(access);
   const page = (() => {
-    if (route.page === 'access') return session.access === 'admin' ? <AccessPage uid={uid!} selfEmail={session.email} /> : <p>Only Operations admins manage access.</p>;
+    if (route.page === 'access') return access === 'admin' ? <AccessPage uid={uid!} selfEmail={session.email} /> : <p>Only Operations admins manage access.</p>;
     if (route.page === 'new' || route.page === 'edit') {
       if (!editor) return <p className="text-sm text-gray-600">You can read Operations content but not edit it.</p>;
-      return <EditorPage key={route.page === 'edit' ? route.id : `new-${route.type}`} route={route} uid={uid!} access={session.access} content={content} />;
+      return <EditorPage key={route.page === 'edit' ? route.id : `new-${route.type}`} route={route} uid={uid!} access={access} content={content} />;
     }
-    if (route.page === 'list') return <ListPage key={route.type} type={route.type} access={session.access} content={content} />;
-    if (route.page === 'detail') return <DetailPage key={route.id} id={route.id} uid={uid!} access={session.access} content={content} />;
-    return <HomePage access={session.access} content={content} name={session.name} />;
+    if (route.page === 'list') return <ListPage key={route.type} type={route.type} access={access} content={content} />;
+    if (route.page === 'detail') return <DetailPage key={route.id} id={route.id} uid={uid!} access={access} content={content} />;
+    return <HomePage access={access} content={content} name={session.name} />;
   })();
 
   return (
-    <Shell session={session} route={route}>
+    <Shell session={session} access={access} route={route} previewMember={previewMember} onPreviewMember={setPreviewMember}>
       <Suspense fallback={<p role="status" className="text-gray-400 font-bold text-sm">Loading…</p>}>{page}</Suspense>
     </Shell>
   );
