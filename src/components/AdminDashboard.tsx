@@ -139,16 +139,17 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
   // modal, rendered once at the bottom of this component.
   const [pendingConfirm, setPendingConfirm] = useState<{ kind: 'delete-module'; mod: Module } | null>(null);
 
-  // Set when a lesson was opened from the outline, so Save / Cancel go back there.
-  const [returnToOutline, setReturnToOutline] = useState(false);
-  const closeEditor = () => {
-    setEditingModule(null);
-    if (returnToOutline) setActiveTab('outline');
-    setReturnToOutline(false);
-  };
+  // The editor is a popup over whichever tab you're on.
+  const editorRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = editorRef.current;
+    if (!d) return;
+    if (editingModule && !d.open) d.showModal();
+    if (!editingModule && d.open) d.close();
+  }, [editingModule]);
+  const closeEditor = () => setEditingModule(null);
 
-  const handleEditClick = (mod: any, fromOutline = false) => {
-    setReturnToOutline(fromOutline);
+  const handleEditClick = (mod: any) => {
     setEditingModule(mod.id);
     setEditForm({ ...mod });
     setObjectivesText((mod.objectives || []).join('\n'));
@@ -205,7 +206,6 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
 
   const handleAddModule = () => requestEditChange(async () => {
     const newModule = await createModule();
-    setActiveTab('modules');
     handleEditClick(newModule);
   });
 
@@ -275,6 +275,19 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
     const i = programOutline?.weeks.findIndex(w => w.items.some(it => it.kind === 'content' && it.moduleId === moduleId)) ?? -1;
     return i >= 0 ? i + 1 : null;
   };
+  const jumpToCat = (id: string) => {
+    setCollapsedCats(c => c.filter(x => x !== id));
+    // After the section has re-opened.
+    requestAnimationFrame(() => document.getElementById(`cat-${id}`)?.scrollIntoView());
+  };
+  // One line per kind of alert; the details open on click.
+  const alertChips = [
+    { n: checkpointDue.length, label: 'week 2 checkpoint due', icon: '🚦', cls: 'bg-sky text-navy' },
+    { n: behind.length, label: 'falling behind', icon: '⚠', cls: 'bg-rose text-ember' },
+    { n: waiting.length, label: `waiting over ${REVIEW_LAG_DAYS} days for scores`, icon: '⏳', cls: 'bg-peach text-ember' },
+    { n: splits.length, label: 'with reviewer disagreements', icon: '⚖', cls: 'bg-sky text-navy' },
+    { n: awaitingDecision.length, label: 'awaiting offer decision', icon: '🎓', cls: 'bg-go/15 text-leaf' },
+  ].filter(a => a.n > 0);
   const toggleCat = (id: string) => setCollapsedCats(c => (c.includes(id) ? c.filter(x => x !== id) : [...c, id]));
 
   return (
@@ -290,11 +303,84 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
         </span>
       </AdminHeader>
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 space-y-8">
+      <div className="flex-1 overflow-y-auto scroll-smooth motion-reduce:scroll-auto">
+        {/* Tabs stay in reach while the page scrolls; the lesson library adds
+            a row that jumps straight to a category. */}
+        <div className="sticky top-0 z-20 glass border-x-0 border-t-0 px-4 md:px-6 lg:px-10 py-3 space-y-2">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            <button
+              onClick={() => setActiveTab('outline')}
+              className={`flex-shrink-0 whitespace-nowrap px-5 py-2 rounded-full font-bold text-sm transition-all ${
+                activeTab === 'outline'
+                  ? 'bg-warm text-white shadow-md'
+                  : 'bg-surface text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Program outline
+            </button>
+            <button
+              onClick={() => setActiveTab('modules')}
+              className={`flex-shrink-0 whitespace-nowrap px-5 py-2 rounded-full font-bold text-sm transition-all ${
+                activeTab === 'modules'
+                  ? 'bg-go text-white shadow-md'
+                  : 'bg-surface text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Lesson library
+            </button>
+            <button
+              onClick={() => setActiveTab('designers')}
+              className={`flex-shrink-0 whitespace-nowrap px-5 py-2 rounded-full font-bold text-sm transition-all ${
+                activeTab === 'designers'
+                  ? 'bg-brand text-white shadow-md'
+                  : 'bg-surface text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Sound Designers
+              {behind.length > 0 && <span className="ml-2 bg-warm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{behind.length}</span>}
+            </button>
+            <button
+              onClick={() => setActiveTab('assessment')}
+              className={`flex-shrink-0 whitespace-nowrap px-5 py-2 rounded-full font-bold text-sm transition-all ${
+                activeTab === 'assessment'
+                  ? 'bg-navy text-white shadow-md'
+                  : 'bg-surface text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Assessment (1–5)
+            </button>
+          </div>
+          {activeTab === 'modules' && moduleGroups.length > 1 && (
+            <nav aria-label="Jump to category" className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+              {moduleGroups.map(g => (
+                <button key={g.id} onClick={() => jumpToCat(g.id)}
+                  className="flex-shrink-0 text-xs font-bold text-gray-600 bg-surface border border-gray-200 px-3 py-1 rounded-full hover:border-brand hover:text-brand whitespace-nowrap">
+                  {g.name} <span className="text-gray-400 tabular-nums">{g.mods.length}</span>
+                </button>
+              ))}
+              {!filtering && (
+                <button onClick={() => setCollapsedCats(collapsedCats.length ? [] : moduleGroups.map(g => g.id))}
+                  className="flex-shrink-0 ml-auto pl-3 text-xs font-bold text-brand hover:underline whitespace-nowrap">
+                  {collapsedCats.length ? 'Expand all' : 'Collapse all'}
+                </button>
+              )}
+            </nav>
+          )}
+        </div>
+
+        <div className="p-4 md:p-6 lg:p-10 space-y-8">
         {/* Alerts for coordinators, on every tab: who's falling behind, and
             who finished probation and is waiting for an offer decision. */}
         {(behind.length > 0 || awaitingDecision.length > 0 || checkpointDue.length > 0 || waiting.length > 0 || splits.length > 0) && (
-          <div className="space-y-3">
+          <details className="group">
+            <summary className="cursor-pointer list-none flex flex-wrap items-center gap-2 text-xs font-bold">
+              <span className="text-gray-400 transition-transform group-open:rotate-90">›</span>
+              <span className="uppercase tracking-wider text-gray-700">Needs attention</span>
+              {alertChips.map(a => (
+                <span key={a.label} className={`rounded-full px-3 py-1 ${a.cls}`}><span aria-hidden="true">{a.icon}</span> {a.n} {a.label}</span>
+              ))}
+            </summary>
+          <div className="space-y-3 mt-3">
             {checkpointDue.length > 0 && (
               <div className="bg-sky rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm font-bold text-navy">
@@ -350,52 +436,8 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               </div>
             )}
           </div>
+          </details>
         )}
-
-        {/* Tabs */}
-        <div className="flex gap-3 flex-wrap">
-          <button
-            onClick={() => setActiveTab('outline')}
-            className={`px-6 py-2 rounded-full font-bold transition-all ${
-              activeTab === 'outline'
-                ? 'bg-warm text-white shadow-md'
-                : 'bg-surface text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            Program outline
-          </button>
-          <button
-            onClick={() => setActiveTab('modules')}
-            className={`px-6 py-2 rounded-full font-bold transition-all ${
-              activeTab === 'modules'
-                ? 'bg-go text-white shadow-md'
-                : 'bg-surface text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            Lesson library
-          </button>
-          <button
-            onClick={() => setActiveTab('designers')}
-            className={`px-6 py-2 rounded-full font-bold transition-all ${
-              activeTab === 'designers'
-                ? 'bg-brand text-white shadow-md'
-                : 'bg-surface text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            Sound Designers
-            {behind.length > 0 && <span className="ml-2 bg-warm text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{behind.length}</span>}
-          </button>
-          <button
-            onClick={() => setActiveTab('assessment')}
-            className={`px-6 py-2 rounded-full font-bold transition-all ${
-              activeTab === 'assessment'
-                ? 'bg-navy text-white shadow-md'
-                : 'bg-surface text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            Assessment (1–5)
-          </button>
-        </div>
 
         {activeTab === 'assessment' && (
           <AssessmentAdmin onOpenOutline={() => setActiveTab('outline')} />
@@ -407,7 +449,7 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             onEditModule={(id, fresh) => {
               const mod = fresh ?? modules.find(m => m.id === id);
               if (!mod) return;
-              requestEditChange(() => { setActiveTab('modules'); handleEditClick(mod, true); });
+              requestEditChange(() => handleEditClick(mod));
             }} />
         )}
 
@@ -498,10 +540,10 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
               <p className="text-sm text-gray-400 font-medium text-center py-8">No modules match.</p>
             )}
             {moduleGroups.map(group => {
-              const open = filtering || !collapsedCats.includes(group.id) || group.mods.some(m => m.id === editingModule);
+              const open = filtering || !collapsedCats.includes(group.id);
               const doneCount = group.all.filter(m => getMissingContentFields(m).length === 0).length;
               return (
-            <section key={group.id} className="space-y-2">
+            <section key={group.id} id={`cat-${group.id}`} className="space-y-2 scroll-mt-32">
               <button
                 onClick={() => toggleCat(group.id)}
                 aria-expanded={open}
@@ -520,244 +562,70 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
                 const theme = CARD_THEMES[i % CARD_THEMES.length];
                 const missingFields = getMissingContentFields(mod);
                 return (
-                <div key={mod.id} className={`bg-surface border border-gray-100 shadow-sm ${editingModule === mod.id ? 'rounded-2xl p-6' : 'rounded-2xl px-4 py-3'}`}>
-                  {editingModule === mod.id ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label htmlFor="module-category" className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
-                          <select id="module-category"
-                            value={editForm.category || sortCategories(categories)[0]?.id || ''}
-                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                          >
-                            {sortCategories(categories).map(c => <option key={c.id} value={c.id}>{c.name}{c.restricted ? ' (locked)' : ''}</option>)}
-                            {editForm.category && !categories.some(c => c.id === editForm.category) && (
-                              <option value={editForm.category}>{editForm.category} (deleted)</option>
-                            )}
-                          </select>
+                <div key={mod.id} className="bg-surface border border-gray-100 shadow-sm rounded-2xl px-4 py-3">
+                  <div className="flex justify-between items-center gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
+                        style={{ background: theme.bg, color: theme.accent }}
+                      >
+                        {mod.label || mod.order.toString().padStart(2, '0')}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-base leading-tight">{mod.title || <span className="text-ember">(no name)</span>}</h4>
+                          {mod.program === 'episodeA' && (
+                            <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Old grading module - use Convert in Assessment (1–5) to remove it">
+                              Old skill module
+                            </span>
+                          )}
+                          {mod.quiz && <span className="bg-warm/15 text-ember px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">❓ Quiz</span>}
+                          {programOutline && (lessonWeek(mod.id)
+                            ? <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">Week {lessonWeek(mod.id)}</span>
+                            : <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Trainees don't see it - add it from Program outline">Not in outline</span>)}
+                          {(lengths[mod.id]?.sec > 0 || lengths[mod.id]?.unknown > 0) && (
+                            <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Video watch time (only the clip, if one is set)">
+                              ▶ {lengths[mod.id].sec ? formatLength(lengths[mod.id].sec) : ''}{lengths[mod.id].unknown ? ' +?' : ''}
+                            </span>
+                          )}
+                          {missingFields.length === 0 ? (
+                            <span className="bg-go/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
+                              ✓ Complete
+                            </span>
+                          ) : (
+                            <span
+                              className="bg-warm/20 text-ember px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+                              title={`Missing: ${missingFields.join(', ')}`}
+                            >
+                              Missing {missingFields.join(', ')}
+                            </span>
+                          )}
                         </div>
-                        <div>
-                          <label htmlFor="module-order" className="block text-xs font-bold text-gray-500 uppercase mb-1">Order</label>
-                          <input id="module-order"
-                            type="number"
-                            value={editForm.order ?? ''}
-                            onChange={(e) => setEditForm({ ...editForm, order: e.target.value })}
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="module-label-optional" className="block text-xs font-bold text-gray-500 uppercase mb-1">Label (optional)</label>
-                          <input id="module-label-optional"
-                            type="text"
-                            value={editForm.label || ''}
-                            onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
-                            placeholder="e.g. A, 4"
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label htmlFor="module-title" className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
-                        <input id="module-title"
-                          type="text"
-                          value={editForm.title || ''}
-                          onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="module-description" className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
-                        <p className="text-[10px] text-gray-400 mb-1">Shown on curriculum cards and as "About this Module" on the designer's page.</p>
-                        <textarea id="module-description"
-                          value={editForm.description || ''}
-                          onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium h-24"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="module-outline-one-step-per-line" className="block text-xs font-bold text-gray-500 uppercase mb-1">Outline (one step per line)</label>
-                        <textarea id="module-outline-one-step-per-line"
-                          value={outlineText}
-                          onChange={(e) => setOutlineText(e.target.value)}
-                          placeholder={'1. Intro to EQ\n2. Subtractive vs Additive EQ'}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium h-20"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="module-learning-objectives-one-per-li" className="block text-xs font-bold text-gray-500 uppercase mb-1">Learning Objectives (one per line)</label>
-                        <textarea id="module-learning-objectives-one-per-li"
-                          value={objectivesText}
-                          onChange={(e) => setObjectivesText(e.target.value)}
-                          placeholder={'e.g. Understand subtractive EQ\nApply gain staging correctly'}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-go transition-all font-medium h-24"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="module-outcomes-one-per-line" className="block text-xs font-bold text-gray-500 uppercase mb-1">Outcomes (one per line)</label>
-                        <textarea id="module-outcomes-one-per-line"
-                          value={outcomesText}
-                          onChange={(e) => setOutcomesText(e.target.value)}
-                          placeholder={'e.g. A mix with balanced frequency content'}
-                          className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-go transition-all font-medium h-24"
-                        />
-                      </div>
-                      <div>
-                        <p className="block text-xs font-bold text-gray-500 uppercase mb-1">Content blocks (rich text, schedule, milestones, expectations, optional video)</p>
-                        <ContentBlocksEditor
-                          blocks={editForm.contentBlocks || []}
-                          onChange={(contentBlocks) => setEditForm({ ...editForm, contentBlocks })}
-                        />
-                      </div>
-
-                      <div>
-                        <p className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Materials</p>
-                        <div className="space-y-2">
-                          {materials.map((material, idx) => (
-                            <div key={idx} className="grid grid-cols-[1fr_1.4fr_auto] gap-2">
-                              <input
-                                type="text"
-                                value={material.title}
-                                onChange={(e) => patchMaterial(idx, { title: e.target.value })}
-                                placeholder="Title (e.g. The Sound Effects Bible)"
-                                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                              />
-                              <input
-                                type="text"
-                                value={material.url}
-                                onChange={(e) => patchMaterial(idx, { url: e.target.value })}
-                                placeholder="https://... (leave blank for a book)"
-                                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                              />
-                              <button
-                                onClick={() => removeMaterial(idx)}
-                                title="Remove material"
-                                className="bg-rose text-ember hover:bg-warm hover:text-white font-bold px-3 rounded-xl transition-colors"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            onClick={addMaterial}
-                            className="bg-surface border-2 border-dashed border-gray-200 text-gray-500 hover:border-brand hover:text-brand font-bold py-2 px-4 rounded-xl transition-colors text-sm"
-                          >
-                            + Add Material
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mt-1">Sound designers only see the title - clicking it opens the link. Leave the link blank for books.</p>
-                      </div>
-
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-3">
-                        <p className="text-xs font-bold text-gray-500 uppercase">Module Video</p>
-                        <div className="grid grid-cols-[auto_1fr] gap-3">
-                          <select
-                            value={videoType}
-                            onChange={(e) => setVideoType(e.target.value as 'internal' | 'external')}
-                            className="bg-gray-50 rounded-xl p-3 text-sm font-medium"
-                          >
-                            <option value="external">External (YouTube/link)</option>
-                            <option value="internal">Internal (hosted file)</option>
-                          </select>
-                          <input
-                            type="text"
-                            value={videoUrl}
-                            onChange={(e) => setVideoUrl(e.target.value)}
-                            placeholder="https://youtube.com/watch?v=..."
-                            className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          value={videoTitle}
-                          onChange={(e) => setVideoTitle(e.target.value)}
-                          placeholder="Video title"
-                          className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
-                        />
-                        <ClipTimes key={editingModule} start={videoClip.start} end={videoClip.end} onChange={(start, end) => setVideoClip({ start, end })} />
-                        <p className="text-[10px] text-gray-400">Leave the URL blank and save to remove the video from this module.</p>
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={handleSaveModule}
-                          className="bg-go text-white font-bold py-2 px-6 rounded-xl hover:bg-leaf transition-colors"
-                        >
-                          Save Changes
-                        </button>
-                        <button
-                          onClick={closeEditor}
-                          className="bg-gray-200 text-gray-700 font-bold py-2 px-6 rounded-xl hover:bg-gray-300 transition-colors"
-                        >
-                          Cancel
-                        </button>
+                        {mod.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{mod.description}</p>}
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex justify-between items-center gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
-                          style={{ background: theme.bg, color: theme.accent }}
-                        >
-                          {mod.label || mod.order.toString().padStart(2, '0')}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-bold text-base leading-tight">{mod.title || <span className="text-ember">(no name)</span>}</h4>
-                            {mod.program === 'episodeA' && (
-                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Old grading module - use Convert in Assessment (1–5) to remove it">
-                                Old skill module
-                              </span>
-                            )}
-                            {mod.quiz && <span className="bg-warm/15 text-ember px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">❓ Quiz</span>}
-                            {programOutline && (lessonWeek(mod.id)
-                              ? <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">Week {lessonWeek(mod.id)}</span>
-                              : <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Trainees don't see it - add it from Program outline">Not in outline</span>)}
-                            {(lengths[mod.id]?.sec > 0 || lengths[mod.id]?.unknown > 0) && (
-                              <span className="bg-sky text-navy px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0" title="Video watch time (only the clip, if one is set)">
-                                ▶ {lengths[mod.id].sec ? formatLength(lengths[mod.id].sec) : ''}{lengths[mod.id].unknown ? ' +?' : ''}
-                              </span>
-                            )}
-                            {missingFields.length === 0 ? (
-                              <span className="bg-go/20 text-leaf px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
-                                ✓ Complete
-                              </span>
-                            ) : (
-                              <span
-                                className="bg-warm/20 text-ember px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
-                                title={`Missing: ${missingFields.join(', ')}`}
-                              >
-                                Missing {missingFields.join(', ')}
-                              </span>
-                            )}
-                          </div>
-                          {mod.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{mod.description}</p>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => requestEditChange(() => handleEditClick(mod))}
-                          className="bg-surface border-2 border-sky text-brand hover:bg-sky font-bold text-sm py-1.5 px-4 rounded-xl transition-colors"
-                        >
-                          Edit
-                        </button>
-                        {/* Deliberately quieter than Edit - a delete is
-                            permanent and used to sit at equal visual weight
-                            right next to it, one mis-click from curriculum
-                            loss. Muted by default, still gated by the
-                            confirm modal below. */}
-                        <button
-                          onClick={() => handleDeleteModule(mod)}
-                          disabled={mod.program === 'episodeA'}
-                          title={mod.program === 'episodeA' ? 'Removed by Convert in Assessment (1–5)' : undefined}
-                          className="disabled:opacity-30 disabled:pointer-events-none flex-shrink-0 text-gray-400 font-bold text-sm px-3 py-2 rounded-xl hover:text-ember hover:bg-rose transition-colors ml-1"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => requestEditChange(() => handleEditClick(mod))}
+                        className="bg-surface border-2 border-sky text-brand hover:bg-sky font-bold text-sm py-1.5 px-4 rounded-xl transition-colors"
+                      >
+                        Edit
+                      </button>
+                      {/* Deliberately quieter than Edit - a delete is
+                          permanent and used to sit at equal visual weight
+                          right next to it, one mis-click from curriculum
+                          loss. Muted by default, still gated by the
+                          confirm modal below. */}
+                      <button
+                        onClick={() => handleDeleteModule(mod)}
+                        disabled={mod.program === 'episodeA'}
+                        title={mod.program === 'episodeA' ? 'Removed by Convert in Assessment (1–5)' : undefined}
+                        className="disabled:opacity-30 disabled:pointer-events-none flex-shrink-0 text-gray-400 font-bold text-sm px-3 py-2 rounded-xl hover:text-ember hover:bg-rose transition-colors ml-1"
+                      >
+                        Delete
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
                 );
               })}
@@ -777,7 +645,193 @@ export const AdminDashboard: React.FC<{ focusModuleId?: string; focusNonce?: num
             {exporting ? 'Exporting…' : '⬇ Export legacy 1–4 data'}
           </button>
         </div>
+        </div>
       </div>
+
+      {/* Add / edit a module in a popup, so the form opens where you are
+          instead of somewhere down the list. */}
+      <dialog ref={editorRef} aria-labelledby="module-editor-title"
+        // Escape is easy to hit by accident: warn before dropping edits.
+        onCancel={e => { e.preventDefault(); requestEditChange(closeEditor); }}
+        className="m-auto bg-page text-ink rounded-3xl p-0 max-w-3xl w-[calc(100%-2rem)] shadow-2xl overflow-hidden backdrop:bg-black/50">
+        {editingModule && (
+          <div className="bg-surface flex flex-col max-h-[90vh]">
+            <h3 id="module-editor-title" className="px-6 py-4 border-b border-gray-100 text-lg font-bold text-gray-900 truncate">
+              {editForm.title?.trim() || 'New module'}
+            </h3>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label htmlFor="module-category" className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
+                <select id="module-category"
+                  value={editForm.category || sortCategories(categories)[0]?.id || ''}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                  className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+                >
+                  {sortCategories(categories).map(c => <option key={c.id} value={c.id}>{c.name}{c.restricted ? ' (locked)' : ''}</option>)}
+                  {editForm.category && !categories.some(c => c.id === editForm.category) && (
+                    <option value={editForm.category}>{editForm.category} (deleted)</option>
+                  )}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="module-order" className="block text-xs font-bold text-gray-500 uppercase mb-1">Order</label>
+                <input id="module-order"
+                  type="number"
+                  value={editForm.order ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, order: e.target.value })}
+                  className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+                />
+              </div>
+              <div>
+                <label htmlFor="module-label-optional" className="block text-xs font-bold text-gray-500 uppercase mb-1">Label (optional)</label>
+                <input id="module-label-optional"
+                  type="text"
+                  value={editForm.label || ''}
+                  onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
+                  placeholder="e.g. A, 4"
+                  className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="module-title" className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label>
+              <input id="module-title"
+                type="text"
+                value={editForm.title || ''}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+              />
+            </div>
+            <div>
+              <label htmlFor="module-description" className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+              <p className="text-[10px] text-gray-400 mb-1">Shown on curriculum cards and as "About this Module" on the designer's page.</p>
+              <textarea id="module-description"
+                value={editForm.description || ''}
+                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium h-24"
+              />
+            </div>
+            <div>
+              <label htmlFor="module-outline-one-step-per-line" className="block text-xs font-bold text-gray-500 uppercase mb-1">Outline (one step per line)</label>
+              <textarea id="module-outline-one-step-per-line"
+                value={outlineText}
+                onChange={(e) => setOutlineText(e.target.value)}
+                placeholder={'1. Intro to EQ\n2. Subtractive vs Additive EQ'}
+                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium h-20"
+              />
+            </div>
+            <div>
+              <label htmlFor="module-learning-objectives-one-per-li" className="block text-xs font-bold text-gray-500 uppercase mb-1">Learning Objectives (one per line)</label>
+              <textarea id="module-learning-objectives-one-per-li"
+                value={objectivesText}
+                onChange={(e) => setObjectivesText(e.target.value)}
+                placeholder={'e.g. Understand subtractive EQ\nApply gain staging correctly'}
+                className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-go transition-all font-medium h-24"
+              />
+            </div>
+            <div>
+              <label htmlFor="module-outcomes-one-per-line" className="block text-xs font-bold text-gray-500 uppercase mb-1">Outcomes (one per line)</label>
+              <textarea id="module-outcomes-one-per-line"
+                value={outcomesText}
+                onChange={(e) => setOutcomesText(e.target.value)}
+                placeholder={'e.g. A mix with balanced frequency content'}
+                className="w-full bg-gray-50 rounded-xl p-3 text-base focus:ring-2 focus:ring-go transition-all font-medium h-24"
+              />
+            </div>
+            <div>
+              <p className="block text-xs font-bold text-gray-500 uppercase mb-1">Content blocks (rich text, schedule, milestones, expectations, optional video)</p>
+              <ContentBlocksEditor
+                blocks={editForm.contentBlocks || []}
+                onChange={(contentBlocks) => setEditForm({ ...editForm, contentBlocks })}
+              />
+            </div>
+
+            <div>
+              <p className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Materials</p>
+              <div className="space-y-2">
+                {materials.map((material, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_1.4fr_auto] gap-2">
+                    <input
+                      type="text"
+                      value={material.title}
+                      onChange={(e) => patchMaterial(idx, { title: e.target.value })}
+                      placeholder="Title (e.g. The Sound Effects Bible)"
+                      className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+                    />
+                    <input
+                      type="text"
+                      value={material.url}
+                      onChange={(e) => patchMaterial(idx, { url: e.target.value })}
+                      placeholder="https://... (leave blank for a book)"
+                      className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+                    />
+                    <button
+                      onClick={() => removeMaterial(idx)}
+                      title="Remove material"
+                      className="bg-rose text-ember hover:bg-warm hover:text-white font-bold px-3 rounded-xl transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={addMaterial}
+                  className="bg-surface border-2 border-dashed border-gray-200 text-gray-500 hover:border-brand hover:text-brand font-bold py-2 px-4 rounded-xl transition-colors text-sm"
+                >
+                  + Add Material
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Sound designers only see the title - clicking it opens the link. Leave the link blank for books.</p>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-bold text-gray-500 uppercase">Module Video</p>
+              <div className="grid grid-cols-[auto_1fr] gap-3">
+                <select
+                  value={videoType}
+                  onChange={(e) => setVideoType(e.target.value as 'internal' | 'external')}
+                  className="bg-gray-50 rounded-xl p-3 text-sm font-medium"
+                >
+                  <option value="external">External (YouTube/link)</option>
+                  <option value="internal">Internal (hosted file)</option>
+                </select>
+                <input
+                  type="text"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=..."
+                  className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+                />
+              </div>
+              <input
+                type="text"
+                value={videoTitle}
+                onChange={(e) => setVideoTitle(e.target.value)}
+                placeholder="Video title"
+                className="w-full bg-gray-50 rounded-xl p-3 text-sm focus:ring-2 focus:ring-go transition-all font-medium"
+              />
+              <ClipTimes key={editingModule} start={videoClip.start} end={videoClip.end} onChange={(start, end) => setVideoClip({ start, end })} />
+              <p className="text-[10px] text-gray-400">Leave the URL blank and save to remove the video from this module.</p>
+            </div>
+            </div>
+            <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={handleSaveModule}
+                className="bg-go text-white font-bold py-2 px-6 rounded-xl hover:bg-leaf transition-colors"
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={closeEditor}
+                className="bg-gray-200 text-gray-700 font-bold py-2 px-6 rounded-xl hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </dialog>
 
       <ConfirmModal
         open={pendingConfirm !== null}
