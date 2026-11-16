@@ -51,8 +51,9 @@ const LinkList: React.FC<{ links?: OpsContent['links'] }> = ({ links }) => (
       <li key={i}>
         <a href={l.url} target="_blank" rel="noreferrer" className="flex items-center gap-2.5 rounded-xl bg-white/60 dark:bg-white/5 border border-white/70 dark:border-white/10 px-3 py-2 text-sm font-semibold text-gray-800 hover:border-brand/40 transition-colors min-w-0">
           <Link2 className="w-4 h-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
-          <span className="flex-1 min-w-0 truncate">{l.label || l.url}</span>
-          <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{hostOf(l.url)}</span>
+          {/* An unnamed link shows just its site, not the full address. */}
+          <span className="flex-1 min-w-0 truncate" title={l.url}>{l.label || hostOf(l.url)}</span>
+          {l.label && <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{hostOf(l.url)}</span>}
           <ExternalLink className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" aria-hidden="true" />
         </a>
       </li>
