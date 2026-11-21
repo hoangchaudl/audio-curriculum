@@ -7,6 +7,7 @@ import { Banner, fmtDate } from './pages';
 
 const ROLE_HELP: Record<OpsRole, string> = {
   member: 'Reads published content',
+  leadership: 'Also reads leadership-only documents',
   editor: 'Also creates and edits drafts',
   admin: 'Also publishes, archives and manages access',
 };

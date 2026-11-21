@@ -37,11 +37,12 @@ const edit = (uid, extra = {}) => ({ updatedBy: uid, updatedAt: serverTimestamp(
 beforeEach(() => seed(async (db) => {
   const users = {
     trainee: 'sound_designer', opsDesigner: 'sound_designer', editor: 'sound_designer', opsAdmin: 'audio_engineer',
-    revoked: 'sound_designer', reviewer: 'reviewer', leader: 'leadership', engineer: 'audio_engineer', admin: 'admin',
+    revoked: 'sound_designer', opsLeader: 'sound_designer', reviewer: 'reviewer', leader: 'leadership', engineer: 'audio_engineer', admin: 'admin',
   };
   for (const [id, role] of Object.entries(users)) await setDoc(doc(db, `users/${id}`), { id, role, name: id, email: emailOf(id) });
   await setDoc(doc(db, `operationsMembers/${emailOf('opsDesigner')}`), member('opsDesigner', 'member'));
   await setDoc(doc(db, `operationsMembers/${emailOf('editor')}`), member('editor', 'editor'));
+  await setDoc(doc(db, `operationsMembers/${emailOf('opsLeader')}`), member('opsLeader', 'leadership'));
   await setDoc(doc(db, `operationsMembers/${emailOf('opsAdmin')}`), member('opsAdmin', 'admin'));
   await setDoc(doc(db, `operationsMembers/${emailOf('revoked')}`), member('revoked', 'editor', false));
   await setDoc(doc(db, `operationsMembers/${emailOf('noProfile')}`), member('noProfile', 'admin'));
@@ -51,7 +52,10 @@ beforeEach(() => seed(async (db) => {
   await setDoc(doc(db, 'operationsContent/pub'), { ...base, status: 'published', publishedAt: new Date(), publishedBy: 'admin' });
   await setDoc(doc(db, 'operationsContent/draft'), base);
   await setDoc(doc(db, 'operationsContent/old'), { ...base, status: 'archived' });
+  await setDoc(doc(db, 'operationsLeadership/lpub'), { ...base, status: 'published', publishedAt: new Date(), publishedBy: 'admin' });
+  await setDoc(doc(db, 'operationsLeadership/ldraft'), base);
   // Curriculum content an Operations membership must not unlock.
+
   await setDoc(doc(db, 'modules/adv'), { id: 'adv', category: 'Advanced', restricted: true });
 }));
 
@@ -233,5 +237,36 @@ describe('operations: workshops and title assignments', () => {
     }
     await assertFails(setDoc(ref, content('editor', { type: 'naming' })));
     await assertSucceeds(setDoc(ref, content('editor', valid)));
+  });
+});
+
+describe('operations: leadership-only documents', () => {
+  const lead = (db) => query(collection(db, 'operationsLeadership'), where('status', '==', 'published'));
+  it('members and editors cannot read them, by id or query', async () => {
+    for (const uid of ['opsDesigner', 'editor']) {
+      await assertFails(getDoc(doc(as(uid), 'operationsLeadership/lpub')));
+      await assertFails(getDocs(lead(as(uid))));
+      await assertFails(getDocs(collection(as(uid), 'operationsLeadership')));
+    }
+  });
+  it('leadership reads published ones, not drafts, and can still read team content', async () => {
+    const l = as('opsLeader');
+    await assertSucceeds(getDocs(lead(l)));
+    await assertSucceeds(getDoc(doc(l, 'operationsLeadership/lpub')));
+    await assertFails(getDoc(doc(l, 'operationsLeadership/ldraft')));
+    await assertFails(getDocs(collection(l, 'operationsLeadership')));
+    await assertSucceeds(getDocs(published(l)));
+    await assertFails(getDocs(collection(l, 'operationsContent')));
+  });
+  it('leadership cannot write; only admins author them', async () => {
+    const l = as('opsLeader');
+    await assertFails(setDoc(doc(l, 'operationsLeadership/n'), content('opsLeader')));
+    await assertFails(updateDoc(doc(l, 'operationsLeadership/ldraft'), edit('opsLeader', { title: 'x' })));
+    await assertFails(setDoc(doc(as('editor'), 'operationsLeadership/n'), content('editor')));
+    const a = as('opsAdmin');
+    await assertSucceeds(setDoc(doc(a, 'operationsLeadership/n'), content('opsAdmin')));
+    await assertSucceeds(updateDoc(doc(a, 'operationsLeadership/n'), edit('opsAdmin', { status: 'published', publishedAt: serverTimestamp(), publishedBy: 'opsAdmin' })));
+    await assertSucceeds(getDocs(collection(a, 'operationsLeadership')));
+    await assertSucceeds(deleteDoc(doc(a, 'operationsLeadership/n')));
   });
 });

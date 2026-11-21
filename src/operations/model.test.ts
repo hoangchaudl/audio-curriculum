@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Draft, OpsContent, checklistKey, draftFields, draftOf, matchesFilters, opsAccessFor, parseLinks, parseRoute, validateDraft } from './model';
+import { Draft, OpsContent, canEdit, canSeeLeadership, checklistKey, draftFields, draftOf, matchesFilters, opsAccessFor, parseLinks, parseRoute, validateDraft } from './model';
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
   title: 'T', summary: '', body: '', category: '', workflows: [], owner: '', effectiveDate: '', linksText: '', itemsText: '', ...over,
@@ -11,6 +11,14 @@ describe('opsAccessFor', () => {
   });
   it('a trainee (sound_designer) without membership has no access', () => {
     expect(opsAccessFor('sound_designer', true, null)).toBe('none');
+  });
+  it('leadership is a read role that can see leadership-only docs but not edit', () => {
+    const a = opsAccessFor('sound_designer', true, { role: 'leadership', active: true });
+    expect(a).toBe('leadership');
+    expect(canSeeLeadership(a)).toBe(true);
+    expect(canEdit(a)).toBe(false);
+    expect(canSeeLeadership('editor')).toBe(false);
+    expect(canSeeLeadership('member')).toBe(false);
   });
   it('an authorized sound designer gets exactly the granted role', () => {
     expect(opsAccessFor('sound_designer', true, { role: 'member', active: true })).toBe('member');

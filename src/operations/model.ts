@@ -2,7 +2,7 @@
 // Kept apart from the Curriculum types on purpose: Operations access never
 // reads or changes the Curriculum Role enum.
 
-export type OpsRole = 'member' | 'editor' | 'admin';
+export type OpsRole = 'member' | 'leadership' | 'editor' | 'admin';
 export type OpsAccess = OpsRole | 'none';
 
 // operationsMembers/{lowercased email}. Admin-managed; see firestore.rules.
@@ -38,6 +38,8 @@ export interface OpsContent {
   effectiveDate?: string; // YYYY-MM-DD
   links?: OpsLink[];
   items?: string[]; // checklist steps
+  // Client-only: true when the document lives in operationsLeadership (leadership and admins only).
+  restricted?: boolean;
   // A draft that will replace this published document when an admin publishes it.
   revisionOf?: string;
   createdBy: string;
@@ -68,9 +70,11 @@ export const TYPE_BY_PATH = Object.fromEntries(Object.entries(SECTIONS).map(([t,
 export const opsAccessFor = (curriculumRole: string | undefined, hasProfile: boolean, member: Partial<OpsMember> | null): OpsAccess => {
   if (curriculumRole === 'admin') return 'admin';
   if (!hasProfile || !member || member.active !== true) return 'none';
-  return member.role === 'member' || member.role === 'editor' || member.role === 'admin' ? member.role : 'none';
+  return member.role === 'member' || member.role === 'leadership' || member.role === 'editor' || member.role === 'admin' ? member.role : 'none';
 };
 export const canEdit = (a: OpsAccess) => a === 'editor' || a === 'admin';
+// Leadership-only documents: read by leadership, authored and managed by admins only.
+export const canSeeLeadership = (a: OpsAccess) => a === 'leadership' || a === 'admin';
 
 // Links are typed one per line as "Label | https://..." (or a bare URL).
 // Only http(s) links are kept, so a stored link can never run script.
