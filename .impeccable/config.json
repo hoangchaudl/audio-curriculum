@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-11-21T02:07:29.192Z",
+        "reason": "Existing upstream Audio Hub typography retained because the user requested restoring the redesign shown in their screenshot; this feature merge did not change the font."
+      }
+    ]
+  }
+}
