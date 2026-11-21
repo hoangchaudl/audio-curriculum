@@ -71,3 +71,28 @@ behaves exactly as before.
 Episode-specific tracking and reporting, shared checklist completion records, file
 uploads, a calendar, a link from the Training Program to Operations, changes to the
 invite/sign-up flow, and blocking Operations-only staff from the Training Program.
+
+## Languages, workshops and naming
+
+The English / Tiếng Việt selector remembers the interface language in this browser.
+Team-authored documents and custom naming tokens stay as entered.
+
+**Workshops** (`#/workshops`): editors add a title, notes and YouTube links
+(`Label | URL`, one per line), then an admin publishes the draft. The workshop
+page embeds supported YouTube videos and includes a fallback link.
+
+**Title assignments** (`#/titles`): editors/admins enter a title, filename code,
+custom pattern and assignee account emails (one per line). An admin publishes it.
+For example only: `{title}_EP{episode}_{version}.{extension}`. Any placeholder
+starting with an ASCII letter and containing letters, numbers or underscores is
+supported. Add separate assignments for naming variations and label them clearly.
+No naming standards or title assignments are preloaded.
+
+**Naming Builder** (`#/naming`): members select a published title assigned to their
+signed-in email, enter the custom fields and copy the filename. `{title}` uses
+the configured title code. Inputs preserve leading zeroes and are not stored.
+Unsafe filename characters and output longer than 240 characters are rejected.
+Assignments do not grant access; published assignment documents remain visible
+to all authorized Operations members, just like other published content.
+
+Deploy both `firestore:rules` and `hosting` when releasing these additions.

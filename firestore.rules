@@ -552,9 +552,13 @@ service cloud.firestore {
     function opsContentValid() {
       let d = request.resource.data;
       return d.keys().hasOnly(['type', 'status', 'title', 'summary', 'body', 'category', 'workflows', 'owner',
-                               'effectiveDate', 'links', 'items', 'revisionOf',
+                               'effectiveDate', 'links', 'items', 'revisionOf', 'namingCode', 'namingPattern', 'assignees',
                                'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'publishedBy', 'publishedAt']) &&
-             d.type in ['sop', 'checklist', 'schedule', 'resource'] &&
+             d.type in ['sop', 'checklist', 'schedule', 'resource', 'workshop', 'naming'] &&
+             d.get('namingCode', '') is string && d.get('namingCode', '').size() <= 100 &&
+             d.get('namingPattern', '') is string && d.get('namingPattern', '').size() <= 200 &&
+             d.get('assignees', '') is string && d.get('assignees', '').size() <= 5000 &&
+             (d.type != 'naming' || (d.namingCode.size() > 0 && d.namingPattern.size() > 0 && d.assignees.size() > 0)) &&
              d.status in ['draft', 'published', 'archived'] &&
              d.title is string && d.title.size() > 0 && d.title.size() <= 200 &&
              d.body is string && d.body.size() <= 100000 &&
