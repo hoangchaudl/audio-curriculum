@@ -25,9 +25,10 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
   const [seeded, setSeeded] = useState(!!existing || route.page === 'new');
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [restricted, setRestricted] = useState(!!existing?.restricted);
 
   // The listener may deliver the document after the first render.
-  if (!seeded && existing) { setSeeded(true); setD(draftOf(existing)); }
+  if (!seeded && existing) { setSeeded(true); setD(draftOf(existing)); setRestricted(!!existing.restricted); }
 
   if (route.page === 'edit' && !existing) {
     return content.loaded ? <Banner tone="error">{t("This item doesn't exist or you can't edit it.")}</Banner> : <p role="status" className="text-sm text-gray-400 font-bold">{t("Loading…")}</p>;
@@ -47,7 +48,7 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
     setSaving(true);
     try {
       const fields = draftFields(type!, d);
-      const id = existing ? (await saveContent(uid, existing.id, fields), existing.id) : await createDraft(uid, fields);
+      const id = existing ? (await saveContent(uid, existing.id, fields, existing.restricted), existing.id) : await createDraft(uid, fields, undefined, restricted);
       // Only navigate away once the server confirmed the write.
       window.location.hash = `#/${s.path}/${encodeURIComponent(id)}`;
     } catch (err) {
@@ -68,6 +69,12 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
       {existing?.status === 'published' && <Banner>{t("You are editing the live version. Changes are visible to members as soon as you save.")}</Banner>}
       <div className={`${card} space-y-4`}>
         <Field label={t("Title")}><input required maxLength={200} value={d.title} onChange={e => set('title', e.target.value)} className={input} /></Field>
+        {access === 'admin' && (
+          <label className="flex items-start gap-2 text-sm font-semibold text-gray-700">
+            <input type="checkbox" className="accent-brand mt-0.5" checked={restricted} disabled={!!existing} onChange={e => setRestricted(e.target.checked)} />
+            <span>{t("Leadership only")}<span className="block text-xs font-medium text-gray-500">{existing ? t("Who can see this can't be changed after saving.") : t("Hidden from members and editors; only leadership and admins can read it. Only admins can edit it.")}</span></span>
+          </label>
+        )}
         {type === 'naming' && <>
           <Field label={t("Title code")} hint={t("The value substituted for {title} in the filename.")}><input maxLength={100} required value={d.namingCode ?? ''} onChange={e => set('namingCode', e.target.value)} className={input} /></Field>
           <Field label={t("Filename pattern")} hint={t("Use placeholders like {title}, {episode}, {version}, {character} or {extension}. Include any punctuation and file extension in your pattern.")}><input maxLength={200} required placeholder="{title}_EP{episode}_{version}.{extension}" value={d.namingPattern ?? ''} onChange={e => set('namingPattern', e.target.value)} className={`${input} font-mono`} /></Field>

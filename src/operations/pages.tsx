@@ -25,6 +25,10 @@ export const SECTION_ICON: Record<ContentType, React.FC<{ className?: string }>>
 const STATUS_STYLE: Record<string, string> = {
   draft: 'text-ember', published: 'text-leaf', archived: 'text-gray-500',
 };
+export const LeadershipTag: React.FC = () => {
+  const t = useT();
+  return <span className="inline-flex items-center text-[11px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap bg-violet-500/12 text-violet-700 dark:text-violet-300">{t("Leadership only")}</span>;
+};
 export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const t = useT();
   return (
@@ -80,6 +84,7 @@ const Meta: React.FC<{ c: OpsContent; showStatus: boolean }> = ({ c, showStatus 
   return (
   <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
     {showStatus && <StatusBadge status={c.status} />}
+    {c.restricted && <LeadershipTag />}
     {c.category && <span className="font-semibold text-gray-600">{c.category}</span>}
     {(c.workflows ?? []).map(w => <Tag key={w}>{w}</Tag>)}
     {c.updatedAt && <span>{t("Updated ")}{fmtDate(c.updatedAt)}</span>}
@@ -191,6 +196,7 @@ const Row: React.FC<{ c: OpsContent; showStatus: boolean; withType?: boolean }> 
         {c.summary && <span className="block text-xs text-gray-600 truncate">{c.summary}</span>}
       </span>
       <span className="hidden md:flex gap-1.5">{(c.workflows ?? []).slice(0, 2).map(w => <Tag key={w}>{w}</Tag>)}</span>
+      {c.restricted && <LeadershipTag />}
       {showStatus ? <StatusBadge status={c.status} /> : <span className="hidden sm:block text-xs text-gray-500 whitespace-nowrap tabular-nums">{shortDate(c.updatedAt)}</span>}
     </a>
   </li>
@@ -284,6 +290,7 @@ export const ListPage: React.FC<{ type: ContentType; uid: string; access: OpsAcc
                 <div className="flex items-start gap-2.5">
                   <span className="w-8 h-8 rounded-xl bg-sky text-navy flex items-center justify-center flex-shrink-0"><Icon className="w-4 h-4" aria-hidden="true" /></span>
                   <a href={itemHash(c)} className="flex-1 min-w-0 pt-1 font-semibold text-gray-900 hover:text-brand">{c.title}</a>
+                  {c.restricted && <span className="pt-1.5"><LeadershipTag /></span>}
                   {editor && <span className="pt-1.5"><StatusBadge status={c.status} /></span>}
                 </div>
                 {c.summary && <p className="text-sm text-gray-600">{c.summary}</p>}
@@ -406,23 +413,23 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
           {(c.status === 'draft' || admin) && <a href={`#/edit/${encodeURIComponent(c.id)}`} className={secondaryBtn}>{t("Edit")}</a>}
           {c.status === 'published' && !admin && !openRevision && (
             <button disabled={busy} className={secondaryBtn} onClick={() => run(t('Draft revision created.'), async () => {
-              const newId = await createDraft(uid, draftFields(c.type, draftOf(c)), c.id);
+              const newId = await createDraft(uid, draftFields(c.type, draftOf(c)), c.id, c.restricted);
               window.location.hash = `#/edit/${encodeURIComponent(newId)}`;
             })}>{t("Propose changes (new draft)")}</button>
           )}
           {admin && c.status === 'draft' && (
             <button disabled={busy} className={primaryBtn} onClick={() => c.revisionOf
               ? confirmRun(t('Publish this revision? It replaces the live version.'), t('Published.'), () => publishRevision(uid, c), () => { window.location.hash = `#/${s.path}/${encodeURIComponent(c.revisionOf!)}`; })
-              : run(t('Published.'), () => setStatus(uid, c.id, 'published'))}>{t("Publish")}</button>
+              : run(t('Published.'), () => setStatus(uid, c.id, 'published', c.restricted))}>{t("Publish")}</button>
           )}
           {admin && c.status === 'published' && (
-            <button disabled={busy} className={secondaryBtn} onClick={() => confirmRun(t('Archive this item? Members will no longer see it.'), t('Archived.'), () => setStatus(uid, c.id, 'archived'))}>{t("Archive")}</button>
+            <button disabled={busy} className={secondaryBtn} onClick={() => confirmRun(t('Archive this item? Members will no longer see it.'), t('Archived.'), () => setStatus(uid, c.id, 'archived', c.restricted))}>{t("Archive")}</button>
           )}
           {admin && c.status === 'archived' && (
-            <button disabled={busy} className={secondaryBtn} onClick={() => run(t('Moved back to drafts.'), () => setStatus(uid, c.id, 'draft'))}>{t("Restore as draft")}</button>
+            <button disabled={busy} className={secondaryBtn} onClick={() => run(t('Moved back to drafts.'), () => setStatus(uid, c.id, 'draft', c.restricted))}>{t("Restore as draft")}</button>
           )}
           {(c.status === 'draft' || admin) && (
-            <button disabled={busy} className={`${secondaryBtn} !text-ember`} onClick={() => confirmRun(t('Delete "{title}" permanently? This can\'t be undone.', { title: c.title }), t('Deleted.'), () => deleteContent(c.id), () => { window.location.hash = `#/${s.path}`; })}>{t("Delete")}</button>
+            <button disabled={busy} className={`${secondaryBtn} !text-ember`} onClick={() => confirmRun(t('Delete "{title}" permanently? This can\'t be undone.', { title: c.title }), t('Deleted.'), () => deleteContent(c.id, c.restricted), () => { window.location.hash = `#/${s.path}`; })}>{t("Delete")}</button>
           )}
         </div>
       )}

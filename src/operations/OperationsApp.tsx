@@ -125,6 +125,10 @@ const NAV: { href: string; label: string; icon: React.ReactNode; match: (r: Rout
 const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; previewMember: boolean; onPreviewMember: (on: boolean) => void; children: React.ReactNode }> = ({ session, access, route, previewMember, onPreviewMember, children }) => {
   const t = useT();
   const [open, setOpen] = useState(false);
+  // Desktop: the sidebar slides away and returns when the pointer hits the left edge
+  // (or keyboard focus enters it), leaving the page full width. Pin keeps it open.
+  const [pinned, setPinned] = useState(() => { try { return localStorage.getItem('opsNavPinned') === '1'; } catch { return false; } });
+  const togglePin = () => setPinned(p => { try { localStorage.setItem('opsNavPinned', p ? '0' : '1'); } catch { /* storage blocked: stays per-visit */ } return !p; });
   useEffect(() => setOpen(false), [route]);
   const links = access === 'admin'
     ? [...NAV, { href: '#/access', label: t('Access'), icon: <Users className="w-5 h-5" />, match: (r: Route) => r.page === 'access' }]
@@ -132,7 +136,8 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
   return (
     <div className="flex h-screen w-full bg-page text-ink font-sans overflow-hidden">
       {open && <div onClick={() => setOpen(false)} className="fixed inset-0 bg-black/50 z-30 lg:hidden" aria-hidden="true" />}
-      <aside className={`w-64 fixed lg:static inset-y-0 left-0 z-40 glass bg-surface lg:bg-rail lg:m-3 lg:rounded-2xl flex flex-col p-3 gap-6 flex-shrink-0 transition-transform ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`} aria-label={t("Operations navigation")}>
+      {!pinned && <div aria-hidden="true" className="peer hidden lg:block fixed left-0 inset-y-0 w-3 z-40" />}
+      <aside className={`w-64 fixed inset-y-0 left-0 z-40 glass bg-surface lg:bg-rail lg:rounded-2xl flex flex-col p-3 gap-6 flex-shrink-0 transition-transform ${open ? 'translate-x-0' : '-translate-x-full'} ${pinned ? 'lg:static lg:m-3 lg:translate-x-0' : 'lg:inset-y-3 lg:left-3 lg:shadow-2xl lg:-translate-x-[110%] lg:peer-hover:translate-x-0 lg:hover:translate-x-0 lg:focus-within:translate-x-0'}`} aria-label={t("Operations navigation")}>
         <div className="flex items-center gap-2.5 px-1.5 pt-1">
           <img src="/storyco-logo-light.png" alt="StoryCo" className="w-8 h-auto rounded-lg dark:hidden" />
           <img src="/storyco-logo-dark.png" alt="StoryCo" className="w-8 h-auto rounded-lg hidden dark:block" />
@@ -140,6 +145,7 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
             <span className="text-sm font-bold text-gray-900">StoryCo</span>
             <span className="text-xs text-rail-ink">{t("Audio Hub")}</span>
           </p>
+          <button onClick={togglePin} aria-pressed={pinned} className="ml-auto hidden lg:block text-[11px] font-semibold rounded-full px-2 py-1 bg-white/60 dark:bg-white/5 text-gray-700">{pinned ? t('Auto-hide') : t('Pin')}</button>
           <button onClick={() => setOpen(false)} aria-label={t("Close menu")} className="ml-auto lg:hidden w-7 h-7 bg-gray-100 rounded-full text-gray-600 font-bold text-xs">✕</button>
         </div>
         <nav className="flex-1 overflow-y-auto space-y-5">
@@ -195,7 +201,7 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
           </div>
         )}
         <main className="flex-1 overflow-y-auto p-4 md:p-7">
-          <div className="max-w-5xl mx-auto">{children}</div>
+          <div className={`${pinned ? 'max-w-5xl' : 'max-w-7xl'} mx-auto`}>{children}</div>
         </main>
       </div>
     </div>

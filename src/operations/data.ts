@@ -8,7 +8,7 @@ import {
   DocumentData, Timestamp, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { ContentType, OpsAccess, OpsContent, OpsMember, OpsRole, opsAccessFor } from './model';
+import { ContentType, OpsAccess, OpsContent, OpsMember, OpsRole, canSeeLeadership, opsAccessFor } from './model';
 
 export interface OpsSession {
   loading: boolean;
@@ -98,22 +98,39 @@ export const useHasOpsAccess = (curriculumRole: string | undefined): boolean => 
 // the query matches firestore.rules (nothing restricted is downloaded);
 // editors and admins read drafts and archived items too. Losing access
 // (sign-out, revocation, account switch) drops the listener and the data.
-export const useOpsContent = (uid: string | undefined, access: OpsAccess) => {
-  const [state, setState] = useState<{ items: OpsContent[]; loaded: boolean; error: string | null }>({ items: [], loaded: false, error: null });
+// Leadership-only documents live in their own collection so the rules can
+// hide them from members and editors without a field filter on every query.
+const colOf = (restricted?: boolean) => (restricted ? 'operationsLeadership' : 'operationsContent');
+
+type ContentSlice = { items: OpsContent[]; loaded: boolean; error: string | null };
+const EMPTY: ContentSlice = { items: [], loaded: false, error: null };
+
+const useCollection = (name: string, restricted: boolean, uid: string | undefined, enabled: boolean, publishedOnly: boolean): ContentSlice => {
+  const [state, setState] = useState<ContentSlice>(EMPTY);
   useEffect(() => {
-    setState({ items: [], loaded: false, error: null });
-    if (!uid || access === 'none') return;
-    const col = collection(db, 'operationsContent');
-    const q = access === 'member' ? query(col, where('status', '==', 'published')) : col;
+    setState(enabled ? EMPTY : { ...EMPTY, loaded: true });
+    if (!uid || !enabled) return;
+    const col = collection(db, name);
+    const q = publishedOnly ? query(col, where('status', '==', 'published')) : col;
     return onSnapshot(q, snap => setState({
-      items: snap.docs.map(d => ({ id: d.id, ...isoOf(d.data({ serverTimestamps: 'estimate' })) }) as OpsContent),
+      items: snap.docs.map(d => ({ id: d.id, ...isoOf(d.data({ serverTimestamps: 'estimate' })), ...(restricted ? { restricted: true } : {}) }) as OpsContent),
       loaded: true, error: null,
     }), err => {
       console.error('Operations: content', err);
       setState({ items: [], loaded: true, error: friendlyError(err) });
     });
-  }, [uid, access]);
+  }, [uid, enabled, publishedOnly, name, restricted]);
   return state;
+};
+
+export const useOpsContent = (uid: string | undefined, access: OpsAccess) => {
+  const team = useCollection('operationsContent', false, uid, access !== 'none', access === 'member' || access === 'leadership');
+  const lead = useCollection('operationsLeadership', true, uid, canSeeLeadership(access), access === 'leadership');
+  return {
+    items: [...team.items, ...lead.items],
+    loaded: team.loaded && lead.loaded,
+    error: team.error ?? lead.error,
+  };
 };
 
 export const useOpsMembers = (enabled: boolean) => {
@@ -141,8 +158,8 @@ export const friendlyError = (err: unknown): string => {
 
 const stamp = (uid: string) => ({ updatedBy: uid, updatedAt: serverTimestamp() });
 
-export const createDraft = async (uid: string, fields: Record<string, unknown>, revisionOf?: string) => {
-  const ref = doc(collection(db, 'operationsContent'));
+export const createDraft = async (uid: string, fields: Record<string, unknown>, revisionOf?: string, restricted?: boolean) => {
+  const ref = doc(collection(db, colOf(restricted)));
   await setDoc(ref, {
     ...fields, status: 'draft', ...(revisionOf ? { revisionOf } : {}),
     createdBy: uid, createdAt: serverTimestamp(), ...stamp(uid),
@@ -150,27 +167,27 @@ export const createDraft = async (uid: string, fields: Record<string, unknown>, 
   return ref.id;
 };
 
-export const saveContent = (uid: string, id: string, fields: Record<string, unknown>) =>
-  updateDoc(doc(db, 'operationsContent', id), { ...fields, ...stamp(uid) });
+export const saveContent = (uid: string, id: string, fields: Record<string, unknown>, restricted?: boolean) =>
+  updateDoc(doc(db, colOf(restricted), id), { ...fields, ...stamp(uid) });
 
-export const setStatus = (uid: string, id: string, status: 'draft' | 'published' | 'archived') =>
-  updateDoc(doc(db, 'operationsContent', id), {
+export const setStatus = (uid: string, id: string, status: 'draft' | 'published' | 'archived', restricted?: boolean) =>
+  updateDoc(doc(db, colOf(restricted), id), {
     status, ...stamp(uid), ...(status === 'published' ? { publishedBy: uid, publishedAt: serverTimestamp() } : {}),
   });
 
 // Admin: a revision draft replaces its published original in one atomic
 // write, keeping the original's id (links stay valid) and authorship.
 export const publishRevision = async (uid: string, draft: OpsContent) => {
-  const { id, revisionOf, status: _s, createdBy: _cb, createdAt: _ca, updatedAt: _ua, updatedBy: _ub, publishedAt: _pa, publishedBy: _pb, ...fields } = draft;
+  const { id, restricted, revisionOf, status: _s, createdBy: _cb, createdAt: _ca, updatedAt: _ua, updatedBy: _ub, publishedAt: _pa, publishedBy: _pb, ...fields } = draft;
   const batch = writeBatch(db);
-  batch.update(doc(db, 'operationsContent', revisionOf!), {
+  batch.update(doc(db, colOf(restricted), revisionOf!), {
     ...fields, status: 'published', ...stamp(uid), publishedBy: uid, publishedAt: serverTimestamp(),
   });
-  batch.delete(doc(db, 'operationsContent', id));
+  batch.delete(doc(db, colOf(restricted), id));
   await batch.commit();
 };
 
-export const deleteContent = (id: string) => deleteDoc(doc(db, 'operationsContent', id));
+export const deleteContent = (id: string, restricted?: boolean) => deleteDoc(doc(db, colOf(restricted), id));
 
 export const saveMember = (uid: string, m: { email: string; name: string; role: OpsRole; active: boolean }) => {
   const email = m.email.trim().toLowerCase();
