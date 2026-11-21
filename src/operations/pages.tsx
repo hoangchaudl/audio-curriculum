@@ -7,6 +7,7 @@ import {
   byUpdatedDesc, canEdit, checklistKey, draftFields, draftOf, isHttpUrl, matchesFilters, workshopVideoId,
 } from './model';
 import { Diagram } from './Diagram';
+import { SOP_SEEDS, seedFields } from './sopSeeds';
 import { createDraft, deleteContent, friendlyError, publishRevision, setStatus, useOpsContent } from './data';
 
 // The banner art pulls in three.js, so it loads only with the Home page.
@@ -206,11 +207,21 @@ const Chip: React.FC<{ on: boolean; onClick: () => void; children: React.ReactNo
   );
 };
 
-export const ListPage: React.FC<{ type: ContentType; access: OpsAccess; content: ContentState }> = ({ type, access, content }) => {
+export const ListPage: React.FC<{ type: ContentType; uid: string; access: OpsAccess; content: ContentState }> = ({ type, uid, access, content }) => {
   const t = useT();
   const s = SECTIONS[type];
   const Icon = SECTION_ICON[type];
   const editor = canEdit(access);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+  // Starter SOP drafts from the Miro board; titles already present (any status) are skipped.
+  const missingSeeds = type === 'sop' && content.loaded ? SOP_SEEDS.filter(x => !content.items.some(c => c.type === 'sop' && c.title === x.title)) : [];
+  const importSeeds = async () => {
+    setImporting(true); setImportError('');
+    try { for (const x of missingSeeds) await createDraft(uid, seedFields(x)); }
+    catch (e) { setImportError(friendlyError(e)); }
+    setImporting(false);
+  };
   const [f, setF] = useState({ q: '', category: '', workflow: '', status: '' });
   const ofType = content.items.filter(c => c.type === type);
   const categories = useMemo(() => {
@@ -232,8 +243,10 @@ export const ListPage: React.FC<{ type: ContentType; access: OpsAccess; content:
           <h1 className="font-bold text-2xl text-gray-900 tracking-tight">{t(s.label)}</h1>
           <p className="text-sm text-gray-600">{t(s.blurb)}{type === 'schedule' ? t(' Each one opens in a new tab.') : ''}</p>
         </div>
+        {editor && missingSeeds.length > 0 && <button disabled={importing} onClick={importSeeds} className={secondaryBtn}>{importing ? 'Importing…' : `Import ${missingSeeds.length} starter SOP drafts`}</button>}
         {editor && <a href={`#/new/${type}`} className={`${primaryBtn} inline-flex items-center gap-1.5`}><Plus className="w-4 h-4" aria-hidden="true" />{t("New ")}{t(s.singular)}</a>}
       </header>
+      {importError && <p role="alert" className="text-sm font-bold text-ember">{importError}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <input aria-label={t("Search by title")} placeholder={t("Search by title")} value={f.q} onChange={e => setF({ ...f, q: e.target.value })} className={`${input} !w-auto flex-1 min-w-52`} />
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("Workflow")}>

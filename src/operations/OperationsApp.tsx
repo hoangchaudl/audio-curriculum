@@ -232,7 +232,7 @@ export const OperationsApp: React.FC = () => {
       if (!editor) return <p className="text-sm text-gray-600">{t("You can read Audio Hub content but not edit it.")}</p>;
       return <EditorPage key={route.page === 'edit' ? route.id : `new-${route.type}`} route={route} uid={uid!} access={access} content={content} />;
     }
-    if (route.page === 'list') return <ListPage key={route.type} type={route.type} access={access} content={content} />;
+    if (route.page === 'list') return <ListPage key={route.type} type={route.type} uid={uid!} access={access} content={content} />;
     if (route.page === 'detail') return <DetailPage key={route.id} id={route.id} uid={uid!} access={access} content={content} />;
     return <HomePage access={access} content={content} name={session.name} />;
   })();
