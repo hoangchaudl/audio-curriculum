@@ -31,6 +31,7 @@ export interface OpsContent {
   assignees?: string; // One email per line; title assignment, not access control.
   summary?: string;
   body: string; // Markdown
+  diagram?: string; // Excalidraw scene JSON
   category?: string;
   workflows?: string[];
   owner?: string;
@@ -94,16 +95,19 @@ export const parseItems = (text: string) => text.split('\n').map(s => s.trim()).
 export interface Draft {
   title: string; summary: string; body: string; category: string; workflows: string[];
   owner: string; effectiveDate: string; linksText: string; itemsText: string;
-  namingCode?: string; namingPattern?: string; assignees?: string;
+  namingCode?: string; namingPattern?: string; assignees?: string; diagram?: string;
 }
 
 // Form validation; mirrors the size limits in firestore.rules.
+export const MAX_DIAGRAM = 700000; // Firestore documents cap at 1 MiB
+
 export const validateDraft = (type: ContentType, d: Draft): string[] => {
   const errors: string[] = [];
   if (!d.title.trim()) errors.push('Add a title.');
   if (d.title.length > 200) errors.push('Keep the title under 200 characters.');
   if (d.summary.length > 500) errors.push('Keep the summary under 500 characters.');
   if (d.body.length > 100000) errors.push('The content is too long.');
+  if ((d.diagram ?? '').length > MAX_DIAGRAM) errors.push('The diagram is too large. Remove some shapes.');
   if (d.effectiveDate && !/^\d{4}-\d{2}-\d{2}$/.test(d.effectiveDate)) errors.push('Effective date must be a date.');
   const { links, bad } = parseLinks(d.linksText);
   if (bad.length) errors.push(`These links need a full http(s) address: ${bad.join(', ')}`);
@@ -125,7 +129,7 @@ export const validateDraft = (type: ContentType, d: Draft): string[] => {
 // The content fields a save writes (authorship/status are added by the caller).
 export const draftFields = (type: ContentType, d: Draft) => {
   const fields: Record<string, unknown> = {
-    type, title: d.title.trim(), summary: d.summary.trim(), body: d.body,
+    type, title: d.title.trim(), summary: d.summary.trim(), body: d.body, diagram: d.diagram ?? '',
     category: d.category.trim(), workflows: d.workflows, owner: d.owner.trim(),
     effectiveDate: d.effectiveDate, links: parseLinks(d.linksText).links,
     ...(type === 'naming' ? { namingCode: d.namingCode?.trim() ?? '', namingPattern: d.namingPattern?.trim() ?? '', assignees: assignedEmails(d.assignees ?? '').join('\n') } : {}),
@@ -135,7 +139,7 @@ export const draftFields = (type: ContentType, d: Draft) => {
 };
 
 export const draftOf = (c?: OpsContent): Draft => ({
-  title: c?.title ?? '', summary: c?.summary ?? '', body: c?.body ?? '', category: c?.category ?? '',
+  title: c?.title ?? '', summary: c?.summary ?? '', body: c?.body ?? '', diagram: c?.diagram ?? '', category: c?.category ?? '',
   workflows: c?.workflows ?? [], owner: c?.owner ?? '', effectiveDate: c?.effectiveDate ?? '',
   namingCode: c?.namingCode ?? '', namingPattern: c?.namingPattern ?? '', assignees: c?.assignees ?? '',
   linksText: linksToText(c?.links), itemsText: (c?.items ?? []).join('\n'),

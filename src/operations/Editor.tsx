@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { card, input, primaryBtn, secondaryBtn } from '../components/assessment/ui';
 import { CHECKLIST_KINDS, ContentType, Draft, OpsAccess, RESOURCE_KINDS, Route, SECTIONS, WORKFLOWS, draftFields, draftOf, validateDraft } from './model';
 import { createDraft, friendlyError, saveContent } from './data';
+import { Diagram } from './Diagram';
 import { Banner, ContentState, StatusBadge } from './pages';
 
 const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => {
@@ -105,6 +106,11 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
         <Field label={type === 'sop' ? t('Content (Markdown)') : t('Notes (Markdown, optional)')}>
           <textarea rows={type === 'sop' ? 14 : 5} value={d.body} onChange={e => set('body', e.target.value)} className={`${input} font-mono`} />
         </Field>
+        <div className="space-y-1">
+          <span className="block text-xs font-bold text-gray-600">{t("Diagram (optional)")}</span>
+          <Diagram value={d.diagram ?? ''} onChange={v => set('diagram', v)} />
+          <span className="block text-xs font-medium text-gray-500">{t("Draw boxes, arrows, text and sketches like a whiteboard. Shown under the text.")}</span>
+        </div>
         <Field label={type === 'workshop' ? t('YouTube links') : type === 'sop' ? t('Reference links') : t('Links')} hint={t('One per line: "Label | https://…" or just the URL. Link to existing storage - no uploads.')}>
           <textarea rows={4} value={d.linksText} onChange={e => set('linksText', e.target.value)} className={`${input} font-mono`} />
         </Field>

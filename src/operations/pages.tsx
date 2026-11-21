@@ -6,6 +6,7 @@ import {
   CHECKLIST_KINDS, ContentType, OpsAccess, OpsContent, RESOURCE_KINDS, SECTIONS, WORKFLOWS,
   byUpdatedDesc, canEdit, checklistKey, draftFields, draftOf, isHttpUrl, matchesFilters, workshopVideoId,
 } from './model';
+import { Diagram } from './Diagram';
 import { createDraft, deleteContent, friendlyError, publishRevision, setStatus, useOpsContent } from './data';
 
 // The banner art pulls in three.js, so it loads only with the Home page.
@@ -434,6 +435,7 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
         </section> : null;
       })}
       {c.body.trim() && <section className={card}><Md>{c.body}</Md></section>}
+      {c.diagram && <section className={card}><Diagram value={c.diagram} readOnly /></section>}
       {(c.links ?? []).length > 0 && (
         <section className={card}>
           <h2 className={sectionTitle}>{c.type === 'sop' ? t('References') : t('Links')}</h2>
