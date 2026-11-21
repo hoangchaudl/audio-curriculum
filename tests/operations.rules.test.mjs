@@ -212,3 +212,26 @@ describe('operations: escalation', () => {
     await assertFails(getDocs(collection(as('opsAdmin'), 'programOutcomes')));
   });
 });
+
+describe('operations: workshops and title assignments', () => {
+  it('editors draft the new types, admins publish, members read but cannot edit', async () => {
+    for (const type of ['workshop', 'naming']) {
+      const fields = type === 'naming' ? { namingCode: 'TEST', namingPattern: '{title}_EP{episode}', assignees: emailOf('opsDesigner') } : {};
+      await assertSucceeds(setDoc(doc(as('editor'), `operationsContent/${type}`), content('editor', { type, ...fields })));
+      await assertFails(getDoc(doc(as('opsDesigner'), `operationsContent/${type}`)));
+      await assertFails(updateDoc(doc(as('editor'), `operationsContent/${type}`), edit('editor', { status: 'published' })));
+      await assertSucceeds(updateDoc(doc(as('admin'), `operationsContent/${type}`), edit('admin', { status: 'published', publishedAt: serverTimestamp(), publishedBy: 'admin' })));
+      await assertSucceeds(getDoc(doc(as('opsDesigner'), `operationsContent/${type}`)));
+      await assertFails(updateDoc(doc(as('opsDesigner'), `operationsContent/${type}`), edit('opsDesigner', { title: 'Changed' })));
+    }
+  });
+  it('rejects missing, oversized or incorrectly typed naming settings', async () => {
+    const ref = doc(as('editor'), 'operationsContent/naming');
+    const valid = { type: 'naming', namingCode: 'TEST', namingPattern: '{title}', assignees: emailOf('opsDesigner') };
+    for (const bad of [{ namingCode: '' }, { namingCode: 123 }, { namingPattern: 'x'.repeat(201) }, { assignees: [] }, { assignees: 'x'.repeat(5001) }]) {
+      await assertFails(setDoc(ref, content('editor', { ...valid, ...bad })));
+    }
+    await assertFails(setDoc(ref, content('editor', { type: 'naming' })));
+    await assertSucceeds(setDoc(ref, content('editor', valid)));
+  });
+});
