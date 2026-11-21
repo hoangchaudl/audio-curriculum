@@ -118,7 +118,7 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
           <Diagram value={d.diagram ?? ''} onChange={v => set('diagram', v)} />
           <span className="block text-xs font-medium text-gray-500">{t("Draw boxes, arrows, text and sketches like a whiteboard. Shown under the text.")}</span>
         </div>
-        <Field label={type === 'workshop' ? t('YouTube links') : type === 'sop' ? t('Reference links') : t('Links')} hint={t('One per line: "Label | https://…" or just the URL. Link to existing storage - no uploads.')}>
+        <Field label={type === 'workshop' ? t('YouTube links') : type === 'sop' ? t('Reference links') : t('Links')} hint={type === 'sop' ? t('One per line: "Label | https://…" or just the URL. YouTube links play inline on the SOP; other links go under References.') : t('One per line: "Label | https://…" or just the URL. Link to existing storage - no uploads.')}>
           <textarea rows={4} value={d.linksText} onChange={e => set('linksText', e.target.value)} className={`${input} font-mono`} />
         </Field>
       </div>

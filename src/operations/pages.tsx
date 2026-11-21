@@ -371,6 +371,8 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
   const editor = canEdit(access);
   const admin = access === 'admin';
   const original = c.revisionOf ? content.items.find(x => x.id === c.revisionOf) : undefined;
+  // SOP videos play inline above, so only the other links stay in References.
+  const refLinks = c.type === 'sop' ? (c.links ?? []).filter(l => !workshopVideoId(l.url)) : (c.links ?? []);
   const openRevision = c.status === 'published' ? content.items.find(x => x.revisionOf === c.id && x.status === 'draft') : undefined;
 
   const run = async (label: string, work: () => Promise<unknown>, after?: () => void) => {
@@ -446,7 +448,7 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
         <a href="#/naming" className={secondaryBtn}>{t('Open Naming Builder')}</a>
       </section>}
       {c.type === 'checklist' && <Checklist key={checklistKey(uid, c)} uid={uid} c={c} />}
-      {c.type === 'workshop' && (c.links ?? []).map((link, i) => {
+      {(c.type === 'workshop' || c.type === 'sop') && (c.links ?? []).map((link, i) => {
         const videoId = workshopVideoId(link.url);
         return videoId ? <section key={i} className={`${card} space-y-3`}>
           <h2 className={sectionTitle}>{link.label || c.title}</h2>
@@ -456,10 +458,10 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
       })}
       {c.body.trim() && <section className={card}><Md>{c.body}</Md></section>}
       {c.diagram && <section className={card}><Diagram value={c.diagram} readOnly /></section>}
-      {(c.links ?? []).length > 0 && (
+      {refLinks.length > 0 && (
         <section className={card}>
           <h2 className={sectionTitle}>{c.type === 'sop' ? t('References') : t('Links')}</h2>
-          <div className="mt-3"><LinkList links={c.links} /></div>
+          <div className="mt-3"><LinkList links={refLinks} /></div>
         </section>
       )}
     </article>
