@@ -112,13 +112,12 @@ const NoAccess: React.FC<{ session: OpsSession }> = ({ session }) => {
 };
 
 const NAV: { href: string; label: string; icon: React.ReactNode; match: (r: Route) => boolean }[] = [
-  { href: '#/naming', label: 'Naming Builder', icon: <FileText className="w-5 h-5" />, match: r => r.page === 'naming' },
   { href: '#/', label: 'Home', icon: <Home className="w-5 h-5" />, match: r => r.page === 'home' },
-  ...(Object.keys(SECTIONS) as ContentType[]).map(type => ({
+  ...(Object.keys(SECTIONS) as ContentType[]).flatMap(type => [{
     href: `#/${SECTIONS[type].path}`, label: SECTIONS[type].label,
     icon: { sop: <BookOpen className="w-5 h-5" />, checklist: <ClipboardCheck className="w-5 h-5" />, schedule: <CalendarDays className="w-5 h-5" />, resource: <FolderOpen className="w-5 h-5" />, workshop: <Video className="w-5 h-5" />, naming: <FileText className="w-5 h-5" /> }[type],
     match: (r: Route) => ('type' in r && r.type === type),
-  })),
+  }, ...(type === 'naming' ? [{ href: '#/naming', label: 'Naming Builder', icon: <FileText className="w-5 h-5" />, match: (r: Route) => r.page === 'naming' }] : [])]),
 ];
 
 // `access` is what the screens render for: an admin previewing as a member

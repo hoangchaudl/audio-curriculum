@@ -1,5 +1,6 @@
 // Interface text only. Team-authored documents and naming tokens stay as entered.
 export const vi: Record<string, string> = {
+  'Schedule Link': 'Liên kết lịch', 'Workshop': 'Workshop', 'Title Assignment': 'Phân công tựa phim', 'Resource': 'Tài nguyên',
   'Could not check your Audio Hub access. Check your connection and refresh.': 'Không thể kiểm tra quyền Audio Hub. Hãy kiểm tra kết nối và tải lại trang.',
   '{count} draft is waiting for review': '{count} bản nháp đang chờ duyệt',
   '{count} drafts are waiting for review': '{count} bản nháp đang chờ duyệt',
@@ -57,7 +58,7 @@ export const vi: Record<string, string> = {
   'SOPs & Standards': 'SOP & Tiêu chuẩn', 'SOP': 'SOP', 'sop': 'SOP',
   'Handoff & Delivery': 'Bàn giao & Giao nộp', 'checklist': 'checklist', 'Checklist': 'Checklist',
   'Schedule': 'Lịch sản xuất', 'schedule link': 'liên kết lịch', 'Resources & Templates': 'Tài nguyên & Mẫu', 'resource': 'tài nguyên',
-  'Workshops': 'Workshop', 'workshop': 'workshop', 'Title assignments': 'Phân công tựa phim', 'title assignment': 'phân công tựa phim',
+  'Workshops': 'Workshop', 'workshop': 'workshop', 'Title Assignments': 'Phân công tựa phim', 'title assignment': 'phân công tựa phim',
   'Standard operating procedures and quality standards.': 'Quy trình làm việc và tiêu chuẩn chất lượng.',
   'Checklist templates for handoffs and deliveries.': 'Mẫu checklist cho các lần bàn giao và giao nộp.',
   'Links to the production schedules the team already uses.': 'Liên kết đến lịch sản xuất hiện tại của nhóm.',

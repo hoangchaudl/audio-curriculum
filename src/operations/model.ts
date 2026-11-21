@@ -53,11 +53,11 @@ export const RESOURCE_KINDS = ['Session templates', 'Reference', 'Shared folders
 
 export const SECTIONS: Record<ContentType, { path: string; label: string; singular: string; blurb: string }> = {
   sop: { path: 'sops', label: 'SOPs & Standards', singular: 'SOP', blurb: 'Standard operating procedures and quality standards.' },
-  checklist: { path: 'checklists', label: 'Handoff & Delivery', singular: 'checklist', blurb: 'Checklist templates for handoffs and deliveries.' },
-  schedule: { path: 'schedule', label: 'Schedule', singular: 'schedule link', blurb: 'Links to the production schedules the team already uses.' },
-  workshop: { path: 'workshops', label: 'Workshops', singular: 'workshop', blurb: 'Team workshops with embedded YouTube videos.' },
-  naming: { path: 'titles', label: 'Title assignments', singular: 'title assignment', blurb: 'Assign titles and configure filename patterns for the Naming Builder.' },
-  resource: { path: 'resources', label: 'Resources & Templates', singular: 'resource', blurb: 'Session templates, reference material, shared folders and tools.' },
+  checklist: { path: 'checklists', label: 'Handoff & Delivery', singular: 'Checklist', blurb: 'Checklist templates for handoffs and deliveries.' },
+  schedule: { path: 'schedule', label: 'Schedule', singular: 'Schedule Link', blurb: 'Links to the production schedules the team already uses.' },
+  workshop: { path: 'workshops', label: 'Workshops', singular: 'Workshop', blurb: 'Team workshops with embedded YouTube videos.' },
+  naming: { path: 'titles', label: 'Title Assignments', singular: 'Title Assignment', blurb: 'Assign titles and configure filename patterns for the Naming Builder.' },
+  resource: { path: 'resources', label: 'Resources & Templates', singular: 'Resource', blurb: 'Session templates, reference material, shared folders and tools.' },
 };
 export const TYPE_BY_PATH = Object.fromEntries(Object.entries(SECTIONS).map(([t, s]) => [s.path, t])) as Record<string, ContentType>;
 

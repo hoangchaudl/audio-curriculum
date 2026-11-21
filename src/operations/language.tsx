@@ -23,8 +23,8 @@ export const useT = () => {
 export const LanguageSwitch = () => {
   const { language, setLanguage } = useContext(LanguageContext);
   return <label className="flex items-center gap-2 text-xs font-bold">
-    <span>English / Tiếng Việt</span>
-    <select aria-label="Language / Ngôn ngữ" value={language} onChange={e => setLanguage(e.target.value as Language)} className="rounded-lg border px-2 py-1 bg-surface text-ink">
+    <span>Language</span>
+    <select aria-label="Language" value={language} onChange={e => setLanguage(e.target.value as Language)} className="rounded-lg border px-2 py-1 bg-surface text-ink">
       <option value="en">English</option><option value="vi">Tiếng Việt</option>
     </select>
   </label>;
