@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Draft, OpsContent, checklistKey, draftFields, matchesFilters, opsAccessFor, parseLinks, parseRoute, validateDraft } from './model';
+import { Draft, OpsContent, checklistKey, draftFields, draftOf, matchesFilters, opsAccessFor, parseLinks, parseRoute, validateDraft } from './model';
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
   title: 'T', summary: '', body: '', category: '', workflows: [], owner: '', effectiveDate: '', linksText: '', itemsText: '', ...over,
@@ -67,5 +67,11 @@ describe('routes and filters', () => {
   it('checklist ticks are per account and per version', () => {
     expect(checklistKey('u1', { id: 'c', updatedAt: 'v1' })).not.toBe(checklistKey('u2', { id: 'c', updatedAt: 'v1' }));
     expect(checklistKey('u1', { id: 'c', updatedAt: 'v1' })).not.toBe(checklistKey('u1', { id: 'c', updatedAt: 'v2' }));
+  });
+  it('rejects an oversized diagram and keeps it through draftOf/draftFields', () => {
+    const d = { ...draftOf(), title: 't', diagram: 'x'.repeat(700001) };
+    expect(validateDraft('sop', d)).toContain('The diagram is too large. Remove some shapes.');
+    const ok = { ...d, diagram: '{"elements":[]}' };
+    expect(draftFields('sop', ok).diagram).toBe(ok.diagram);
   });
 });

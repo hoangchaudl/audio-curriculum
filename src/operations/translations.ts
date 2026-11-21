@@ -100,7 +100,7 @@ export const vi: Record<string, string> = {
   'One account email per line. Assignments are visible to the Operations team; they do not grant site access.': 'Mỗi dòng một email tài khoản. Nhóm Operations có thể xem phân công; phân công không cấp quyền truy cập trang.',
   'Summary': 'Tóm tắt', 'One or two sentences shown in lists.': 'Một hoặc hai câu hiển thị trong danh sách.', 'Checklist type': 'Loại checklist', 'None': 'Không có',
   'e.g. Mixing': 'Ví dụ: Mixing', 'Owner': 'Người phụ trách', 'Person or team': 'Cá nhân hoặc nhóm', 'Effective date (optional)': 'Ngày hiệu lực (tùy chọn)',
-  'Workflows': 'Quy trình', 'Checklist items': 'Các bước checklist', 'One item per line.': 'Mỗi dòng một bước.', 'Content (Markdown)': 'Nội dung (Markdown)', 'Notes (Markdown, optional)': 'Ghi chú (Markdown, tùy chọn)',
+  'Workflows': 'Quy trình', 'Checklist items': 'Các bước checklist', 'One item per line.': 'Mỗi dòng một bước.', 'Content (Markdown)': 'Nội dung (Markdown)', 'Diagram (optional)': 'Sơ đồ (tùy chọn)', 'Draw boxes, arrows, text and sketches like a whiteboard. Shown under the text.': 'Vẽ khung, mũi tên, chữ và phác thảo như bảng trắng. Hiển thị bên dưới phần văn bản.', 'The diagram is too large. Remove some shapes.': 'Sơ đồ quá lớn. Hãy bớt một số hình.', 'Notes (Markdown, optional)': 'Ghi chú (Markdown, tùy chọn)',
   'YouTube links': 'Liên kết YouTube', 'Reference links': 'Liên kết tham khảo',
   'One per line: "Label | https://…" or just the URL. Link to existing storage - no uploads.': 'Mỗi dòng: "Nhãn | https://…" hoặc chỉ URL. Dùng liên kết đến nơi lưu trữ sẵn có, không tải file lên.',
   'Save changes': 'Lưu thay đổi', 'Save draft': 'Lưu bản nháp',
