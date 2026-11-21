@@ -11,7 +11,12 @@ const Board = lazy(async () => {
     try { elements = value ? JSON.parse(value).elements ?? [] : []; } catch { /* corrupt scene: start blank */ }
     return (
       <Excalidraw
-        initialData={{ elements: elements as never, scrollToContent: true }}
+        initialData={{
+          elements: elements as never,
+          scrollToContent: true,
+          // Clean "diagram" defaults for NEW shapes (0 = no hand-drawn wobble, 6 = Nunito).
+          appState: { currentItemRoughness: 0, currentItemFontFamily: 6, currentItemRoundness: 'round', currentItemFillStyle: 'solid' },
+        }}
         viewModeEnabled={readOnly}
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false } }}
         onChange={readOnly ? undefined : els => {
