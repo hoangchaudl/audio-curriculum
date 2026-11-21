@@ -4,6 +4,9 @@ import React, { Suspense, lazy } from 'react';
 const Board = lazy(async () => {
   const [{ Excalidraw }] = await Promise.all([import('@excalidraw/excalidraw'), import('@excalidraw/excalidraw/index.css')]);
   const B: React.FC<{ value: string; readOnly?: boolean; onChange?: (v: string) => void }> = ({ value, readOnly, onChange }) => {
+    // Excalidraw calls onChange on mount and on selection/scroll; only report real edits,
+    // or a parent that sets state each time re-renders forever.
+    const last = React.useRef(value);
     let elements: unknown[] = [];
     try { elements = value ? JSON.parse(value).elements ?? [] : []; } catch { /* corrupt scene: start blank */ }
     return (
@@ -13,7 +16,8 @@ const Board = lazy(async () => {
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false } }}
         onChange={readOnly ? undefined : els => {
           const live = els.filter(e => !e.isDeleted);
-          onChange?.(live.length ? JSON.stringify({ elements: live }) : '');
+          const next = live.length ? JSON.stringify({ elements: live }) : '';
+          if (next !== last.current) { last.current = next; onChange?.(next); }
         }}
       />
     );
