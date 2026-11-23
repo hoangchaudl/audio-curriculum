@@ -11,7 +11,7 @@ const lines = (prefix: (i: number) => string): Edit => sel => ({
 
 // Markdown textarea with a formatting toolbar and preview. Colors use the
 // `[text](#color-red)` link form that Md renders as colored text.
-export const MarkdownEditor: React.FC<{ value: string; onChange: (v: string) => void; placeholder?: string }> = ({ value, onChange, placeholder }) => {
+export const MarkdownEditor: React.FC<{ value: string; onChange: (v: string) => void; placeholder?: string; height?: string }> = ({ value, onChange, placeholder, height = 'h-48' }) => {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [preview, setPreview] = useState(false);
 
@@ -35,6 +35,7 @@ export const MarkdownEditor: React.FC<{ value: string; onChange: (v: string) => 
     ['• List', 'Bulleted list', () => apply(lines(() => '- '), true)],
     ['1. List', 'Numbered list', () => apply(lines(i => `${i + 1}. `), true)],
     ['❝ Callout', 'Callout box', () => apply(lines(() => '> '), true)],
+    ['▦ Table', 'Table (2 columns x 2 rows)', () => apply(() => ({ text: '| Column 1 | Column 2 |\n| --- | --- |\n| Cell | Cell |\n' }), true)],
     ['— Divider', 'Section divider', () => apply(() => ({ text: '\n---\n' }), true)],
     ['🔗 Link', 'Link', () => apply(sel => ({ text: `[${sel || 'link text'}](https://)` }))],
   ];
@@ -58,7 +59,7 @@ export const MarkdownEditor: React.FC<{ value: string; onChange: (v: string) => 
       </div>
       {preview
         ? <div className="border border-gray-100 rounded-xl p-4 min-h-32">{value.trim() ? <Md>{value}</Md> : <p className="text-xs text-gray-400">Nothing to preview yet.</p>}</div>
-        : <textarea ref={ref} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={`${input} h-48 font-mono text-xs`} />}
+        : <textarea ref={ref} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={`${input} ${height} font-mono text-xs`} />}
     </div>
   );
 };
