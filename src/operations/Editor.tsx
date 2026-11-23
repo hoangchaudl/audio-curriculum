@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { card, input, primaryBtn, secondaryBtn } from '../components/assessment/ui';
 import { CHECKLIST_KINDS, ContentType, Draft, OpsAccess, RESOURCE_KINDS, Route, SECTIONS, WORKFLOWS, draftFields, draftOf, validateDraft } from './model';
 import { createDraft, friendlyError, saveContent } from './data';
+import { MarkdownEditor } from '../components/assessment/MarkdownEditor';
 import { Diagram } from './Diagram';
 import { Banner, ContentState, StatusBadge } from './pages';
 
@@ -110,9 +111,11 @@ export const EditorPage: React.FC<{ route: Extract<Route, { page: 'new' | 'edit'
             <textarea rows={8} value={d.itemsText} onChange={e => set('itemsText', e.target.value)} className={`${input} font-mono`} />
           </Field>
         )}
-        <Field label={type === 'sop' ? t('Content (Markdown)') : t('Notes (Markdown, optional)')}>
-          <textarea rows={type === 'sop' ? 14 : 5} value={d.body} onChange={e => set('body', e.target.value)} className={`${input} font-mono`} />
-        </Field>
+        {/* div, not Field: a <label> would forward toolbar-gap clicks to the first button. */}
+        <div className="space-y-1">
+          <span className="block text-xs font-bold text-gray-600">{type === 'sop' ? t('Content (Markdown)') : t('Notes (Markdown, optional)')}</span>
+          <MarkdownEditor value={d.body} onChange={v => set('body', v)} height={type === 'sop' ? 'h-96' : 'h-40'} />
+        </div>
         <div className="space-y-1">
           <span className="block text-xs font-bold text-gray-600">{t("Diagram (optional)")}</span>
           <Diagram value={d.diagram ?? ''} onChange={v => set('diagram', v)} />

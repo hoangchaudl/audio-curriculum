@@ -1,7 +1,12 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 
 // Loaded when the first Markdown text is shown, not with the app.
-const Markdown = lazy(() => import('react-markdown'));
+// remark-gfm adds tables.
+const Markdown = lazy(async () => {
+  const [{ default: M }, { default: gfm }] = await Promise.all([import('react-markdown'), import('remark-gfm')]);
+  const WithGfm: React.FC<React.ComponentProps<typeof M>> = props => <M remarkPlugins={[gfm]} {...props} />;
+  return { default: WithGfm };
+});
 import { AssessmentStage, Enrollment, Invite, RubricVi } from '../../types';
 import { Outcome, outcomeLabel, roundScore, scoreRange } from '../../assessment/scoring';
 import { SCORE_LABELS_5 } from '../../assessment/config';
@@ -149,7 +154,7 @@ export const TEXT_COLORS: Record<string, string> = {
 
 // Safe Markdown (react-markdown never renders raw HTML by default).
 export const Md: React.FC<{ children: string }> = ({ children }) => (
-  <div className="text-sm text-gray-700 leading-relaxed space-y-2 [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-800 [&_h2]:pt-2 [&_h3]:font-bold [&_h3]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-brand [&_a]:underline [&_strong]:text-gray-800 [&_blockquote]:bg-sky [&_blockquote]:text-navy [&_blockquote]:rounded-2xl [&_blockquote]:px-4 [&_blockquote]:py-3 [&_blockquote]:border-l-4 [&_blockquote]:border-brand [&_hr]:border-gray-200 [&_hr]:my-4">
+  <div className="text-sm text-gray-700 leading-relaxed space-y-2 [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-800 [&_h2]:pt-2 [&_h3]:font-bold [&_h3]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-brand [&_a]:underline [&_strong]:text-gray-800 [&_blockquote]:bg-sky [&_blockquote]:text-navy [&_blockquote]:rounded-2xl [&_blockquote]:px-4 [&_blockquote]:py-3 [&_blockquote]:border-l-4 [&_blockquote]:border-brand [&_hr]:border-gray-200 [&_hr]:my-4 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-gray-200 [&_th]:bg-gray-50 [&_th]:px-3 [&_th]:py-1.5 [&_th]:text-left [&_td]:border [&_td]:border-gray-200 [&_td]:px-3 [&_td]:py-1.5">
     <Suspense fallback={<p className="whitespace-pre-wrap">{children}</p>}>
       <Markdown
         components={{
