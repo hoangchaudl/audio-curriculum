@@ -95,7 +95,7 @@ export const AuthView: React.FC = () => {
           <h1 className="flex flex-col items-center leading-none">
             <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-9 w-auto dark:hidden" />
             <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-9 w-auto hidden dark:block" />
-            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">{area ? 'Audio Training Program' : 'Audio'}</span>
+            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">{area ? 'Audio Training Program' : 'Audio Team'}</span>
           </h1>
         </div>
 

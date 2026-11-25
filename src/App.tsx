@@ -51,6 +51,8 @@ const AppContent = () => {
   const { currentUser, authLoading, hasSession, profileMissing, authError, logout, modules, enrollments, ownEnrollmentLoaded, programOutline } = useAppContext();
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   useApplyTheme(useResolvedTheme(currentUser));
+  // Tab title: team name on the sign-in screen, program name once signed in.
+  useEffect(() => { document.title = currentUser ? 'Audio Training Program' : 'StoryCo Audio Team'; }, [currentUser]);
   const initialPage = useRef(getPageFromHash());
   const [view, setView] = useState<View>(initialPage.current?.view ?? 'module');
   const [episodeStage, setEpisodeStage] = useState<EpisodeStage>(initialPage.current?.stage ?? 'B');
