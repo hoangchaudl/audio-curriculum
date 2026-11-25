@@ -3,44 +3,7 @@
 // first draft built from the board's naming rules and pipeline: edit before publishing.
 import type { OpsContent } from './model';
 
-export interface SopNode { text: string; decision?: boolean; no?: string }
-export interface SopSeed { title: string; summary: string; body: string; workflows: string[]; nodes: SopNode[] }
-
-const W = 220, H = 70, GAP = 60;
-let seq = 0;
-const base = (type: string, x: number, y: number, w: number, h: number) => ({
-  id: `sop${++seq}`, type, x, y, width: w, height: h, angle: 0, strokeColor: '#1e1e1e', backgroundColor: 'transparent',
-  fillStyle: 'solid', strokeWidth: 2, strokeStyle: 'solid', roughness: 1, opacity: 100, groupIds: [], frameId: null,
-  roundness: null, seed: seq * 7919, version: 1, versionNonce: seq * 104729, isDeleted: false, boundElements: null,
-  updated: 1, link: null, locked: false,
-});
-const label = (text: string, x: number, y: number, w: number, h: number, size = 16) => ({
-  ...base('text', x, y, w, h), text, originalText: text, fontSize: size, fontFamily: 5, textAlign: 'center',
-  verticalAlign: 'middle', containerId: null, autoResize: false, lineHeight: 1.25,
-});
-const arrow = (x: number, y: number, dx: number, dy: number) => ({
-  ...base('arrow', x, y, Math.abs(dx), Math.abs(dy)), points: [[0, 0], [dx, dy]], lastCommittedPoint: null,
-  startBinding: null, endBinding: null, startArrowhead: null, endArrowhead: 'arrow', elbowed: false,
-});
-
-// A top-to-bottom flowchart; a node with `no` gets a side branch to the right.
-export const buildDiagram = (nodes: SopNode[]): string => {
-  const els: unknown[] = [];
-  nodes.forEach((n, i) => {
-    const y = i * (H + GAP);
-    const d = !!n.decision;
-    els.push({ ...base(d ? 'diamond' : 'rectangle', 0, y, W, H), backgroundColor: d ? '#ffec99' : '#a5d8ff', roundness: d ? null : { type: 3 } });
-    els.push(label(n.text, 10, y + 8, W - 20, H - 16, d ? 13 : 15));
-    if (i < nodes.length - 1) els.push(arrow(W / 2, y + H, 0, GAP));
-    if (n.no) {
-      els.push(arrow(W, y + H / 2, GAP, 0));
-      els.push(label('No', W + 12, y + H / 2 - 24, 40, 20, 14));
-      els.push({ ...base('rectangle', W + GAP, y, W, H), backgroundColor: '#ffc9c9', roundness: { type: 3 } });
-      els.push(label(n.no, W + GAP + 10, y + 8, W - 20, H - 16, 15));
-    }
-  });
-  return JSON.stringify({ elements: els });
-};
+export interface SopSeed { title: string; summary: string; body: string; workflows: string[] }
 
 export const SOP_SEEDS: SopSeed[] = [
   {
@@ -63,11 +26,7 @@ Every time you start, continue or deliver a Pro Tools session.
 - Underscores, Latin letters and digits only.
 - No "final", "new" or status words in filenames.
 - Language comes immediately after the title code.`,
-    nodes: [
-      { text: 'Open session from shared episode folder' }, { text: 'Name session per pattern' },
-      { text: 'Picture matches latest lock?', decision: true, no: 'Re-pace first (see Picture re-pace)' },
-      { text: 'Work and save versions' }, { text: 'Export .wav with next version' }, { text: 'Copy to shared drive and hand off' },
-    ],
+
   },
   {
     title: 'Google Drive Setup Guide (Mac & Windows)',
@@ -88,10 +47,7 @@ First day on the team, or after a new laptop.
 
 ## Check
 Create a test file in the shared drive and confirm a teammate can see it.`,
-    nodes: [
-      { text: 'Install Drive for desktop' }, { text: 'Sign in with work account' }, { text: 'Mirror the audio shared folders' },
-      { text: 'Drive visible in Finder / Explorer?', decision: true, no: 'Restart Drive, then ask Ops' }, { text: 'Test file seen by a teammate' },
-    ],
+
   },
   {
     title: 'Local to Shared Drive sync',
@@ -107,10 +63,7 @@ After finishing a session or export that lives on your local disk.
 4. Never overwrite a teammate's newer file. If one exists, keep both and bump your version.
 5. Wait for Drive to finish uploading, then check the files open from the shared drive.
 6. Only then clear space locally.`,
-    nodes: [
-      { text: 'Close Pro Tools' }, { text: 'Check names follow pattern' }, { text: 'Copy to episode shared folder' },
-      { text: 'Newer file already there?', decision: true, no: 'Keep both, bump your version' }, { text: 'Wait for upload to finish' }, { text: 'Verify opens from shared drive' },
-    ],
+
   },
   {
     title: 'Picture re-pace procedure',
@@ -129,10 +82,7 @@ The video team delivers a new picture lock and audio is already in progress (the
 
 ## Escalate
 If the change is large enough to threaten the deadline, use the escalation decision tree.`,
-    nodes: [
-      { text: 'New picture lock received' }, { text: 'Save session as new version' }, { text: 'Import picture and conform' },
-      { text: 'Sync holds everywhere?', decision: true, no: 'Fix drift, then re-check' }, { text: 'Export next version' }, { text: 'Tell producer what replaces what' },
-    ],
+
   },
   {
     title: 'Session templates',
@@ -147,10 +97,7 @@ Starting any new episode session.
 3. Rename the copy per the session pattern.
 4. Confirm sample rate, tracks and routing match the template notes.
 5. Report template problems to the editor so the master template is fixed once.`,
-    nodes: [
-      { text: 'Choose CR or MM template' }, { text: 'Copy into episode folder' }, { text: 'Rename per session pattern' },
-      { text: 'Settings match template notes?', decision: true, no: 'Report problem to editor' }, { text: 'Start work' },
-    ],
+
   },
   {
     title: 'Escalation decision trees',
@@ -167,15 +114,11 @@ A blocker, late asset or quality problem you can't resolve yourself.
 5. Write down the outcome so the SOP can be improved.
 
 Fill in the real names and response times for your team.`,
-    nodes: [
-      { text: 'Blocked or at risk?' }, { text: 'SOP solves it?', decision: true, no: 'Post in team channel' },
-      { text: 'Answer within agreed time?', decision: true, no: 'Message producer directly' },
-      { text: 'Delivery date moves?', decision: true, no: 'Carry on, log outcome' }, { text: 'Producer informs client' },
-    ],
+
   },
 ];
 
 export const seedFields = (s: SopSeed): Partial<OpsContent> => ({
-  type: 'sop', title: s.title, summary: s.summary, body: s.body, diagram: buildDiagram(s.nodes),
+  type: 'sop', title: s.title, summary: s.summary, body: s.body,
   category: '', workflows: s.workflows, owner: '', effectiveDate: '', links: [], items: [],
 });
