@@ -1,9 +1,11 @@
-import { useT, LanguageSwitch } from './language';
+import { useT, useLanguage, LanguageSwitch } from './language';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { GoogleAuthProvider, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { BookOpen, CalendarDays, ClipboardCheck, FolderOpen, Home, Users, Video, FileText } from 'lucide-react';
 import { auth } from '../firebase';
-import { useApplyTheme } from '../theme';
+import { useApplyTheme, setStoredTheme } from '../theme';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { AuthShell } from '../components/AuthShell';
 import { card, input, primaryBtn, secondaryBtn } from '../components/assessment/ui';
 import { ContentType, OpsAccess, Route, SECTIONS, canEdit, parseRoute } from './model';
 import { OpsSession, useOpsContent, useOpsSession } from './data';
@@ -35,6 +37,26 @@ const useOsTheme = () => {
   return dark ? 'dark' : 'light';
 };
 
+// The Hub's own light/dark choice, remembered on this device (Hub-only people have no
+// account profile to save it in) and shared by every toggle on the page.
+type Theme = 'light' | 'dark';
+const readTheme = (): Theme | null => { try { const v = localStorage.getItem('opsTheme'); return v === 'light' || v === 'dark' ? v : null; } catch { return null; } };
+const useStoredTheme = () => {
+  const [theme, setTheme] = useState<Theme | null>(readTheme);
+  useEffect(() => {
+    const on = () => setTheme(readTheme());
+    window.addEventListener('ops-theme', on);
+    return () => window.removeEventListener('ops-theme', on);
+  }, []);
+  return theme;
+};
+const setHubTheme = (dark: boolean) => setStoredTheme(dark ? 'dark' : 'light');
+const HubThemeToggle: React.FC = () => {
+  const stored = useStoredTheme();
+  const os = useOsTheme();
+  return <ThemeToggle isDark={(stored ?? os) === 'dark'} onChange={setHubTheme} />;
+};
+
 const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const t = useT();
   return (
@@ -45,7 +67,7 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <img src="/storyco-logo-dark.png" alt="" className="w-10 h-auto rounded-md shadow-md hidden dark:block" />
         <h1 className="font-display font-bold text-xl text-gray-800">{t("StoryCo Audio Hub")}</h1>
       </div>
-      <LanguageSwitch />
+      <div className="flex items-center justify-between gap-3"><LanguageSwitch /><HubThemeToggle /></div>
       {children}
     </div>
   </main>
@@ -109,27 +131,26 @@ const SignIn: React.FC = () => {
       setBusy(false);
     }
   };
+  const { language, setLanguage } = useLanguage();
+  const stored = useStoredTheme();
+  const os = useOsTheme();
   return (
-    <main className="min-h-screen w-full bg-page text-ink font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-[-100px] left-[-100px] w-96 h-96 bg-brand rounded-full opacity-10 pointer-events-none"></div>
-      <div className="absolute bottom-[-150px] right-[-50px] w-[500px] h-[500px] bg-warm rounded-full opacity-10 pointer-events-none"></div>
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-10">
-          <div className="w-20 h-20 mx-auto bg-surface shadow-xl border-4 border-page rounded-full flex items-center justify-center mb-6 relative">
-            <div className="w-12 h-12 bg-brand rounded-full"></div>
-            <div className="absolute -bottom-2 w-8 h-8 bg-warm border-4 border-surface rounded-full flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden="true">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-          </div>
-          <h1 className="flex flex-col items-center leading-none">
-            <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-9 w-auto dark:hidden" />
-            <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-9 w-auto hidden dark:block" />
-            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">{t("Audio Hub")}</span>
-          </h1>
-        </div>
+    <AuthShell subtitle={t("Audio Hub")}
+      language={{ label: t('Language'), value: language, onChange: setLanguage }}
+      isDark={(stored ?? os) === 'dark'} onTheme={setHubTheme}
+      back={<a href="/">← {t("Choose another place")}</a>}>
         <div className="bg-surface rounded-2xl p-8 shadow-2xl border-4 border-surface">
+          {mode !== 'reset' && (
+            <div className="flex gap-4 mb-8">
+              {(['signin', 'signup'] as const).map(m => (
+                <button key={m} type="button" onClick={() => switchMode(m)}
+                  className={`flex-1 font-bold py-3 rounded-2xl transition-all ${mode === m ? 'bg-brand text-white active:translate-y-[2px] active:shadow-none' : 'bg-sky text-navy hover:bg-brand/20'}`}>
+                  {t(m === 'signin' ? 'Sign In' : 'Sign Up')}
+                </button>
+              ))}
+            </div>
+          )}
+          {mode === 'reset' && <h2 className="text-lg font-bold text-brand mb-6">{t('Reset your password')}</h2>}
           {error && <p role="alert" className="bg-rose text-ember px-4 py-3 rounded-2xl text-xs font-bold mb-4">{t(error)}</p>}
           {notice && <p role="status" className="bg-sky text-navy px-4 py-3 rounded-2xl text-xs font-bold mb-4">{t(notice)}</p>}
           {mode !== 'reset' && (
@@ -142,7 +163,7 @@ const SignIn: React.FC = () => {
           <form onSubmit={submit} className="space-y-4">
             <div>
               <label htmlFor="hub-email" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t("Email")}</label>
-              <input id="hub-email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
+              <input id="hub-email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
             </div>
             {mode !== 'reset' && (
               <div>
@@ -150,24 +171,17 @@ const SignIn: React.FC = () => {
                   <label htmlFor="hub-password" className="block text-xs font-bold text-gray-500 uppercase">{t("Password")}</label>
                   {mode === 'signin' && <button type="button" onClick={() => switchMode('reset')} className="text-xs font-bold text-brand hover:underline">{t("Forgot password?")}</button>}
                 </div>
-                <input id="hub-password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={mode === 'signup' ? 6 : undefined} value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
+                <input id="hub-password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={mode === 'signup' ? 6 : undefined} value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
                 {mode === 'signup' && <p className="text-[10px] text-gray-400 mt-1 ml-1">{t("Minimum 6 characters.")}</p>}
               </div>
             )}
             <button type="submit" disabled={busy} className="w-full bg-warm text-white font-bold py-4 rounded-2xl transition-all text-sm uppercase tracking-wider disabled:opacity-60 active:shadow-none active:translate-y-[2px]">
-              {busy ? t('Please wait…') : mode === 'reset' ? t('Send Reset Link') : mode === 'signup' ? t('Create Account') : t('Sign in')}
+              {busy ? t('Please wait…') : mode === 'reset' ? t('Send Reset Link') : mode === 'signup' ? t('Create Account') : t('Sign In')}
             </button>
           </form>
-          <p className="text-center text-xs font-bold text-gray-500 mt-4">
-            {mode === 'signin'
-              ? <>{t("New here?")} <button type="button" onClick={() => switchMode('signup')} className="text-brand hover:underline">{t("Create an account")}</button></>
-              : <button type="button" onClick={() => switchMode('signin')} className="text-brand hover:underline">{t("Back to Sign In")}</button>}
-          </p>
-          <div className="flex justify-center mt-6"><LanguageSwitch /></div>
+          {mode === 'reset' && <button type="button" onClick={() => switchMode('signin')} className="w-full text-center text-xs font-bold text-gray-500 hover:text-brand transition-colors mt-4">{t('Back to Sign In')}</button>}
         </div>
-        <a href="/" className="block text-center text-xs font-bold text-gray-500 hover:text-brand transition-colors mt-4">← {t("Choose another place")}</a>
-      </div>
-    </main>
+    </AuthShell>
   );
 };
 
@@ -270,7 +284,7 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
             ))}
         </nav>
         <div className="pt-3 border-t border-gray-200/70 space-y-2.5 px-1">
-          <LanguageSwitch />
+          <div className="flex items-center justify-between gap-2"><LanguageSwitch /><HubThemeToggle /></div>
           <div className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">{session.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
             <p className="min-w-0 leading-tight">
@@ -295,7 +309,9 @@ const Shell: React.FC<{ session: OpsSession; access: OpsAccess; route: Route; pr
           <button onClick={() => setOpen(true)} aria-label={t("Open menu")} className="w-9 h-9 flex items-center justify-center rounded-full bg-sky text-brand">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
-          <span className="font-semibold text-sm text-gray-900 truncate">{t("StoryCo Audio Hub")}</span>
+          <img src="/storyco-logo-text-light.png" alt={t("StoryCo Audio Hub")} className="h-6 w-auto dark:hidden" />
+          <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-6 w-auto hidden dark:block" />
+          <span className="ml-auto"><HubThemeToggle /></span>
         </div>
         {previewMember && (
           <div role="status" className="flex flex-wrap items-center gap-3 bg-warm text-white text-xs font-semibold px-4 md:px-7 py-2 flex-shrink-0">
@@ -321,7 +337,8 @@ export const OperationsApp: React.FC = () => {
   const session = useOpsSession();
   const route = useRoute();
   const osTheme = useOsTheme();
-  useApplyTheme(session.theme ?? osTheme);
+  const storedTheme = useStoredTheme();
+  useApplyTheme(storedTheme ?? session.theme ?? osTheme);
   const uid = session.fbUser?.uid;
   const [previewMember, setPreviewMember] = useState(false);
   const access: OpsAccess = session.access === 'admin' && previewMember ? 'member' : session.access;
