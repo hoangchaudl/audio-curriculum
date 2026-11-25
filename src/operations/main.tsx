@@ -5,7 +5,7 @@ import { OperationsApp } from './OperationsApp.tsx';
 import '../index.css';
 import { LanguageProvider } from './language';
 
-// Separate entry (/operations/): the Curriculum app never loads this code.
+// Separate entry (/audiohub/): the Curriculum app never loads this code.
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

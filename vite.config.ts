@@ -13,11 +13,11 @@ export default defineConfig(() => {
     },
     build: {
       rollupOptions: {
-        // Two pages: the Training Program (/) and Operations (/operations/).
+        // Two pages: the Training Program (/) and the Audio Hub (/audiohub/).
         // Separate entries, so neither downloads the other's code.
         input: {
           main: path.resolve(__dirname, 'index.html'),
-          operations: path.resolve(__dirname, 'operations/index.html'),
+          audiohub: path.resolve(__dirname, 'audiohub/index.html'),
         },
         output: {
           // Big libraries in their own files: they change rarely, so browsers

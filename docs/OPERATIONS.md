@@ -1,8 +1,8 @@
 # StoryCo Audio Operations
 
-A separate workspace at **`/operations/`**, next to the Audio Training Program (`/`).
+A separate workspace at **`/audiohub/`**, next to the Audio Training Program (`/`).
 It shares the Firebase project and sign-in session, nothing else: its own entry
-(`operations/index.html` → `src/operations/`), navigation, state, listeners,
+(`audiohub/index.html` → `src/operations/`), navigation, state, listeners,
 access checks and Firestore collections. The Training Program never downloads it.
 
 Pages (hash routes, so refresh and back/forward work): Home `#/`, SOPs & Standards
@@ -33,7 +33,7 @@ published or archived document; to update one they create a revision draft
 
 ### Granting access (admin)
 
-1. Open `/operations/#/access` (Training Program admins see **Access** in the sidebar).
+1. Open `/audiohub/#/access` (Training Program admins see **Access** in the sidebar).
 2. Enter the person's account email, an optional name, and a role. **Grant access**.
 3. Change a role with the dropdown; **Revoke** removes access immediately (open
    sessions lose it live); **Restore** gives it back.
@@ -49,9 +49,9 @@ Run from a machine with Editor/Owner access to the Firebase project, after revie
    `operationsContent` rules; existing Training Program rules are unchanged.
 3. No index deploy needed: Operations queries are single-field (`status ==
    'published'`), which Firestore indexes automatically. `firestore.indexes.json` is unchanged.
-4. `firebase deploy --only hosting` - ships `dist/operations/` plus the new
-   `/operations` rewrite (placed before the catch-all).
-5. Sign in at `/operations/` as a Training Program admin and grant the first memberships.
+4. `firebase deploy --only hosting` - ships `dist/audiohub/` plus the new
+   `/audiohub` rewrite (placed before the catch-all).
+5. Sign in at `/audiohub/` as a Training Program admin and grant the first memberships.
 
 Rollback: redeploy the previous hosting release; the extra rules are inert without the page.
 

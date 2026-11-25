@@ -51,7 +51,7 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
     <div className="space-y-5">
       <header>
         <h1 className="font-display font-bold text-2xl text-gray-800">{t("Access")}</h1>
-        <p className="text-sm text-gray-600">{t("Grant Audio Hub access to an existing StoryCo Audio account by its email address. Training Program roles are not affected. Training Program admins always administer the Audio Hub.")}</p>
+        <p className="text-sm text-gray-600">{t("Grant Audio Hub access by email address. People sign in with that Google account. Training Program roles are not affected. Training Program admins always administer the Audio Hub.")}</p>
       </header>
       <form onSubmit={grant} className={`${card} space-y-3`} noValidate>
         <h2 className={sectionTitle}>{t("Grant access")}</h2>
@@ -62,7 +62,7 @@ export const AccessPage: React.FC<{ uid: string; selfEmail: string }> = ({ uid, 
             {(Object.keys(ROLE_HELP) as OpsRole[]).map(r => <option key={r} value={r}>{t(r)} - {t(ROLE_HELP[r])}</option>)}
           </select>
         </div>
-        <p className="text-xs text-gray-500">{t("The person signs in with this email. It must be verified and belong to an account that already exists in the Training Program.")}</p>
+        <p className="text-xs text-gray-500">{t("The person signs in with this email. It must be a verified Google account (no Training Program account needed).")}</p>
         <button type="submit" disabled={busy === 'new'} className={primaryBtn}>{busy === 'new' ? t('Saving…') : t('Grant access')}</button>
       </form>
       {error && <Banner tone="error">{t(error)}</Banner>}

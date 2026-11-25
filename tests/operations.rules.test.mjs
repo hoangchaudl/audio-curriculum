@@ -78,10 +78,12 @@ describe('operations: who gets in', () => {
     const profile = await getDoc(doc(as('opsDesigner'), 'users/opsDesigner'));
     assert.equal(profile.data().role, 'sound_designer');
   });
+  it('a member without a Training Program profile can read (Hub-only, Google sign-in)', async () => {
+    await assertSucceeds(getDocs(published(as('noProfile'))));
+  });
   it('missing, inactive or invalid membership denies access', async () => {
     await assertFails(getDocs(published(as('revoked'))));
     await assertFails(getDocs(published(as('weird')))); // unknown role
-    await assertFails(getDocs(published(as('noProfile')))); // no Training Program account
     // Unverified email: the membership doesn't count.
     const unverified = env.authenticatedContext('opsDesigner', { email: emailOf('opsDesigner'), email_verified: false }).firestore();
     await assertFails(getDocs(published(unverified)));

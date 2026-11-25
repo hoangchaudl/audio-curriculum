@@ -499,8 +499,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/operationsMembers/$(tokenEmail())).data;
     }
     function opsRoleIs(roles) {
-      return isAdmin() ||
-             (isMember() && tokenEmail() != '' &&
+      // Hub-only people have no Training profile, so check it exists before reading its role.
+      return (isMember() && isAdmin()) ||
+             (isSignedIn() && tokenEmail() != '' &&
               exists(/databases/$(database)/documents/operationsMembers/$(tokenEmail())) &&
               opsMembership().get('active', false) == true &&
               opsMembership().get('role', '') in roles);

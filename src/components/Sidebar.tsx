@@ -402,7 +402,7 @@ export const Sidebar: React.FC<{
             <div onClick={(e) => e.stopPropagation()} className="flex absolute bottom-full left-0 w-56 mb-2 flex-col gap-1 bg-surface p-2 rounded-2xl shadow-xl z-50">
                <button onClick={() => { setMenuOpen(false); window.dispatchEvent(new CustomEvent('open-profile')); }} className="text-left px-2 py-1 text-xs font-bold text-warm hover:bg-gray-100 rounded-lg mb-1">My Profile</button>
 
-               {hasOps && <a href="/operations/" className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg">Audio Hub</a>}
+               {hasOps && <a href="/audiohub/" className="text-left px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded-lg">Audio Hub</a>}
 
                {/* Admin-only: preview other dashboards without changing your
                    real role or signing in as anyone else. Purely a client-side
