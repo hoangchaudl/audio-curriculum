@@ -10,9 +10,16 @@ const Board = lazy(async () => {
     const last = React.useRef(value);
     let elements: unknown[] = [];
     try { elements = value ? JSON.parse(value).elements ?? [] : []; } catch { /* corrupt scene: start blank */ }
+    // Clean, Miro-like look: no sketchy strokes, sans-serif text. Also restyles diagrams saved hand-drawn.
+    elements = (elements as { type: string }[]).map(e => ({ ...e, roughness: 0, ...(e.type === 'text' ? { fontFamily: 2 } : {}) }));
     return (
       <Excalidraw
-        initialData={{ elements: elements as never, scrollToContent: true }}
+        initialData={{
+          elements: elements as never,
+          scrollToContent: true,
+          // Defaults for new shapes: architect-clean lines, rounded corners, Helvetica.
+          appState: { currentItemRoughness: 0, currentItemFontFamily: 2, currentItemRoundness: 'round', currentItemStrokeWidth: 2 },
+        }}
         viewModeEnabled={readOnly}
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false } }}
         onChange={readOnly ? undefined : els => {
