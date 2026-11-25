@@ -7,13 +7,13 @@ const draft = (over: Partial<Draft> = {}): Draft => ({
 
 describe('opsAccessFor', () => {
   it('Curriculum admins administer Operations without a membership', () => {
-    expect(opsAccessFor('admin', true, null)).toBe('admin');
+    expect(opsAccessFor('admin', null)).toBe('admin');
   });
   it('a trainee (sound_designer) without membership has no access', () => {
-    expect(opsAccessFor('sound_designer', true, null)).toBe('none');
+    expect(opsAccessFor('sound_designer', null)).toBe('none');
   });
   it('leadership is a read role that can see leadership-only docs but not edit', () => {
-    const a = opsAccessFor('sound_designer', true, { role: 'leadership', active: true });
+    const a = opsAccessFor('sound_designer', { role: 'leadership', active: true });
     expect(a).toBe('leadership');
     expect(canSeeLeadership(a)).toBe(true);
     expect(canEdit(a)).toBe(false);
@@ -21,13 +21,14 @@ describe('opsAccessFor', () => {
     expect(canSeeLeadership('member')).toBe(false);
   });
   it('an authorized sound designer gets exactly the granted role', () => {
-    expect(opsAccessFor('sound_designer', true, { role: 'member', active: true })).toBe('member');
-    expect(opsAccessFor('sound_designer', true, { role: 'editor', active: true })).toBe('editor');
+    expect(opsAccessFor('sound_designer', { role: 'member', active: true })).toBe('member');
+    expect(opsAccessFor('sound_designer', { role: 'editor', active: true })).toBe('editor');
   });
-  it('revoked, invalid or profile-less memberships give no access (so content is cleared)', () => {
-    expect(opsAccessFor('sound_designer', true, { role: 'editor', active: false })).toBe('none');
-    expect(opsAccessFor('reviewer', true, { role: 'owner' as never, active: true })).toBe('none');
-    expect(opsAccessFor(undefined, false, { role: 'admin', active: true })).toBe('none');
+  it('revoked, invalid or memberships give no access (so content is cleared)', () => {
+    expect(opsAccessFor('sound_designer', { role: 'editor', active: false })).toBe('none');
+    expect(opsAccessFor('reviewer', { role: 'owner' as never, active: true })).toBe('none');
+    // No Training Program profile is needed (Hub-only people sign in with Google).
+    expect(opsAccessFor(undefined, { role: 'admin', active: true })).toBe('admin');
   });
 });
 

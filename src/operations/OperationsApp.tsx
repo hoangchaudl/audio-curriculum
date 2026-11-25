@@ -1,6 +1,6 @@
 import { useT, LanguageSwitch } from './language';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { BookOpen, CalendarDays, ClipboardCheck, FolderOpen, Home, Users, Video, FileText } from 'lucide-react';
 import { auth } from '../firebase';
 import { useApplyTheme } from '../theme';
@@ -54,38 +54,56 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const SignIn: React.FC = () => {
   const t = useT();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const google = async () => {
     setError('');
     setBusy(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      // `hd` only pre-selects the story.co account; Hub access is still the admin's Access list.
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ hd: 'story.co', prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
     } catch (err) {
       const code = (err as { code?: string }).code ?? '';
-      setError(code === 'auth/too-many-requests' ? t('Too many attempts. Please wait a moment and try again.')
-        : code === 'auth/network-request-failed' ? t('Could not reach the server. Check your connection.')
-        : t('Incorrect email or password.'));
+      if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+        setError(code === 'auth/network-request-failed' ? t('Could not reach the server. Check your connection.')
+          : code === 'auth/popup-blocked' ? t('The sign-in window was blocked. Allow pop-ups and try again.')
+          : t('Could not sign in with Google. Try again.'));
+      }
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Centered>
-      <p className="text-sm text-gray-600">{t("Sign in with your StoryCo Audio account. Access is granted by an Audio Hub admin.")}</p>
-      <form onSubmit={submit} className="space-y-3">
-        <label className="block text-xs font-bold text-gray-600">{t("Email")}<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} className={`${input} mt-1`} />
-        </label>
-        <label className="block text-xs font-bold text-gray-600">{t("Password")}<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} className={`${input} mt-1`} />
-        </label>
-        {error && <p role="alert" className="text-sm font-bold text-ember">{t(error)}</p>}
-        <button type="submit" disabled={busy} className={`${primaryBtn} w-full`}>{busy ? t('Signing in…') : t('Sign in')}</button>
-      </form>
-      <p className="text-xs text-gray-500">{t("Forgot your password or new here? Use the ")}<a href="/" className="text-brand underline">{t("Audio Training Program sign-in")}</a>.</p>
-    </Centered>
+    <main className="min-h-screen w-full bg-page text-ink font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute top-[-100px] left-[-100px] w-96 h-96 bg-brand rounded-full opacity-10 pointer-events-none"></div>
+      <div className="absolute bottom-[-150px] right-[-50px] w-[500px] h-[500px] bg-warm rounded-full opacity-10 pointer-events-none"></div>
+      <div className="w-full max-w-md z-10">
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 mx-auto bg-surface shadow-xl border-4 border-page rounded-full flex items-center justify-center mb-6 relative">
+            <div className="w-12 h-12 bg-brand rounded-full"></div>
+            <div className="absolute -bottom-2 w-8 h-8 bg-warm border-4 border-surface rounded-full flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden="true">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+              </svg>
+            </div>
+          </div>
+          <h1 className="flex flex-col items-center leading-none">
+            <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-9 w-auto dark:hidden" />
+            <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-9 w-auto hidden dark:block" />
+            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">{t("Audio Hub")}</span>
+          </h1>
+        </div>
+        <div className="bg-surface rounded-2xl p-8 shadow-2xl border-4 border-surface">
+          <p className="text-xs text-gray-500 font-bold mb-6">{t("Sign in with your StoryCo Google account.")}</p>
+          {error && <p role="alert" className="bg-rose text-ember px-4 py-3 rounded-2xl text-xs font-bold mb-4">{error}</p>}
+          <button type="button" onClick={google} disabled={busy} className="w-full bg-warm text-white font-bold py-4 rounded-2xl transition-all text-sm uppercase tracking-wider disabled:opacity-60 active:shadow-none active:translate-y-[2px]">{busy ? t('Signing in…') : t('Continue with Google')}</button>
+          <div className="flex justify-center mt-6"><LanguageSwitch /></div>
+        </div>
+        <a href="/" className="block text-center text-xs font-bold text-gray-500 hover:text-brand transition-colors mt-4">← {t("Choose another place")}</a>
+      </div>
+    </main>
   );
 };
 

@@ -12,10 +12,14 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "redirects": [
+      { "source": "/operations", "destination": "/audiohub/", "type": 301 },
+      { "source": "/operations/**", "destination": "/audiohub/", "type": 301 }
+    ],
     "rewrites": [
       {
-        "source": "/operations{,/**}",
-        "destination": "/operations/index.html"
+        "source": "/audiohub{,/**}",
+        "destination": "/audiohub/index.html"
       },
       {
         "source": "**",

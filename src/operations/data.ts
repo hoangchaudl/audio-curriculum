@@ -46,9 +46,11 @@ export const useOpsSession = (): OpsSession => {
       const d = snap.data();
       setProfile({ loaded: true, exists: snap.exists(), role: d?.role, name: d?.name, theme: d?.theme });
     }, err => {
-      console.error('Operations: profile', err);
       setProfile({ loaded: true, exists: false });
-      setError('Could not check your account. Check your connection and refresh.');
+      if ((err as { code?: string }).code !== 'permission-denied') {
+        console.error('Operations: profile', err);
+        setError('Could not check your account. Check your connection and refresh.');
+      }
     });
   }, [uid]);
 
@@ -72,7 +74,7 @@ export const useOpsSession = (): OpsSession => {
     loading, fbUser, email, error,
     name: profile.name || member.data?.name || fbUser?.email || '',
     theme: profile.theme,
-    access: uid && !loading ? opsAccessFor(profile.role, profile.exists, member.data) : 'none',
+    access: uid && !loading ? opsAccessFor(profile.role, member.data) : 'none',
   };
 };
 
@@ -88,7 +90,7 @@ export const useHasOpsAccess = (curriculumRole: string | undefined): boolean => 
     setMember(false);
     if (isAdmin || !email) return;
     return onSnapshot(doc(db, 'operationsMembers', email),
-      snap => setMember(!!snap.exists() && opsAccessFor(curriculumRole, true, snap.data() as OpsMember) !== 'none'),
+      snap => setMember(!!snap.exists() && opsAccessFor(curriculumRole, snap.data() as OpsMember) !== 'none'),
       () => setMember(false)); // denied or offline: just hide the link
   }, [isAdmin, email, curriculumRole]);
   return isAdmin || member;

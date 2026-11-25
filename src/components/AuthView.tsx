@@ -13,6 +13,8 @@ export const AuthView: React.FC = () => {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  // Which product the person is signing in to; the Audio Hub has its own sign-in at /audiohub/.
+  const [area, setArea] = useState<'' | 'training'>('');
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -93,10 +95,24 @@ export const AuthView: React.FC = () => {
           <h1 className="flex flex-col items-center leading-none">
             <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-9 w-auto dark:hidden" />
             <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-9 w-auto hidden dark:block" />
-            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">Audio Training Program</span>
+            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">{area ? 'Audio Training Program' : 'Audio'}</span>
           </h1>
         </div>
 
+        {!area ? (
+          <div className="bg-surface rounded-2xl p-8 shadow-2xl border-4 border-surface space-y-4">
+            <h2 className="text-sm font-bold text-gray-500 uppercase text-center">Where do you want to sign in?</h2>
+            <a href="/audiohub/" className="block rounded-2xl bg-sky hover:bg-brand/20 transition-colors p-5">
+              <span className="block font-bold text-navy text-lg">Audio Hub</span>
+              <span className="block text-xs font-bold text-gray-500 mt-1">SOPs, checklists, schedules, workshops and resources for the team.</span>
+            </a>
+            <button type="button" onClick={() => setArea('training')} className="block w-full text-left rounded-2xl bg-sky hover:bg-brand/20 transition-colors p-5">
+              <span className="block font-bold text-navy text-lg">Audio Training Program</span>
+              <span className="block text-xs font-bold text-gray-500 mt-1">Lessons, assignments, trials and reviews for trainees and reviewers.</span>
+            </button>
+          </div>
+        ) : (
+          <>
         <div className="bg-surface rounded-2xl p-8 shadow-2xl border-4 border-surface">
           {mode !== 'reset' && (
             <div className="flex gap-4 mb-8">
@@ -233,6 +249,11 @@ export const AuthView: React.FC = () => {
             </form>
           )}
         </div>
+            <button type="button" onClick={() => { setArea(''); switchMode('signin'); }} className="w-full text-center text-xs font-bold text-gray-500 hover:text-brand transition-colors mt-4">
+              ← Choose another place
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
