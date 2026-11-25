@@ -1,6 +1,6 @@
 import { useT, LanguageSwitch } from './language';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { GoogleAuthProvider, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { BookOpen, CalendarDays, ClipboardCheck, FolderOpen, Home, Users, Video, FileText } from 'lucide-react';
 import { auth } from '../firebase';
 import { useApplyTheme } from '../theme';
@@ -52,10 +52,44 @@ const Centered: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
+const AUTH_ERRORS: Record<string, string> = {
+  'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+  'auth/network-request-failed': 'Could not reach the server. Check your connection.',
+  'auth/email-already-in-use': 'An account with this email already exists. Sign in instead.',
+  'auth/weak-password': 'Password must be at least 6 characters.',
+  'auth/invalid-email': 'Enter a valid email address.',
+};
+
 const SignIn: React.FC = () => {
   const t = useT();
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const switchMode = (m: typeof mode) => { setMode(m); setError(''); setNotice(''); };
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setNotice('');
+    setBusy(true);
+    try {
+      if (mode === 'reset') {
+        await sendPasswordResetEmail(auth, email.trim());
+        setNotice('If an account exists for that email, a reset link is on its way.');
+      } else if (mode === 'signup') {
+        const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        await sendEmailVerification(user);
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+      }
+    } catch (err) {
+      const code = (err as { code?: string }).code ?? '';
+      setError(AUTH_ERRORS[code] ?? (mode === 'signup' ? 'Could not create the account. Try again.' : 'Incorrect email or password.'));
+    } finally {
+      setBusy(false);
+    }
+  };
   const google = async () => {
     setError('');
     setBusy(true);
@@ -96,14 +130,64 @@ const SignIn: React.FC = () => {
           </h1>
         </div>
         <div className="bg-surface rounded-2xl p-8 shadow-2xl border-4 border-surface">
-          <p className="text-xs text-gray-500 font-bold mb-6">{t("Sign in with your StoryCo Google account.")}</p>
-          {error && <p role="alert" className="bg-rose text-ember px-4 py-3 rounded-2xl text-xs font-bold mb-4">{error}</p>}
-          <button type="button" onClick={google} disabled={busy} className="w-full bg-warm text-white font-bold py-4 rounded-2xl transition-all text-sm uppercase tracking-wider disabled:opacity-60 active:shadow-none active:translate-y-[2px]">{busy ? t('Signing in…') : t('Continue with Google')}</button>
+          {error && <p role="alert" className="bg-rose text-ember px-4 py-3 rounded-2xl text-xs font-bold mb-4">{t(error)}</p>}
+          {notice && <p role="status" className="bg-sky text-navy px-4 py-3 rounded-2xl text-xs font-bold mb-4">{t(notice)}</p>}
+          {mode !== 'reset' && (
+            <>
+              <button type="button" onClick={google} disabled={busy} className="w-full bg-sky text-navy font-bold py-4 rounded-2xl hover:bg-brand/20 transition-colors text-sm disabled:opacity-60">{t('Continue with Google')}</button>
+              <p className="text-center text-xs font-bold text-gray-400 my-4">{t("or use your email")}</p>
+            </>
+          )}
+          {mode === 'reset' && <p className="text-xs text-gray-500 font-bold mb-4">{t("Enter the email on your account and we'll send you a reset link.")}</p>}
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label htmlFor="hub-email" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t("Email")}</label>
+              <input id="hub-email" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
+            </div>
+            {mode !== 'reset' && (
+              <div>
+                <div className="flex items-center justify-between mb-1 ml-1 mr-1">
+                  <label htmlFor="hub-password" className="block text-xs font-bold text-gray-500 uppercase">{t("Password")}</label>
+                  {mode === 'signin' && <button type="button" onClick={() => switchMode('reset')} className="text-xs font-bold text-brand hover:underline">{t("Forgot password?")}</button>}
+                </div>
+                <input id="hub-password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={mode === 'signup' ? 6 : undefined} value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
+                {mode === 'signup' && <p className="text-[10px] text-gray-400 mt-1 ml-1">{t("Minimum 6 characters.")}</p>}
+              </div>
+            )}
+            <button type="submit" disabled={busy} className="w-full bg-warm text-white font-bold py-4 rounded-2xl transition-all text-sm uppercase tracking-wider disabled:opacity-60 active:shadow-none active:translate-y-[2px]">
+              {busy ? t('Please wait…') : mode === 'reset' ? t('Send Reset Link') : mode === 'signup' ? t('Create Account') : t('Sign in')}
+            </button>
+          </form>
+          <p className="text-center text-xs font-bold text-gray-500 mt-4">
+            {mode === 'signin'
+              ? <>{t("New here?")} <button type="button" onClick={() => switchMode('signup')} className="text-brand hover:underline">{t("Create an account")}</button></>
+              : <button type="button" onClick={() => switchMode('signin')} className="text-brand hover:underline">{t("Back to Sign In")}</button>}
+          </p>
           <div className="flex justify-center mt-6"><LanguageSwitch /></div>
         </div>
         <a href="/" className="block text-center text-xs font-bold text-gray-500 hover:text-brand transition-colors mt-4">← {t("Choose another place")}</a>
       </div>
     </main>
+  );
+};
+
+const VerifyActions: React.FC = () => {
+  const t = useT();
+  const [msg, setMsg] = useState('');
+  const resend = async () => {
+    try { if (auth.currentUser) await sendEmailVerification(auth.currentUser); setMsg('Verification email sent.'); }
+    catch { setMsg('Too many attempts. Please wait a moment and try again.'); }
+  };
+  // Verification happens in another tab, so reload the account state to pick it up.
+  const recheck = async () => { await auth.currentUser?.reload(); window.location.reload(); };
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <button onClick={recheck} className={primaryBtn}>{t("I've verified, continue")}</button>
+        <button onClick={resend} className={secondaryBtn}>{t("Resend email")}</button>
+      </div>
+      {msg && <p role="status" className="text-xs font-bold text-gray-500">{t(msg)}</p>}
+    </div>
   );
 };
 
@@ -117,8 +201,9 @@ const NoAccess: React.FC<{ session: OpsSession }> = ({ session }) => {
         <p className="text-sm text-gray-600">
           {session.email
             ? <>{t("You're signed in as ")}<strong>{session.fbUser?.email}</strong>{t(". Ask an Audio Hub admin to grant access to this email address.")}</>
-            : <>{t("Your email address isn't verified yet. Finish setting up your account in the ")}<a href="/" className="text-brand underline">{t("Audio Training Program")}</a>{t(", then come back.")}</>}
+            : <>{t("Your email address isn't verified yet. Open the verification link we sent to ")}<strong>{session.fbUser?.email}</strong>{t(", then continue.")}</>}
         </p>
+        {!session.email && session.fbUser && <VerifyActions />}
       </>
     )}
     <div className="flex gap-2">
