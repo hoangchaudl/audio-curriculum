@@ -31,7 +31,6 @@ export interface OpsContent {
   assignees?: string; // One email per line; title assignment, not access control.
   summary?: string;
   body: string; // Markdown
-  diagram?: string; // Excalidraw scene JSON
   category?: string;
   workflows?: string[];
   owner?: string;
@@ -79,6 +78,20 @@ export const canSeeLeadership = (a: OpsAccess) => a === 'leadership' || a === 'a
 // Links are typed one per line as "Label | https://..." (or a bare URL).
 // Only http(s) links are kept, so a stored link can never run script.
 export const isHttpUrl = (s: string) => /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(s.trim());
+// A Miro board/frame link ("Copy link to frame" keeps ?moveToWidget=) as its view-only
+// live-embed URL, so only that frame shows. Anything else (or another host) gives ''.
+export const miroEmbedUrl = (url: string): string => {
+  try {
+    const u = new URL(url.trim());
+    const id = /^\/app\/(?:board|live-embed)\/([^/]+)/.exec(u.pathname)?.[1];
+    if (u.protocol !== 'https:' || !/^(www\.)?miro\.com$/.test(u.hostname) || !id) return '';
+    const e = new URL(`https://miro.com/app/live-embed/${id}/`);
+    const frame = u.searchParams.get('moveToWidget') ?? u.searchParams.get('focusWidget');
+    if (frame) e.searchParams.set('moveToWidget', frame);
+    e.searchParams.set('embedMode', 'view_only_without_ui');
+    return e.toString();
+  } catch { return ''; }
+};
 export const parseLinks = (text: string): { links: OpsLink[]; bad: string[] } => {
   const links: OpsLink[] = [];
   const bad: string[] = [];
@@ -99,11 +112,10 @@ export const parseItems = (text: string) => text.split('\n').map(s => s.trim()).
 export interface Draft {
   title: string; summary: string; body: string; category: string; workflows: string[];
   owner: string; effectiveDate: string; linksText: string; itemsText: string;
-  namingCode?: string; namingPattern?: string; assignees?: string; diagram?: string;
+  namingCode?: string; namingPattern?: string; assignees?: string;
 }
 
 // Form validation; mirrors the size limits in firestore.rules.
-export const MAX_DIAGRAM = 700000; // Firestore documents cap at 1 MiB
 
 export const validateDraft = (type: ContentType, d: Draft): string[] => {
   const errors: string[] = [];
@@ -111,7 +123,6 @@ export const validateDraft = (type: ContentType, d: Draft): string[] => {
   if (d.title.length > 200) errors.push('Keep the title under 200 characters.');
   if (d.summary.length > 500) errors.push('Keep the summary under 500 characters.');
   if (d.body.length > 100000) errors.push('The content is too long.');
-  if ((d.diagram ?? '').length > MAX_DIAGRAM) errors.push('The diagram is too large. Remove some shapes.');
   if (d.effectiveDate && !/^\d{4}-\d{2}-\d{2}$/.test(d.effectiveDate)) errors.push('Effective date must be a date.');
   const { links, bad } = parseLinks(d.linksText);
   if (bad.length) errors.push(`These links need a full http(s) address: ${bad.join(', ')}`);
@@ -133,7 +144,7 @@ export const validateDraft = (type: ContentType, d: Draft): string[] => {
 // The content fields a save writes (authorship/status are added by the caller).
 export const draftFields = (type: ContentType, d: Draft) => {
   const fields: Record<string, unknown> = {
-    type, title: d.title.trim(), summary: d.summary.trim(), body: d.body, diagram: d.diagram ?? '',
+    type, title: d.title.trim(), summary: d.summary.trim(), body: d.body,
     category: d.category.trim(), workflows: d.workflows, owner: d.owner.trim(),
     effectiveDate: d.effectiveDate, links: parseLinks(d.linksText).links,
     ...(type === 'naming' ? { namingCode: d.namingCode?.trim() ?? '', namingPattern: d.namingPattern?.trim() ?? '', assignees: assignedEmails(d.assignees ?? '').join('\n') } : {}),
@@ -143,7 +154,7 @@ export const draftFields = (type: ContentType, d: Draft) => {
 };
 
 export const draftOf = (c?: OpsContent): Draft => ({
-  title: c?.title ?? '', summary: c?.summary ?? '', body: c?.body ?? '', diagram: c?.diagram ?? '', category: c?.category ?? '',
+  title: c?.title ?? '', summary: c?.summary ?? '', body: c?.body ?? '', category: c?.category ?? '',
   workflows: c?.workflows ?? [], owner: c?.owner ?? '', effectiveDate: c?.effectiveDate ?? '',
   namingCode: c?.namingCode ?? '', namingPattern: c?.namingPattern ?? '', assignees: c?.assignees ?? '',
   linksText: linksToText(c?.links), itemsText: (c?.items ?? []).join('\n'),
