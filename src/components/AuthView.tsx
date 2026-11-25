@@ -1,10 +1,53 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../store';
+import { AuthShell } from './AuthShell';
+import { setStoredTheme, useResolvedTheme } from '../theme';
+
+// Sign-in page only: Vietnamese for the visible text. The language choice shares the
+// Audio Hub's key, so it carries over between the two sign-in pages.
+const VI: Record<string, string> = {
+ "Sign In": "Đăng nhập",
+ "Sign Up": "Đăng ký",
+ "Reset your password": "Đặt lại mật khẩu",
+ "Check your inbox for a link to set a new password.": "Kiểm tra hộp thư để lấy link đặt mật khẩu mới.",
+ "Enter the email on your account and we'll send you a reset link.": "Nhập email của tài khoản, chúng tôi sẽ gửi link đặt lại mật khẩu.",
+ "Back to Sign In": "Quay lại đăng nhập",
+ "Full Name": "Họ và tên",
+ "Email Address": "Địa chỉ email",
+ "Password": "Mật khẩu",
+ "Forgot password?": "Quên mật khẩu?",
+ "Minimum 6 characters.": "Tối thiểu 6 ký tự.",
+ "Pod (Optional)": "Pod (không bắt buộc)",
+ "Sign-up is by invitation. Use the exact email address your coordinator invited - we'll send it a verification link.": "Đăng ký theo lời mời. Dùng đúng email mà điều phối viên đã mời, chúng tôi sẽ gửi link xác minh tới email đó.",
+ "By creating an account, you agree to StoryCo's Terms of Service and Privacy Policy.": "Khi tạo tài khoản, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của StoryCo.",
+ "Please wait…": "Vui lòng đợi…",
+ "Send Reset Link": "Gửi link đặt lại",
+ "Create Account": "Tạo tài khoản",
+ "Enter your email address": "Nhập địa chỉ email",
+ "Name, email, and password are required": "Cần nhập tên, email và mật khẩu",
+ "Password must be at least 6 characters": "Mật khẩu phải có ít nhất 6 ký tự",
+ "Error creating account": "Lỗi khi tạo tài khoản",
+ "Email and password are required": "Cần nhập email và mật khẩu",
+ "Incorrect email or password.": "Email hoặc mật khẩu không đúng.",
+ "Where do you want to sign in?": "Bạn muốn đăng nhập vào đâu?",
+ "Audio Hub": "Audio Hub",
+ "Audio Training Program": "Chương trình đào tạo Audio",
+ "SOPs, checklists, schedules, workshops and resources for the team.": "SOP, checklist, lịch, workshop và tài nguyên cho cả team.",
+ "Lessons, assignments, trials and reviews for trainees and reviewers.": "Bài học, bài tập, bài thử và đánh giá cho học viên và reviewer.",
+ "Choose another place": "Chọn nơi khác",
+ "Audio": "Audio",
+ "Language": "Ngôn ngữ"
+};
+const readLang = (): 'en' | 'vi' => { try { return localStorage.getItem('opsLanguage') === 'vi' ? 'vi' : 'en'; } catch { return 'en'; } };
 
 type Mode = 'signin' | 'signup' | 'reset';
 
 export const AuthView: React.FC = () => {
   const { login, signup, resetPassword, authError, clearAuthError } = useAppContext();
+  const [lang, setLang] = useState(readLang);
+  const t = (text: string) => (lang === 'vi' ? VI[text] ?? text : text);
+  const chooseLang = (l: 'en' | 'vi') => { setLang(l); try { localStorage.setItem('opsLanguage', l); } catch { /* lasts until reload */ } };
+  const isDark = useResolvedTheme(null) === 'dark';
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +73,7 @@ export const AuthView: React.FC = () => {
 
     if (mode === 'reset') {
       if (!email) {
-        setError('Enter your email address');
+        setError(t('Enter your email address'));
         return;
       }
       setSubmitting(true);
@@ -42,11 +85,11 @@ export const AuthView: React.FC = () => {
 
     if (mode === 'signup') {
       if (!name || !email || !password) {
-        setError('Name, email, and password are required');
+        setError(t('Name, email, and password are required'));
         return;
       }
       if (password.length < 6) {
-        setError('Password must be at least 6 characters');
+        setError(t('Password must be at least 6 characters'));
         return;
       }
       // Invite-only: the role comes from the admin's invite for this email,
@@ -55,18 +98,18 @@ export const AuthView: React.FC = () => {
       const success = await signup(name, email, password, pod);
       setSubmitting(false);
       if (!success) {
-        setError('Error creating account');
+        setError(t('Error creating account'));
       }
     } else {
       if (!email || !password) {
-        setError('Email and password are required');
+        setError(t('Email and password are required'));
         return;
       }
       setSubmitting(true);
       const success = await login(email, password);
       setSubmitting(false);
       if (!success) {
-        setError('Incorrect email or password.');
+        setError(t('Incorrect email or password.'));
       }
     }
   };
@@ -77,38 +120,20 @@ export const AuthView: React.FC = () => {
   const displayError = authError || error;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-page p-6 h-screen w-full relative overflow-hidden">
-      {/* Doraemon-inspired decorative elements */}
-      <div className="absolute top-[-100px] left-[-100px] w-96 h-96 bg-brand rounded-full opacity-10 pointer-events-none"></div>
-      <div className="absolute bottom-[-150px] right-[-50px] w-[500px] h-[500px] bg-warm rounded-full opacity-10 pointer-events-none"></div>
-
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-10">
-          <div className="w-20 h-20 mx-auto bg-surface shadow-xl border-4 border-page rounded-full flex items-center justify-center mb-6 relative">
-            <div className="w-12 h-12 bg-brand rounded-full"></div>
-            <div className="absolute -bottom-2 w-8 h-8 bg-warm border-4 border-surface rounded-full flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden="true">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-          </div>
-          <h1 className="flex flex-col items-center leading-none">
-            <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-9 w-auto dark:hidden" />
-            <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-9 w-auto hidden dark:block" />
-            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">{area ? 'Audio Training Program' : 'Audio'}</span>
-          </h1>
-        </div>
-
+    <AuthShell subtitle={t(area ? 'Audio Training Program' : 'Audio')}
+      language={{ label: t('Language'), value: lang, onChange: chooseLang }}
+      isDark={isDark} onTheme={dark => setStoredTheme(dark ? 'dark' : 'light')}
+      back={area ? <button type="button" onClick={() => { setArea(''); switchMode('signin'); }}>← {t('Choose another place')}</button> : undefined}>
         {!area ? (
           <div className="bg-surface rounded-2xl p-8 shadow-2xl border-4 border-surface space-y-4">
-            <h2 className="text-sm font-bold text-gray-500 uppercase text-center">Where do you want to sign in?</h2>
+            <h2 className="text-sm font-bold text-gray-500 uppercase text-center">{t('Where do you want to sign in?')}</h2>
             <a href="/audiohub/" className="block rounded-2xl bg-sky hover:bg-brand/20 transition-colors p-5">
-              <span className="block font-bold text-navy text-lg">Audio Hub</span>
-              <span className="block text-xs font-bold text-gray-500 mt-1">SOPs, checklists, schedules, workshops and resources for the team.</span>
+              <span className="block font-bold text-navy text-lg">{t('Audio Hub')}</span>
+              <span className="block text-xs font-bold text-gray-500 mt-1">{t('SOPs, checklists, schedules, workshops and resources for the team.')}</span>
             </a>
             <button type="button" onClick={() => setArea('training')} className="block w-full text-left rounded-2xl bg-sky hover:bg-brand/20 transition-colors p-5">
-              <span className="block font-bold text-navy text-lg">Audio Training Program</span>
-              <span className="block text-xs font-bold text-gray-500 mt-1">Lessons, assignments, trials and reviews for trainees and reviewers.</span>
+              <span className="block font-bold text-navy text-lg">{t('Audio Training Program')}</span>
+              <span className="block text-xs font-bold text-gray-500 mt-1">{t('Lessons, assignments, trials and reviews for trainees and reviewers.')}</span>
             </button>
           </div>
         ) : (
@@ -120,24 +145,24 @@ export const AuthView: React.FC = () => {
                 className={`flex-1 font-bold py-3 rounded-2xl transition-all ${mode === 'signin' ? 'bg-brand text-white active:translate-y-[2px] active:shadow-none' : 'bg-sky text-navy hover:bg-brand/20'}`}
                 onClick={() => switchMode('signin')}
               >
-                Sign In
+                {t('Sign In')}
               </button>
               <button
                 className={`flex-1 font-bold py-3 rounded-2xl transition-all ${mode === 'signup' ? 'bg-brand text-white active:translate-y-[2px] active:shadow-none' : 'bg-sky text-navy hover:bg-brand/20'}`}
                 onClick={() => switchMode('signup')}
               >
-                Sign Up
+                {t('Sign Up')}
               </button>
             </div>
           )}
 
           {mode === 'reset' && (
             <div className="mb-6">
-              <h2 className="text-lg font-bold text-brand">Reset your password</h2>
+              <h2 className="text-lg font-bold text-brand">{t('Reset your password')}</h2>
               <p className="text-xs text-gray-500 font-bold mt-1">
                 {resetSent
-                  ? "Check your inbox for a link to set a new password."
-                  : "Enter the email on your account and we'll send you a reset link."}
+                  ? t("Check your inbox for a link to set a new password.")
+                  : t("Enter the email on your account and we'll send you a reset link.")}
               </p>
             </div>
           )}
@@ -153,30 +178,30 @@ export const AuthView: React.FC = () => {
               onClick={() => switchMode('signin')}
               className="w-full bg-sky text-navy font-bold py-4 rounded-2xl hover:bg-brand/20 transition-colors text-sm uppercase tracking-wider"
             >
-              Back to Sign In
+              {t('Back to Sign In')}
             </button>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
                 <div>
-                  <label htmlFor="auth-full-name" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Full Name</label>
+                  <label htmlFor="auth-full-name" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t('Full Name')}</label>
                   <input id="auth-full-name" autoComplete="name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
+                    className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
                     placeholder="Julian Drake"
                   />
                 </div>
               )}
 
               <div>
-                <label htmlFor="auth-email-address" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email Address</label>
+                <label htmlFor="auth-email-address" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t('Email Address')}</label>
                 <input id="auth-email-address" autoComplete="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
+                  className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
                   placeholder="julian@storyco.example"
                 />
               </div>
@@ -184,10 +209,10 @@ export const AuthView: React.FC = () => {
               {mode !== 'reset' && (
                 <div>
                   <div className="flex items-center justify-between mb-1 ml-1 mr-1">
-                    <label htmlFor="auth-password" className="block text-xs font-bold text-gray-500 uppercase">Password</label>
+                    <label htmlFor="auth-password" className="block text-xs font-bold text-gray-500 uppercase">{t('Password')}</label>
                     {mode === 'signin' && (
                       <button type="button" onClick={() => switchMode('reset')} className="text-xs font-bold text-brand hover:underline">
-                        Forgot password?
+                        {t('Forgot password?')}
                       </button>
                     )}
                   </div>
@@ -195,11 +220,11 @@ export const AuthView: React.FC = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
+                    className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
                     placeholder="••••••••"
                   />
                   {mode === 'signup' && (
-                    <p className="text-[10px] text-gray-400 mt-1 ml-1">Minimum 6 characters.</p>
+                    <p className="text-[10px] text-gray-400 mt-1 ml-1">{t('Minimum 6 characters.')}</p>
                   )}
                 </div>
               )}
@@ -207,20 +232,20 @@ export const AuthView: React.FC = () => {
               {mode === 'signup' && (
                 <>
                   <div>
-                    <label htmlFor="auth-pod-optional" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Pod (Optional)</label>
+                    <label htmlFor="auth-pod-optional" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t('Pod (Optional)')}</label>
                     <input id="auth-pod-optional"
                       type="text"
                       value={pod}
                       onChange={(e) => setPod(e.target.value)}
-                      className="w-full bg-gray-50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
+                      className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
                       placeholder="e.g. Neon Synthesis"
                     />
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Sign-up is by invitation. Use the exact email address your coordinator invited - we'll send it a verification link.
+                    {t("Sign-up is by invitation. Use the exact email address your coordinator invited - we'll send it a verification link.")}
                   </p>
                   <p className="text-[10px] text-gray-400 leading-relaxed">
-                    By creating an account, you agree to StoryCo's Terms of Service and Privacy Policy.
+                    {t("By creating an account, you agree to StoryCo's Terms of Service and Privacy Policy.")}
                   </p>
                 </>
               )}
@@ -232,8 +257,8 @@ export const AuthView: React.FC = () => {
                   className="w-full bg-warm text-white font-bold py-4 rounded-2xl transition-all text-sm uppercase tracking-wider disabled:opacity-60 active:shadow-none active:translate-y-[2px]"
                 >
                   {submitting
-                    ? 'Please wait…'
-                    : mode === 'reset' ? 'Send Reset Link' : mode === 'signup' ? 'Create Account' : 'Sign In'}
+                    ? t('Please wait…')
+                    : t(mode === 'reset' ? 'Send Reset Link' : mode === 'signup' ? 'Create Account' : 'Sign In')}
                 </button>
               </div>
 
@@ -243,18 +268,14 @@ export const AuthView: React.FC = () => {
                   onClick={() => switchMode('signin')}
                   className="w-full text-center text-xs font-bold text-gray-500 hover:text-brand transition-colors"
                 >
-                  Back to Sign In
+                  {t('Back to Sign In')}
                 </button>
               )}
             </form>
           )}
         </div>
-            <button type="button" onClick={() => { setArea(''); switchMode('signin'); }} className="w-full text-center text-xs font-bold text-gray-500 hover:text-brand transition-colors mt-4">
-              ← Choose another place
-            </button>
           </>
         )}
-      </div>
-    </div>
+    </AuthShell>
   );
 };

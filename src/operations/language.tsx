@@ -20,6 +20,8 @@ export const useT = () => {
   return (source: string, values?: Record<string, string | number>) => translate(language, source, values);
 };
 
+export const useLanguage = () => useContext(LanguageContext);
+
 export const LanguageSwitch = () => {
   const { language, setLanguage } = useContext(LanguageContext);
   return <label className="flex items-center gap-2 text-xs font-bold">
