@@ -4,7 +4,7 @@ import { BookOpen, CalendarDays, ClipboardCheck, ExternalLink, FolderOpen, Link2
 import { card, input, primaryBtn, secondaryBtn, sectionTitle, Md } from '../components/assessment/ui';
 import {
   CHECKLIST_KINDS, ContentType, OpsAccess, OpsContent, RESOURCE_KINDS, SECTIONS, WORKFLOWS,
-  byUpdatedDesc, canEdit, checklistKey, draftFields, draftOf, isHttpUrl, miroEmbedUrl, matchesFilters, workshopVideoId,
+  byUpdatedDesc, canEdit, checklistKey, draftFields, draftOf, isHttpUrl, miroEmbedUrl, sheetsEmbedUrl, matchesFilters, workshopVideoId,
 } from './model';
 import { SOP_SEEDS, seedFields } from './sopSeeds';
 import { createDraft, deleteContent, friendlyError, publishRevision, setStatus, useOpsContent } from './data';
@@ -457,9 +457,9 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
       })}
       {c.body.trim() && <section className={card}><Md>{c.body}</Md></section>}
       {(c.links ?? []).map((link, i) => {
-        const embed = miroEmbedUrl(link.url);
+        const embed = miroEmbedUrl(link.url) || sheetsEmbedUrl(link.url);
         return embed ? <section key={`miro${i}`} className={`${card} space-y-3`}>
-          <iframe className="w-full h-[480px] rounded-xl border border-gray-200" src={embed} title={link.label || 'Miro board'} loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+          <iframe className="w-full h-[480px] rounded-xl border border-gray-200" src={embed} title={link.label || 'Embedded board'} loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
         </section> : null;
       })}
       {(c.links ?? []).length > 0 && (
