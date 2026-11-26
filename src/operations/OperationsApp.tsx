@@ -344,7 +344,8 @@ export const OperationsApp: React.FC = () => {
   const access: OpsAccess = session.access === 'admin' && previewMember ? 'member' : session.access;
   const content = useOpsContent(uid, access);
 
-  useEffect(() => { document.title = t('StoryCo Audio Hub'); }, []);
+  // Tab title: team name on the sign-in screen, "Audio Hub" once signed in.
+  useEffect(() => { document.title = session.fbUser ? t('Audio Hub') : 'StoryCo Audio Team'; }, [session.fbUser]);
 
   if (session.loading) return <Loading />;
   if (!session.fbUser) return <SignIn />;

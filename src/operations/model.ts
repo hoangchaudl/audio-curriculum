@@ -93,6 +93,19 @@ export const miroEmbedUrl = (url: string): string => {
     return e.toString();
   } catch { return ''; }
 };
+// A Google Sheets link as its embeddable /preview URL (keeps ?gid= so the tab shows).
+// Sheet must be shared "anyone with the link"; otherwise Google shows a sign-in inside the frame.
+export const sheetsEmbedUrl = (url: string): string => {
+  try {
+    const u = new URL(url.trim());
+    const id = /^\/spreadsheets\/d\/([\w-]+)/.exec(u.pathname)?.[1];
+    if (u.protocol !== 'https:' || u.hostname !== 'docs.google.com' || !id) return '';
+    const e = new URL(`https://docs.google.com/spreadsheets/d/${id}/preview`);
+    const gid = /gid=(\d+)/.exec(u.search + u.hash)?.[1];
+    if (gid) e.searchParams.set('gid', gid);
+    return e.toString();
+  } catch { return ''; }
+};
 export const parseLinks = (text: string): { links: OpsLink[]; bad: string[] } => {
   const links: OpsLink[] = [];
   const bad: string[] = [];

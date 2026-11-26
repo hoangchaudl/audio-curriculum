@@ -127,7 +127,7 @@ export const AuthView: React.FC = () => {
   const displayError = authError || error;
 
   return (
-    <AuthShell subtitle={t(area ? 'Audio Training Program' : 'Audio')}
+    <AuthShell subtitle={t(area ? 'Audio Training Program' : 'Audio Team')}
       language={{ label: t('Language'), value: lang, onChange: chooseLang }}
       isDark={isDark} onTheme={dark => setStoredTheme(dark ? 'dark' : 'light')}
       back={area ? <button type="button" onClick={() => { setArea(''); switchMode('signin'); }}>← {t('Choose another place')}</button> : undefined}>
