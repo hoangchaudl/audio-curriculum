@@ -37,6 +37,8 @@ import {
 // email is verified). Best effort: verifying on another device loses it,
 // and the pod can be set from the profile later.
 const pendingPodKey = (uid: string) => `pendingPod:${uid}`;
+// Self-reported job title typed on the Hub sign-up form (not the access `role`).
+const pendingRoleKey = (uid: string) => `pendingRole:${uid}`;
 
 export type AccountSetupResult = 'done' | 'unverified' | 'no-invite';
 
@@ -418,16 +420,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const email = fbUser.email!.toLowerCase();
     let pod: string | null = null;
     try { pod = localStorage.getItem(pendingPodKey(fbUser.uid)); } catch { /* storage blocked */ }
+    let jobTitle: string | null = null;
+    try { jobTitle = localStorage.getItem(pendingRoleKey(fbUser.uid)); } catch { /* storage blocked */ }
     const user: User = {
       id: fbUser.uid, name: fbUser.displayName || email.split('@')[0], email, role: invite.role,
-      ...(pod ? { pod } : {}), createdAt: new Date().toISOString(),
+      ...(pod ? { pod } : {}), ...(jobTitle ? { jobTitle: jobTitle.slice(0, 100) } : {}), createdAt: new Date().toISOString(),
     };
     const batch = writeBatch(db);
     batch.set(doc(db, 'users', user.id), user);
     if (invite.role === 'sound_designer' && invite.startDate) batch.set(doc(db, 'enrollments', user.id), enrollmentFromInvite(invite, user.id));
     batch.delete(ref);
     await batch.commit();
-    try { localStorage.removeItem(pendingPodKey(fbUser.uid)); } catch { /* storage blocked */ }
+    try { localStorage.removeItem(pendingPodKey(fbUser.uid)); localStorage.removeItem(pendingRoleKey(fbUser.uid)); } catch { /* storage blocked */ }
     return 'done';
   };
 
