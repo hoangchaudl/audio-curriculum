@@ -15,6 +15,7 @@ const VI: Record<string, string> = {
  "Full Name": "Họ và tên",
  "Email Address": "Địa chỉ email",
  "Password": "Mật khẩu",
+ "Confirm Password": "Xác nhận mật khẩu",
  "Forgot password?": "Quên mật khẩu?",
  "Minimum 6 characters.": "Tối thiểu 6 ký tự.",
  "Pod (Optional)": "Pod (không bắt buộc)",
@@ -26,6 +27,7 @@ const VI: Record<string, string> = {
  "Enter your email address": "Nhập địa chỉ email",
  "Name, email, and password are required": "Cần nhập tên, email và mật khẩu",
  "Password must be at least 6 characters": "Mật khẩu phải có ít nhất 6 ký tự",
+ "Passwords do not match": "Mật khẩu xác nhận không khớp",
  "Error creating account": "Lỗi khi tạo tài khoản",
  "Email and password are required": "Cần nhập email và mật khẩu",
  "Incorrect email or password.": "Email hoặc mật khẩu không đúng.",
@@ -51,6 +53,7 @@ export const AuthView: React.FC = () => {
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [pod, setPod] = useState('');
   const [error, setError] = useState('');
@@ -92,6 +95,10 @@ export const AuthView: React.FC = () => {
         setError(t('Password must be at least 6 characters'));
         return;
       }
+      if (password !== confirmPassword) {
+        setError(t('Passwords do not match'));
+        return;
+      }
       // Invite-only: the role comes from the admin's invite for this email,
       // applied once the email is verified (see AccountSetupView).
       setSubmitting(true);
@@ -120,28 +127,10 @@ export const AuthView: React.FC = () => {
   const displayError = authError || error;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-page p-6 h-screen w-full relative overflow-hidden">
-      {/* Doraemon-inspired decorative elements */}
-      <div className="absolute top-[-100px] left-[-100px] w-96 h-96 bg-brand rounded-full opacity-10 pointer-events-none"></div>
-      <div className="absolute bottom-[-150px] right-[-50px] w-[500px] h-[500px] bg-warm rounded-full opacity-10 pointer-events-none"></div>
-
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-10">
-          <div className="w-20 h-20 mx-auto bg-surface shadow-xl border-4 border-page rounded-full flex items-center justify-center mb-6 relative">
-            <div className="w-12 h-12 bg-brand rounded-full"></div>
-            <div className="absolute -bottom-2 w-8 h-8 bg-warm border-4 border-surface rounded-full flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="currentColor" aria-hidden="true">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-            </div>
-          </div>
-          <h1 className="flex flex-col items-center leading-none">
-            <img src="/storyco-logo-text-light.png" alt="StoryCo" className="h-9 w-auto dark:hidden" />
-            <img src="/storyco-logo-text-dark.png" alt="" aria-hidden="true" className="h-9 w-auto hidden dark:block" />
-            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-500 mt-2">{area ? 'Audio Training Program' : 'Audio Team'}</span>
-          </h1>
-        </div>
-
+    <AuthShell subtitle={t(area ? 'Audio Training Program' : 'Audio Team')}
+      language={{ label: t('Language'), value: lang, onChange: chooseLang }}
+      isDark={isDark} onTheme={dark => setStoredTheme(dark ? 'dark' : 'light')}
+      back={area ? <button type="button" onClick={() => { setArea(''); switchMode('signin'); }}>← {t('Choose another place')}</button> : undefined}>
         {!area ? (
           <div className="bg-surface rounded-2xl p-8 shadow-2xl border-4 border-surface space-y-4">
             <h2 className="text-sm font-bold text-gray-500 uppercase text-center">{t('Where do you want to sign in?')}</h2>
@@ -244,6 +233,19 @@ export const AuthView: React.FC = () => {
                   {mode === 'signup' && (
                     <p className="text-[10px] text-gray-400 mt-1 ml-1">{t('Minimum 6 characters.')}</p>
                   )}
+                </div>
+              )}
+
+              {mode === 'signup' && (
+                <div>
+                  <label htmlFor="auth-confirm-password" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t('Confirm Password')}</label>
+                  <input id="auth-confirm-password" autoComplete="new-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
+                    placeholder="••••••••"
+                  />
                 </div>
               )}
 
