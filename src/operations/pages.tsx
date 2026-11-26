@@ -459,7 +459,7 @@ export const DetailPage: React.FC<{ id: string; uid: string; access: OpsAccess; 
       {(c.links ?? []).map((link, i) => {
         const embed = miroEmbedUrl(link.url) || sheetsEmbedUrl(link.url);
         return embed ? <section key={`miro${i}`} className="glass rounded-2xl p-2">
-          <iframe className="w-full h-[480px] rounded-xl border border-gray-200" src={embed} title={link.label || 'Embedded board'} loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+          <iframe className="w-full h-[80vh] min-h-[560px] rounded-xl border border-gray-200" src={embed} title={link.label || 'Embedded board'} loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
         </section> : null;
       })}
       {(c.links ?? []).length > 0 && (
