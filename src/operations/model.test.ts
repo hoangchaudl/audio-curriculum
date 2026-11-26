@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Draft, OpsContent, canEdit, canSeeLeadership, checklistKey, draftFields, draftOf, matchesFilters, miroEmbedUrl, opsAccessFor, parseLinks, parseRoute, validateDraft } from './model';
+import { Draft, OpsContent, canEdit, canSeeLeadership, checklistKey, draftFields, draftOf, matchesFilters, miroEmbedUrl, sheetsEmbedUrl, opsAccessFor, parseLinks, parseRoute, validateDraft } from './model';
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
   title: 'T', summary: '', body: '', category: '', workflows: [], owner: '', effectiveDate: '', linksText: '', itemsText: '', ...over,
@@ -83,5 +83,15 @@ describe('routes and filters', () => {
     expect(miroEmbedUrl('https://evil.com/app/board/x/')).toBe('');
     expect(miroEmbedUrl('https://miro.com.evil.com/app/board/x/')).toBe('');
     expect(miroEmbedUrl('https://example.com/a')).toBe('');
+  });
+});
+
+describe('sheetsEmbedUrl', () => {
+  it('turns a Google Sheets link into a preview embed and ignores other hosts', () => {
+    expect(sheetsEmbedUrl('https://docs.google.com/spreadsheets/d/abc_-1/edit?usp=sharing#gid=123'))
+      .toBe('https://docs.google.com/spreadsheets/d/abc_-1/preview?gid=123');
+    expect(sheetsEmbedUrl('https://docs.google.com/spreadsheets/d/abc/edit')).toBe('https://docs.google.com/spreadsheets/d/abc/preview');
+    expect(sheetsEmbedUrl('https://docs.google.com/document/d/abc/edit')).toBe('');
+    expect(sheetsEmbedUrl('https://docs.google.com.evil.com/spreadsheets/d/abc')).toBe('');
   });
 });
