@@ -1,6 +1,6 @@
 import { useT, useLanguage, LanguageSwitch } from './language';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { GoogleAuthProvider, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { BookOpen, CalendarDays, ClipboardCheck, FolderOpen, Home, Users, Video, FileText } from 'lucide-react';
 import { auth } from '../firebase';
 import { useApplyTheme, setStoredTheme } from '../theme';
@@ -87,6 +87,9 @@ const SignIn: React.FC = () => {
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [pod, setPod] = useState('');
+  const [role, setRole] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -100,7 +103,10 @@ const SignIn: React.FC = () => {
         await sendPasswordResetEmail(auth, email.trim());
         setNotice('If an account exists for that email, a reset link is on its way.');
       } else if (mode === 'signup') {
+        if (password !== confirm) { setError('Passwords do not match.'); return; }
         const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        // Same key the curriculum app reads when it creates the profile (store.tsx).
+        try { if (pod.trim()) localStorage.setItem(`pendingPod:${user.uid}`, pod.trim()); localStorage.setItem(`pendingRole:${user.uid}`, role.trim()); } catch { /* storage blocked */ }
         await sendEmailVerification(user);
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -108,25 +114,6 @@ const SignIn: React.FC = () => {
     } catch (err) {
       const code = (err as { code?: string }).code ?? '';
       setError(AUTH_ERRORS[code] ?? (mode === 'signup' ? 'Could not create the account. Try again.' : 'Incorrect email or password.'));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const google = async () => {
-    setError('');
-    setBusy(true);
-    try {
-      // `hd` only pre-selects the story.co account; Hub access is still the admin's Access list.
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ hd: 'story.co', prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      const code = (err as { code?: string }).code ?? '';
-      if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
-        setError(code === 'auth/network-request-failed' ? t('Could not reach the server. Check your connection.')
-          : code === 'auth/popup-blocked' ? t('The sign-in window was blocked. Allow pop-ups and try again.')
-          : t('Could not sign in with Google. Try again.'));
-      }
     } finally {
       setBusy(false);
     }
@@ -153,12 +140,6 @@ const SignIn: React.FC = () => {
           {mode === 'reset' && <h2 className="text-lg font-bold text-brand mb-6">{t('Reset your password')}</h2>}
           {error && <p role="alert" className="bg-rose text-ember px-4 py-3 rounded-2xl text-xs font-bold mb-4">{t(error)}</p>}
           {notice && <p role="status" className="bg-sky text-navy px-4 py-3 rounded-2xl text-xs font-bold mb-4">{t(notice)}</p>}
-          {mode !== 'reset' && (
-            <>
-              <button type="button" onClick={google} disabled={busy} className="w-full bg-sky text-navy font-bold py-4 rounded-2xl hover:bg-brand/20 transition-colors text-sm disabled:opacity-60">{t('Continue with Google')}</button>
-              <p className="text-center text-xs font-bold text-gray-400 my-4">{t("or use your email")}</p>
-            </>
-          )}
           {mode === 'reset' && <p className="text-xs text-gray-500 font-bold mb-4">{t("Enter the email on your account and we'll send you a reset link.")}</p>}
           <form onSubmit={submit} className="space-y-4">
             <div>
@@ -173,6 +154,24 @@ const SignIn: React.FC = () => {
                 </div>
                 <input id="hub-password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={mode === 'signup' ? 6 : undefined} value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
                 {mode === 'signup' && <p className="text-[10px] text-gray-400 mt-1 ml-1">{t("Minimum 6 characters.")}</p>}
+              </div>
+            )}
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="hub-confirm" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t("Confirm Password")}</label>
+                <input id="hub-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={e => setConfirm(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
+              </div>
+            )}
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="hub-role" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t("Role")}</label>
+                <input id="hub-role" type="text" required value={role} onChange={e => setRole(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
+              </div>
+            )}
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="hub-pod" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t("Pod (Optional)")}</label>
+                <input id="hub-pod" type="text" value={pod} onChange={e => setPod(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
               </div>
             )}
             <button type="submit" disabled={busy} className="w-full bg-warm text-white font-bold py-4 rounded-2xl transition-all text-sm uppercase tracking-wider disabled:opacity-60 active:shadow-none active:translate-y-[2px]">
