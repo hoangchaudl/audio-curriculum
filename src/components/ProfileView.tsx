@@ -170,6 +170,11 @@ export const ProfileView: React.FC = () => {
               <span className="bg-sky text-navy px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                 {currentUser.role.replace('_', ' ')}
               </span>
+              {currentUser.jobTitle && (
+                <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                  Job title: {currentUser.jobTitle}
+                </span>
+              )}
               {currentUser.pod && (
                 <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                   Pod: {currentUser.pod}
