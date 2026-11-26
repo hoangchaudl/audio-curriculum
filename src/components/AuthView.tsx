@@ -15,6 +15,7 @@ const VI: Record<string, string> = {
  "Full Name": "Họ và tên",
  "Email Address": "Địa chỉ email",
  "Password": "Mật khẩu",
+ "Confirm Password": "Xác nhận mật khẩu",
  "Forgot password?": "Quên mật khẩu?",
  "Minimum 6 characters.": "Tối thiểu 6 ký tự.",
  "Pod (Optional)": "Pod (không bắt buộc)",
@@ -26,6 +27,7 @@ const VI: Record<string, string> = {
  "Enter your email address": "Nhập địa chỉ email",
  "Name, email, and password are required": "Cần nhập tên, email và mật khẩu",
  "Password must be at least 6 characters": "Mật khẩu phải có ít nhất 6 ký tự",
+ "Passwords do not match": "Mật khẩu xác nhận không khớp",
  "Error creating account": "Lỗi khi tạo tài khoản",
  "Email and password are required": "Cần nhập email và mật khẩu",
  "Incorrect email or password.": "Email hoặc mật khẩu không đúng.",
@@ -51,6 +53,7 @@ export const AuthView: React.FC = () => {
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [pod, setPod] = useState('');
   const [error, setError] = useState('');
@@ -90,6 +93,10 @@ export const AuthView: React.FC = () => {
       }
       if (password.length < 6) {
         setError(t('Password must be at least 6 characters'));
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError(t('Passwords do not match'));
         return;
       }
       // Invite-only: the role comes from the admin's invite for this email,
@@ -226,6 +233,19 @@ export const AuthView: React.FC = () => {
                   {mode === 'signup' && (
                     <p className="text-[10px] text-gray-400 mt-1 ml-1">{t('Minimum 6 characters.')}</p>
                   )}
+                </div>
+              )}
+
+              {mode === 'signup' && (
+                <div>
+                  <label htmlFor="auth-confirm-password" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t('Confirm Password')}</label>
+                  <input id="auth-confirm-password" autoComplete="new-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium"
+                    placeholder="••••••••"
+                  />
                 </div>
               )}
 
