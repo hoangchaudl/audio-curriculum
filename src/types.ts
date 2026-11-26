@@ -9,6 +9,7 @@ export interface User {
   email: string;
   role: Role;
   pod?: string;
+  jobTitle?: string; // self-reported at Hub sign-up; distinct from the access `role`
   avatarBase64?: string;
   createdAt: string;
   // Saved per account so the choice follows the user to every device.
