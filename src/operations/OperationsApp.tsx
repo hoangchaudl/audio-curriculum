@@ -160,6 +160,7 @@ const SignIn: React.FC = () => {
               <div>
                 <label htmlFor="hub-confirm" className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">{t("Confirm Password")}</label>
                 <input id="hub-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={e => setConfirm(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-brand transition-all font-medium" />
+                {confirm && confirm !== password && <p role="alert" className="text-[10px] font-bold text-ember mt-1 ml-1">{t("Passwords do not match.")}</p>}
               </div>
             )}
             {mode === 'signup' && (
