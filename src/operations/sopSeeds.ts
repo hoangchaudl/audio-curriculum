@@ -7,25 +7,96 @@ export interface SopSeed { title: string; summary: string; body: string; workflo
 
 export const SOP_SEEDS: SopSeed[] = [
   {
-    title: 'Pro Tools Workflow SOP',
-    summary: 'From opening the session to a named, delivered export.',
+    title: '[Audio] Pro Tools Workflow',
+    summary: 'From the episode folder to a synced, leveled session ready for Creative.',
     workflows: ['Shared'],
-    body: `## When to use
-Every time you start, continue or deliver a Pro Tools session.
+    body: `## Step 1: Open the episode folder
+- Go to **Title Drive → b SESSION → z EP # TITLE NAME**
+- E.g. **a Dickheads → b SESSION → z EP # DICKHEADS**
 
-## Steps
-1. Open the session from the shared episode folder (never from a local copy of someone else's work).
-2. Name the session \`<Type><Number>_<TitleCode>_<Lang>_<Stage>_<Initial>_<MMDD>[_v2]\`. The date goes on sessions only.
-3. Check the video/picture version matches the latest locked picture.
-4. Work and save often. Save a new version (\`_v2\`) instead of overwriting after major changes.
-5. Export as \`.wav\` named \`<Type><Number>_<TitleCode>_<Lang>_<Stage>_<Version>_<FirstName>\`.
-6. Never overwrite an export. Bump the version.
-7. Copy the export to the shared drive and post the handoff.
+## Step 2: Open the template
+- Double-click **EP # TITLE.ptxt** to open the template in Pro Tools
+- E.g. **EP # STAR CATCHER.ptxt**
 
-## Rules
-- Underscores, Latin letters and digits only.
-- No "final", "new" or status words in filenames.
-- Language comes immediately after the title code.`,
+## Step 3: Save the session
+- Add the episode number in front of **#** and save it in the **b SESSION** Drive folder (Mac) & in Local (Windows)
+- Click **Create**
+
+## Step 4: Download the files
+- Download the Framelock video from **FrameIO Framelock** → save into **Title Working Drive → a TITLE → a VIDEO** (Mac) / Local (Windows)
+- Download the **AAF / Voice Timeline** from the Drive Pod folder
+
+## Step 5: Import the audio
+**If it's an AAF:**
+- Drag the whole file into Pro Tools → click **OK**
+- Uncheck **Import Clip Gain** and **Import Volume Automation** on the left panel
+- Make sure **Main Playlist Options** is set to **Import - Replace Existing Playlists**
+
+![Session Data and Main Playlist Options](/sop/pro-tools/aaf-session-data.png)
+
+- Scroll down and change **Timecode Mapping Options** to **Map start timecode to**
+- Edit to **01:00:00:00**
+
+![Timecode Mapping Options](/sop/pro-tools/aaf-timecode.png)
+
+- Go to **Tracks** on the right panel
+- Uncheck the **V1** video track on the top
+- Select **all audio tracks** below and click **OK**
+
+![Tracks: V1 off, all audio tracks to New Track](/sop/pro-tools/aaf-tracks.png)
+
+→ Audio automatically maps to 01:00:00:00 on the session.
+
+**If it's a Voice Timeline:**
+- Unzip the file
+- Drag all audio files into the designated tracks in the session (if not created yet, create a new track, drag that audio into it, and rename the track based on the character name on the audio files)
+
+## Step 6: Import the Track Preset
+Import the matching character Track Preset for the downloaded Voice Timeline:
+- Windows: \`C:\\Users\\[Your Username]\\Documents\\Pro Tools\\Track Presets/Title Name\`
+- Mac: \`/Users/[Your Username]/Documents/Pro Tools/Track Presets/Title Name\`
+
+## Step 7: Duplicate playlist for backup
+Create a duplicate playlist for all character lines. First select all character tracks.
+
+**Mac**
+1. Shift + OPT + click the red box name **wave** below and choose **playlists**
+2. Select all audio clips while holding CMD + OPT + drag the audio clips down to the playlist line
+3. Shift + OPT + click the red box name **play** below and choose **wave** → back to normal
+
+**Windows**
+1. Shift + ALT + click the red box name **Wave** below and choose **Playlist**
+2. Select all audio clips while holding WIN + ALT + drag the audio clips down to the playlist line
+3. Shift + ALT + click the red box name **play** below and choose **wave** → back to normal
+
+![Click the wave box on the track](/sop/pro-tools/playlist-track.png)
+
+![Choose playlists](/sop/pro-tools/playlist-menu.png)
+
+## Step 8: Import the Framelock video
+- Drag the video from File Explorer / Finder into the working session
+- Change **Destination** → Main Video Track / New Track
+- Change **Location** → **Spot**
+- Check **Import audio from file**
+- Click **OK**
+
+![Video Import Options](/sop/pro-tools/video-import.png)
+
+- Map Start Timecode to **01:00:00:00** → click **OK**
+
+![Spot Dialog](/sop/pro-tools/spot-dialog.png)
+
+- **Put marker START at 01:00:00:00 at the beginning and marker END at the end of the video**
+
+## Step 9: Sync and level
+- Select all character audio tracks and group them together
+- Sync the Voice Timeline / AAF with the Framelock dialog line (final pacing)
+- Level dialogue with iZotope RX → set up a shortcut for fast leveling
+- AudioSuite → iZotope → RX 11 Mouth De-click → set parameters as in the photo below → can save it as a preset for later access → render for each line of the character (optional)
+
+![RX Mouth De-click: Sensitivity 6.5, Click widening 2.5](/sop/pro-tools/rx-mouth-declick.png)
+
+→ Start doing Creative for the episode.`,
 
   },
   {
